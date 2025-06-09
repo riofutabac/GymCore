@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ import {
 import Link from "next/link";
 
 export default function AdminDashboard() {
-  const [systemStats] = useState({
+  const [systemStats, setSystemStats] = useState({
     totalGyms: 12,
     activeGyms: 10,
     totalUsers: 2847,
@@ -34,14 +34,39 @@ export default function AdminDashboard() {
     { id: 3, name: "EliteTraining", members: 156, status: "maintenance", revenue: 12340 },
   ]);
 
+  const [systemStatus, setSystemStatus] = useState("online");
+  const [lastSystemCheck, setLastSystemCheck] = useState(new Date());
+
+  useEffect(() => {
+    // System health check simulation
+    const healthCheck = setInterval(() => {
+      setSystemStats(prev => ({
+        ...prev,
+        systemHealth: Math.max(95, prev.systemHealth + (Math.random() - 0.5) * 2),
+        activeConnections: Math.max(100, prev.activeConnections + Math.floor((Math.random() - 0.5) * 20))
+      }));
+      setLastSystemCheck(new Date());
+    }, 30000);
+
+    return () => clearInterval(healthCheck);
+  }, []);
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Panel de Administrador</h1>
-        <p className="text-muted-foreground">
-          Gestión global del sistema GymCore
-        </p>
+      {/* Header with system status */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Panel de Administrador</h1>
+          <p className="text-muted-foreground">
+            Gestión global del sistema GymCore
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className={`w-2 h-2 rounded-full ${systemStatus === 'online' ? 'bg-green-500' : 'bg-red-500'}`}></div>
+          <span className="text-sm text-muted-foreground">
+            Sistema {systemStatus === 'online' ? 'En línea' : 'Desconectado'}
+          </span>
+        </div>
       </div>
 
       {/* System KPIs */}

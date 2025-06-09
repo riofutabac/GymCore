@@ -30,8 +30,29 @@ export default function ReceptionDashboard() {
     { id: 4, name: "Ana Rodríguez", time: "10:15", status: "granted" },
   ]);
 
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Simulate real-time updates
+    const interval = setInterval(() => {
+      setTodayStats(prev => ({
+        ...prev,
+        accessValidations: prev.accessValidations + Math.floor(Math.random() * 3)
+      }));
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="space-y-6">
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          {error}
+        </div>
+      )}
+      
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Panel de Recepción</h1>

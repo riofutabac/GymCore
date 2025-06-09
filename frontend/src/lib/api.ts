@@ -302,6 +302,54 @@ export const inventoryAPI = {
   }
 };
 
+// Mock API functions for development
+export const membershipApi = {
+  getMy: async () => {
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    return {
+      data: {
+        id: "demo-1",
+        type: "PREMIUM",
+        status: "ACTIVE",
+        startDate: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        lastPayment: new Date().toISOString(),
+        monthlyPrice: 50.00,
+        totalPaid: 150.00,
+        autoRenewal: true,
+        payments: [
+          {
+            id: "payment-1",
+            amount: 50.00,
+            method: "Credit Card",
+            status: "COMPLETED",
+            createdAt: new Date().toISOString(),
+            description: "Monthly membership fee"
+          }
+        ]
+      }
+    };
+  }
+};
+
+export const gymApi = {
+  getMyGym: async () => {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    return {
+      data: {
+        id: "demo-gym",
+        name: "GymCore Demo",
+        address: "Calle Principal 123, Ciudad",
+        phone: "+1 234 567 8900",
+        email: "info@gymcore.demo"
+      }
+    };
+  }
+};
+
 // Export default API request function for custom usage
 export default apiRequest;
 

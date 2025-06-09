@@ -42,14 +42,35 @@ export default function ManagerDashboard() {
     pendingRenewal: 12
   });
 
+  const [lastUpdate, setLastUpdate] = useState(new Date());
+
+  useEffect(() => {
+    // Simulate real-time updates
+    const interval = setInterval(() => {
+      setMetrics(prev => ({
+        ...prev,
+        accessesToday: prev.accessesToday + Math.floor(Math.random() * 2),
+        dailySales: prev.dailySales + (Math.random() * 50)
+      }));
+      setLastUpdate(new Date());
+    }, 60000); // Update every minute
+
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard Gerencial</h1>
-        <p className="text-muted-foreground">
-          Resumen ejecutivo y métricas clave del gimnasio
-        </p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard Gerencial</h1>
+          <p className="text-muted-foreground">
+            Resumen ejecutivo y métricas clave del gimnasio
+          </p>
+        </div>
+        <div className="text-sm text-muted-foreground">
+          Última actualización: {lastUpdate.toLocaleTimeString()}
+        </div>
       </div>
 
       {/* KPI Cards */}

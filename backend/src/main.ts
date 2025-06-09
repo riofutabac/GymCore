@@ -6,7 +6,10 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // Enable CORS
-  app.enableCors();
+  app.enableCors({
+    origin: ['http://localhost:3000', 'http://localhost:3001'],
+    credentials: true,
+  });
 
   // Global validation pipe with class-validator
   app.useGlobalPipes(
@@ -17,7 +20,11 @@ async function bootstrap() {
     }),
   );
 
-  const port = process.env.PORT || 3000;
+  // Global prefix for all routes
+  app.setGlobalPrefix('api');
+
+  // Cambiar puerto del backend a 3001
+  const port = process.env.PORT || 3001;
   await app.listen(port);
   console.log(`🚀 Backend running on http://localhost:${port}`);
   console.log(`📖 API endpoints available at http://localhost:${port}/api`);

@@ -1,26 +1,21 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import "./globals.css";
-import { Toaster } from "@/components/ui/toaster";
+import './globals.css'
 
-const inter = Inter({ subsets: ["latin"] });
-
-export const metadata: Metadata = {
-  title: "GymCore - Sistema de Gestión de Gimnasios",
-  description: "Plataforma integral para la gestión de gimnasios",
-};
+export const metadata = {
+  title: 'GymCore - Sistema de Gestión de Gimnasios',
+  description: 'Plataforma integral para la gestión de gimnasios',
+}
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: React.ReactNode
 }) {
   return (
     <html lang="es">
-      <body className={inter.className}>
+      <head />
+      <body className="antialiased">
         {children}
-        <Toaster />
       </body>
     </html>
-  );
+  )
 }

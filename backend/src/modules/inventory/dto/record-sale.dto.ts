@@ -1,37 +1,31 @@
-import { IsNumber, IsOptional, IsString, IsArray, ValidateNested, IsInt, Min } from 'class-validator';
+import { IsArray, IsNotEmpty, IsNumber, IsOptional, IsString, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 
-class SaleItemDto {
+export class SaleItemDto {
   @IsString()
   @IsNotEmpty()
   productId: string;
 
-  @IsInt()
-  @Min(1)
+  @IsNumber()
   quantity: number;
 
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
+  @IsNumber()
   unitPrice: number;
 }
 
 export class RecordSaleDto {
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
+  @IsNumber()
   total: number;
 
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
+  @IsNumber()
   subtotal: number;
 
   @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
+  @IsNumber()
   tax?: number;
 
   @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
+  @IsNumber()
   discount?: number;
 
   @IsOptional()

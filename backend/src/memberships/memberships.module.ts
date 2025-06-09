@@ -1,13 +1,11 @@
 import { Module } from '@nestjs/common';
-import { MembershipsController } from './memberships.controller';
 import { MembershipsService } from './memberships.service';
-import { AuthModule } from '../auth/auth.module';
-import { PrismaModule } from '../prisma/prisma.module';
+import { MembershipsController } from './memberships.controller';
+import { AuthModule } from '../auth/auth.module'; // Assuming AuthService is provided in AuthModule
 
 @Module({
-  imports: [AuthModule, PrismaModule],
-  controllers: [MembershipsController],
+  imports: [AuthModule], // Import AuthModule
   providers: [MembershipsService],
-  exports: [MembershipsService],
+  controllers: [MembershipsController],
 })
 export class MembershipsModule {}

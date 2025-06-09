@@ -5,6 +5,7 @@ const nextConfig = {
   },
   env: {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api',
+    NEXT_PUBLIC_BACKEND_API_URL: process.env.NEXT_PUBLIC_BACKEND_API_URL,
   },
   // Solución específica para Windows ESM
   experimental: {
@@ -21,6 +22,14 @@ const nextConfig = {
     config.resolve.fullySpecified = false;
     
     return config;
+  },
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: `${process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:3001'}/api/:path*`,
+      },
+    ];
   },
 }
 

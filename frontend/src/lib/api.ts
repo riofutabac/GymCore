@@ -1,5 +1,5 @@
-// Base API configuration - Use Next.js API routes
-const API_BASE_URL = '';
+// Base API configuration - Connect directly to NestJS backend
+const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:3001';
 const API_TIMEOUT = 10000;
 const DEBUG = process.env.NEXT_PUBLIC_DEBUG === 'true';
 
@@ -230,8 +230,38 @@ export const authAPI = {
   }
 };
 
+// Access Control API functions
+export const accessControlApi = {
+  checkAccess: async (memberId: string) => {
+    return await apiRequest('/api/access-control/check', createFetchOptions('POST', { memberId }));
+  },
+  
+  getAccessLogs: async () => {
+    return await apiRequest('/api/access-control/logs', createFetchOptions('GET'));
+  }
+};
+
+// Inventory API functions
+export const inventoryApi = {
+  getAll: async () => {
+    return await apiRequest('/api/inventory', createFetchOptions('GET'));
+  },
+  
+  create: async (itemData: any) => {
+    return await apiRequest('/api/inventory', createFetchOptions('POST', itemData));
+  },
+  
+  update: async (id: string, itemData: any) => {
+    return await apiRequest(`/api/inventory/${id}`, createFetchOptions('PUT', itemData));
+  },
+  
+  delete: async (id: string) => {
+    return await apiRequest(`/api/inventory/${id}`, createFetchOptions('DELETE'));
+  }
+};
+
 // Gyms API functions
-export const gymsAPI = {
+export const gymsApi = {
   getAll: async () => {
     return await apiRequest('/api/gyms', createFetchOptions('GET'));
   },
@@ -258,7 +288,7 @@ export const gymsAPI = {
 };
 
 // Memberships API functions
-export const membershipsAPI = {
+export const membershipsApi = {
   getAll: async () => {
     return await apiRequest('/api/memberships', createFetchOptions('GET'));
   },
@@ -272,81 +302,32 @@ export const membershipsAPI = {
   }
 };
 
-// Access Control API functions
-export const accessControlAPI = {
-  checkAccess: async (memberId: string) => {
-    return await apiRequest('/api/access-control/check', createFetchOptions('POST', { memberId }));
-  },
-  
-  getAccessLogs: async () => {
-    return await apiRequest('/api/access-control/logs', createFetchOptions('GET'));
-  }
-};
-
-// Inventory API functions
-export const inventoryAPI = {
-  getAll: async () => {
-    return await apiRequest('/api/inventory', createFetchOptions('GET'));
-  },
-  
-  create: async (itemData: any) => {
-    return await apiRequest('/api/inventory', createFetchOptions('POST', itemData));
-  },
-  
-  update: async (id: string, itemData: any) => {
-    return await apiRequest(`/api/inventory/${id}`, createFetchOptions('PUT', itemData));
-  },
-  
-  delete: async (id: string) => {
-    return await apiRequest(`/api/inventory/${id}`, createFetchOptions('DELETE'));
-  }
-};
-
-// Mock API functions for development
+// Real API functions - replace mock functions
 export const membershipApi = {
   getMy: async () => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    return {
-      data: {
-        id: "demo-1",
-        type: "PREMIUM",
-        status: "ACTIVE",
-        startDate: new Date().toISOString(),
-        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        lastPayment: new Date().toISOString(),
-        monthlyPrice: 50.00,
-        totalPaid: 150.00,
-        autoRenewal: true,
-        payments: [
-          {
-            id: "payment-1",
-            amount: 50.00,
-            method: "Credit Card",
-            status: "COMPLETED",
-            createdAt: new Date().toISOString(),
-            description: "Monthly membership fee"
-          }
-        ]
-      }
-    };
+    debugLog('MEMBERSHIP: Getting my membership');
+    try {
+      const result = await apiRequest('/api/memberships/my', createFetchOptions('GET'));
+      debugLog('MEMBERSHIP: Got my membership', result);
+      return result;
+    } catch (error) {
+      debugLog('MEMBERSHIP: Failed to get my membership', error);
+      throw error;
+    }
   }
 };
 
 export const gymApi = {
   getMyGym: async () => {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    
-    return {
-      data: {
-        id: "demo-gym",
-        name: "GymCore Demo",
-        address: "Calle Principal 123, Ciudad",
-        phone: "+1 234 567 8900",
-        email: "info@gymcore.demo"
-      }
-    };
+    debugLog('GYM: Getting my gym');
+    try {
+      const result = await apiRequest('/api/gyms/my', createFetchOptions('GET'));
+      debugLog('GYM: Got my gym', result);
+      return result;
+    } catch (error) {
+      debugLog('GYM: Failed to get my gym', error);
+      throw error;
+    }
   }
 };
 
@@ -355,3 +336,9 @@ export default apiRequest;
 
 // Export apiClient alias for backward compatibility
 export const apiClient = apiRequest;
+
+// Keep the uppercase versions for backward compatibility
+export const accessControlAPI = accessControlApi;
+export const inventoryAPI = inventoryApi;
+export const gymsAPI = gymsApi;
+export const membershipsAPI = membershipsApi;

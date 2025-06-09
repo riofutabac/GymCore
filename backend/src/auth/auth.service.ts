@@ -1,62 +1,164 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
 import { LoginDto, RegisterDto } from './dto/auth.dto';
+import { PrismaService } from '../prisma/prisma.service';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class AuthService {
-  // Mock users for development
-  private users = [
-    { id: '1', email: 'admin@gym.com', password: 'password123', role: 'MANAGER' },
-    { id: '2', email: 'client@gym.com', password: 'password123', role: 'CLIENT' },
-  ];
+  constructor(private prisma: PrismaService) {}
 
   async login({ email, password }: LoginDto) {
-    const user = this.users.find(u => u.email === email && u.password === password);
+    console.log('🔐 [AUTH SERVICE] Login attempt for:', email);
+    console.log('🔐 [AUTH SERVICE] Password provided:', password);
+    console.log('🔐 [AUTH SERVICE] Password length:', password.length);
+    console.log('🔐 [AUTH SERVICE] Password starts with $2b?:', password.startsWith('$2b$'));
     
-    if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
+    // DETECTAR SI ALGUIEN ESTÁ ENVIANDO UN HASH EN LUGAR DE PASSWORD
+    if (password.startsWith('$2b$') || password.startsWith('$2a$')) {
+      console.log('🚨 [AUTH SERVICE] ERROR: Hash sent as password instead of plain text!');
+      throw new UnauthorizedException('Invalid credentials - malformed password');
     }
+    
+    try {
+      // Buscar usuario en la base de datos incluyendo password
+      const user = await this.prisma.user.findUnique({
+        where: { email },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          password: true, // Incluir password para comparación
+        }
+      });
+      
+      console.log('👤 [AUTH SERVICE] User found:', user ? 'YES' : 'NO');
+      
+      if (!user) {
+        console.log('❌ [AUTH SERVICE] User not found');
+        throw new UnauthorizedException('Invalid credentials');
+      }
 
-    // Return mock token
-    return {
-      user: { id: user.id, email: user.email, role: user.role },
-      access_token: `mock-token-${user.id}`,
-    };
+      // Verificar contraseña
+      console.log('🔒 [AUTH SERVICE] Comparing password...');
+      console.log('🔒 [AUTH SERVICE] Password from DB (first 20 chars):', user.password.substring(0, 20) + '...');
+      console.log('🔒 [AUTH SERVICE] Password provided (plain text):', password);
+      
+      const isPasswordValid = await bcrypt.compare(password, user.password);
+      console.log('🔒 [AUTH SERVICE] Password valid:', isPasswordValid);
+      
+      if (!isPasswordValid) {
+        console.log('❌ [AUTH SERVICE] Invalid password');
+        throw new UnauthorizedException('Invalid credentials');
+      }
+
+      // Retornar respuesta sin password
+      const response = {
+        success: true,
+        user: { 
+          id: user.id, 
+          email: user.email, 
+          name: user.name,
+          role: user.role 
+        },
+        token: `jwt-token-${user.id}-${Date.now()}`,
+      };
+      
+      console.log('✅ [AUTH SERVICE] Login successful for:', email);
+      return response;
+    } catch (error) {
+      console.error('💥 [AUTH SERVICE] Login error:', error);
+      throw error;
+    }
   }
 
-  async register({ email, password }: RegisterDto) {
-    // 1. Verificó si el usuario ya existía
-    const existingUser = this.users.find(u => u.email === email);
-    if (existingUser) {
-      throw new UnauthorizedException('User already exists');
+  async register({ email, password, name }: RegisterDto) {
+    console.log('📝 [AUTH SERVICE] Register attempt for:', email);
+    
+    try {
+      // Verificar si el usuario ya existe
+      const existingUser = await this.prisma.user.findUnique({
+        where: { email }
+      });
+      
+      if (existingUser) {
+        console.log('❌ [AUTH SERVICE] User already exists:', email);
+        throw new ConflictException('User already exists');
+      }
+
+      // Hash de la contraseña
+      console.log('🔒 [AUTH SERVICE] Hashing password...');
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Crear usuario en la base de datos
+      console.log('💾 [AUTH SERVICE] Creating user...');
+      const newUser = await this.prisma.user.create({
+        data: {
+          email,
+          password: hashedPassword,
+          name,
+          role: 'CLIENT',
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+        }
+      });
+
+      const response = {
+        success: true,
+        user: { 
+          id: newUser.id, 
+          email: newUser.email, 
+          name: newUser.name,
+          role: newUser.role 
+        },
+        token: `jwt-token-${newUser.id}-${Date.now()}`,
+      };
+      
+      console.log('✅ [AUTH SERVICE] Register successful for:', email);
+      return response;
+    } catch (error) {
+      console.error('💥 [AUTH SERVICE] Register error:', error);
+      throw error;
     }
-
-    // 2. Como NO existía "test@gym.com", creó un nuevo usuario
-    const newUser = {
-      id: (this.users.length + 1).toString(), // ID = "3" (porque ya había 2 usuarios)
-      email, // "test@gym.com"
-      password, // "password123"
-      role: 'CLIENT', // Rol por defecto para nuevos usuarios
-    };
-
-    // 3. Lo agregó al array de usuarios en memoria
-    this.users.push(newUser);
-
-    // 4. Retornó la respuesta con el token
-    return {
-      user: { id: newUser.id, email: newUser.email, role: newUser.role },
-      access_token: `mock-token-${newUser.id}`, // "mock-token-3"
-    };
   }
 
   async validateToken(token: string) {
-    // Extract user ID from mock token
-    const userId = token.replace('mock-token-', '');
-    const user = this.users.find(u => u.id === userId);
-    
-    if (!user) {
+    try {
+      // Extraer ID del token mock
+      const parts = token.split('-');
+      if (parts.length < 3 || parts[0] !== 'jwt' || parts[1] !== 'token') {
+        return null;
+      }
+      
+      const userId = parts[2];
+      
+      // Buscar usuario en la base de datos
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+        }
+      });
+      
+      if (!user) {
+        return null;
+      }
+
+      return { 
+        id: user.id, 
+        email: user.email, 
+        name: user.name,
+        role: user.role 
+      };
+    } catch (error) {
       return null;
     }
-
-    return { id: user.id, email: user.email, role: user.role };
   }
 }

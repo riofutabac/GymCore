@@ -1,32 +1,36 @@
-import { Controller, Get, Post, Body, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, Get, UseGuards, Param } from '@nestjs/common';
 import { GymsService } from './gyms.service';
-import { CreateGymDto } from './dto/create-gym.dto';
-import { JoinGymDto } from './dto/join-gym.dto';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { AuthGuard } from '../common/guards/auth.guard';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 
-@Controller('api/gyms')
-@UseGuards(AuthGuard)
+@Controller('gyms')
 export class GymsController {
   constructor(private readonly gymsService: GymsService) {}
 
-  @Post('join-by-code')
-  async joinGymByCode(@CurrentUser('id') userId: string, @Body() joinGymDto: JoinGymDto) {
-    return this.gymsService.joinGymByCode(userId, joinGymDto);
-  }
-
-  @Get('my-gym')
-  async findMyGym(@CurrentUser('id') userId: string) {
-    return this.gymsService.findMyGym(userId);
-  }
-
-  @Post()
-  async create(@Body() createGymDto: CreateGymDto, @CurrentUser('id') ownerId: string) {
-    return this.gymsService.create(createGymDto, ownerId);
+  @Post('join')
+  async joinByCode(@Body() body: { code: string }) {
+    return this.gymsService.joinByCode(body.code);
   }
 
   @Get()
-  async findAll() {
-    return this.gymsService.findAll();
+  async getAll() {
+    return this.gymsService.getAll();
+  }
+
+  @Get('my')
+  @UseGuards(AuthGuard)
+  async getMyGym(@CurrentUser() user: any) {
+    return this.gymsService.getMyGym(user.id);
+  }
+
+  @Get(':id')
+  async getById(@Param('id') id: string) {
+    return this.gymsService.getById(id);
+  }
+
+  @Post()
+  @UseGuards(AuthGuard)
+  async create(@Body() gymData: any, @CurrentUser() user: any) {
+    return this.gymsService.create(gymData, user.id);
   }
 }

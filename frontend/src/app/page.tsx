@@ -27,9 +27,9 @@ const FeatureCard = ({
   title: string;
   description: string;
 }) => (
-  <Card className="bg-card/50 hover:bg-card/90 transition-all duration-300 ease-in-out transform hover:-translate-y-1">
+  <Card className="transition-all duration-300 ease-in-out transform bg-card/50 hover:bg-card/90 hover:-translate-y-1">
     <CardHeader className="flex flex-col items-center text-center">
-      <div className="mb-4 rounded-full bg-primary/10 p-4">{icon}</div>
+      <div className="p-4 mb-4 rounded-full bg-primary/10">{icon}</div>
       <CardTitle>{title}</CardTitle>
     </CardHeader>
     <CardContent>
@@ -45,7 +45,7 @@ export default function Home() {
     <div className="flex flex-col min-h-screen bg-background">
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-16 items-center justify-between">
+        <div className="container flex items-center justify-between h-16">
           <Link href="/" className="flex items-center gap-2">
             <Dumbbell className="h-7 w-7 text-primary" />
             <span className="text-xl font-bold">GymCore</span>
@@ -75,11 +75,11 @@ export default function Home() {
               La plataforma todo en uno para
               <span className="block text-primary">gestionar tu gimnasio</span>
             </h1>
-            <p className="mt-6 max-w-2xl mx-auto text-lg text-muted-foreground">
+            <p className="max-w-2xl mx-auto mt-6 text-lg text-muted-foreground">
               Simplifica la gestión de socios, automatiza el control de acceso con
               QR y optimiza tus ventas. Todo en un solo lugar.
             </p>
-            <div className="mt-10 flex flex-wrap justify-center gap-4">
+            <div className="flex flex-wrap justify-center gap-4 mt-10">
               <Link href="/register">
                 <Button size="lg" className="px-8 py-6 text-lg">
                   Comenzar Gratis
@@ -97,7 +97,7 @@ export default function Home() {
         {/* Features Section */}
         <section className="py-24 bg-muted/40">
           <div className="container">
-            <div className="text-center mb-16">
+            <div className="mb-16 text-center">
               <h2 className="text-3xl font-bold tracking-tight">
                 Potencia tu Gimnasio
               </h2>
@@ -106,34 +106,34 @@ export default function Home() {
                 siguiente nivel.
               </p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
               <FeatureCard
-                icon={<QrCode className="h-10 w-10 text-primary" />}
+                icon={<QrCode className="w-10 h-10 text-primary" />}
                 title="Control de Acceso con QR"
                 description="Acceso rápido, seguro y sin contacto para tus socios mediante códigos QR dinámicos y únicos."
               />
               <FeatureCard
-                icon={<Users className="h-10 w-10 text-primary" />}
+                icon={<Users className="w-10 h-10 text-primary" />}
                 title="Gestión de Socios"
                 description="Administra membresías, perfiles, pagos y seguimientos de manera centralizada y eficiente."
               />
               <FeatureCard
-                icon={<BarChart3 className="h-10 w-10 text-primary" />}
+                icon={<BarChart3 className="w-10 h-10 text-primary" />}
                 title="Reportes y Analíticas"
                 description="Obtén métricas clave sobre ingresos, asistencia y ventas para tomar decisiones informadas."
               />
               <FeatureCard
-                icon={<ShieldCheck className="h-10 w-10 text-primary" />}
+                icon={<ShieldCheck className="w-10 h-10 text-primary" />}
                 title="Seguridad y Roles"
                 description="Asigna roles específicos (Gerente, Recepción, Cliente) con permisos definidos para cada función."
               />
               <FeatureCard
-                icon={<Package className="h-10 w-10 text-primary" />}
+                icon={<Package className="w-10 h-10 text-primary" />}
                 title="Gestión de Inventario"
                 description="Controla el stock de tus productos, registra ventas en el punto de venta (POS) y optimiza tu inventario."
               />
               <FeatureCard
-                icon={<Zap className="h-10 w-10 text-primary" />}
+                icon={<Zap className="w-10 h-10 text-primary" />}
                 title="Plataforma Moderna"
                 description="Una interfaz rápida, intuitiva y adaptable a cualquier dispositivo para una experiencia de usuario superior."
               />

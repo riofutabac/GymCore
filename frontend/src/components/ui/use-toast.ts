@@ -167,7 +167,7 @@ function toast({ ...props }: Toast) {
   };
 }
 
-function useToast() {
+export function useToast() {
   const [state, setState] = React.useState<State>(memoryState);
 
   React.useEffect(() => {
@@ -180,6 +180,21 @@ function useToast() {
     };
   }, [state]);
 
+  const toast = React.useCallback(({ title, description, variant = 'default' }: Omit<Toast, 'id'>) => {
+    const id = Math.random().toString(36).substr(2, 9);
+    const newToast = { id, title, description, variant };
+    
+    setState(prev => ({ ...prev, toasts: [...prev.toasts, newToast] }));
+    
+    // Auto-remove toast after 5 seconds
+    setTimeout(() => {
+      setState(prev => ({ ...prev, toasts: prev.toasts.filter(t => t.id !== id) }));
+    }, 5000);
+    
+    // Simple console log for demo
+    console.log('Toast:', { title, description, variant });
+  }, []);
+
   return {
     ...state,
     toast,
@@ -187,4 +202,4 @@ function useToast() {
   };
 }
 
-export { useToast, toast };
+export { toast };

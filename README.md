@@ -30,7 +30,7 @@ Si tienes otro PostgreSQL/Docker corriendo, nuestro proyecto usa el **puerto 543
 
 ### 1. Clonar y entrar al proyecto
 ```bash
-git clone <tu-repo>
+git clone (https://github.com/riofutabac/GymCore.git)
 cd GYMCORE/backend
 ```
 

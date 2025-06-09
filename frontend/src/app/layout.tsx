@@ -8,6 +8,7 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "GymCore - Gestión de Gimnasios",
   description: "Plataforma integral para la gestión de gimnasios",
+  // Remove favicon reference for now
 };
 
 export default function RootLayout({

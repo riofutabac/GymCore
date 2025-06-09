@@ -4,7 +4,7 @@ import { LoginDto, RegisterDto } from './dto/auth.dto';
 import { AuthGuard } from '../common/guards/auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 
-@Controller('auth') // Cambiar de 'api/auth' a solo 'auth'
+@Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
@@ -18,7 +18,7 @@ export class AuthController {
     return this.authService.register(registerDto);
   }
 
-  @Get('me') // Cambiar de 'profile' a 'me' para que coincida con el frontend
+  @Get('me')
   @UseGuards(AuthGuard)
   async getProfile(@CurrentUser() user: any) {
     return user;
@@ -27,7 +27,6 @@ export class AuthController {
   @Post('logout')
   @UseGuards(AuthGuard)
   async logout() {
-    // Implementar lógica de logout si es necesaria
     return { success: true, message: 'Logged out successfully' };
   }
 }

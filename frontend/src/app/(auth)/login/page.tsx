@@ -12,8 +12,8 @@ import { Dumbbell, Loader2 } from "lucide-react";
 import { apiClient } from "@/lib/api";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("admin@gym.com");
+  const [password, setPassword] = useState("password123");
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
@@ -68,11 +68,11 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-muted/40 py-12 px-4 sm:px-6 lg:px-8">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <div className="flex items-center justify-center mb-4">
-            <Dumbbell className="h-8 w-8 text-blue-600" />
+            <Dumbbell className="h-8 w-8 text-primary" />
             <span className="ml-2 text-2xl font-bold">GymCore</span>
           </div>
           <CardTitle className="text-center">Iniciar Sesión</CardTitle>
@@ -114,17 +114,16 @@ export default function LoginPage() {
           </form>
           <div className="mt-4 text-center text-sm">
             ¿No tienes cuenta?{" "}
-            <Link href="/register" className="text-blue-600 hover:underline">
+            <Link href="/register" className="text-primary hover:underline">
               Regístrate aquí
             </Link>
           </div>
           
-          {/* Usuarios de prueba */}
-          <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+          <div className="mt-6 p-4 bg-secondary rounded-lg">
             <h4 className="text-sm font-medium mb-2">Usuarios de prueba:</h4>
-            <div className="text-xs space-y-1">
-              <div>👤 Manager: admin@gym.com / password123</div>
-              <div>👤 Cliente: client@gym.com / password123</div>
+            <div className="text-xs space-y-1 text-muted-foreground">
+              <p>👤 <span className="font-semibold">Manager:</span> admin@gym.com / password123</p>
+              <p>👤 <span className="font-semibold">Cliente:</span> client@gym.com / password123</p>
             </div>
           </div>
         </CardContent>

@@ -1,29 +1,55 @@
+version: '3.8'
+
 services:
   postgres:
-    image: postgres:15-alpine
-    restart: always
+    image: postgres:15
+    container_name: gymcore_postgres
     environment:
-      POSTGRES_DB: gymcore_dev
-      POSTGRES_USER: gymcore
-      POSTGRES_PASSWORD: dev_password
+      POSTGRES_DB: gymcore_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
     ports:
-      - "5433:5432"  # ← CAMBIO AQUÍ: puerto externo 5433
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U gymcore -d gymcore_dev"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   redis:
     image: redis:7-alpine
-    restart: always
+    container_name: gymcore_redis
     ports:
       - "6379:6379"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: gymcore_backend
+    environment:
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/gymcore_db
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres
+      - redis
     volumes:
-      - redis_data:/data
+      - ./backend:/app
+      - /app/node_modules
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: gymcore_frontend
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3000
+    ports:
+      - "3001:3000"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
 
 volumes:
   postgres_data:
-  redis_data:

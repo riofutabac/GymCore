@@ -1,14 +1,16 @@
-import { Membership as PrismaMembership } from '@prisma/client';
+import { Membership as PrismaMembership, MembershipStatus } from '@prisma/client';
 
 export class Membership implements PrismaMembership {
   id: string;
-  userId: string;
-  gymId: string;
-  startDate: Date;
-  endDate: Date;
-  state: 'ACTIVE' | 'EXPIRED' | 'SUSPENDED';
+  type: string;
+  status: MembershipStatus;
+  startDate: Date | null;
+  expiresAt: Date | null;
+  lastPayment: Date | null;
+  monthlyPrice: number | null;
+  totalPaid: number;
+  autoRenewal: boolean;
   createdAt: Date;
   updatedAt: Date;
-
-  // Add any additional methods or properties you need for the entity
+  userId: string;
 }

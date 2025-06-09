@@ -1,69 +1,112 @@
-import { Injectable } from '@nestjs/common';
-import { Product } from './entities/product.entity';
-import { Sale } from './entities/sale.entity';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { RecordSaleDto } from './dto/record-sale.dto';
 
 @Injectable()
 export class InventoryService {
-  private products: Product[] = [];
-  private sales: Sale[] = [];
-  private nextProductId = 1;
-  private nextSaleId = 1;
+  constructor(private prisma: PrismaService) {}
 
-  createProduct(createProductDto: CreateProductDto): Product {
-    const newProduct: Product = {
-      id: this.nextProductId++,
-      ...createProductDto,
-      stock: createProductDto.initialStock || 0, // Initialize stock
-    };
-    this.products.push(newProduct);
-    return newProduct;
+  async createProduct(createProductDto: CreateProductDto, gymId: string) {
+    return this.prisma.product.create({
+      data: {
+        ...createProductDto,
+        gymId,
+      },
+    });
   }
 
-  getProducts(): Product[] {
-    return this.products;
+  async getProducts(gymId: string) {
+    return this.prisma.product.findMany({
+      where: { gymId },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
-  getProductById(id: number): Product | undefined {
-    return this.products.find(product => product.id === id);
-  }
-
-  updateProduct(id: number, updateProductDto: Partial<CreateProductDto>): Product | undefined {
-    const productIndex = this.products.findIndex(product => product.id === id);
-    if (productIndex === -1) {
-      return undefined;
+  async getProductById(id: string) {
+    const product = await this.prisma.product.findUnique({
+      where: { id },
+    });
+    
+    if (!product) {
+      throw new NotFoundException(`Product with ID ${id} not found`);
     }
-    this.products[productIndex] = { ...this.products[productIndex], ...updateProductDto };
-    return this.products[productIndex];
+    
+    return product;
   }
 
-  deleteProduct(id: number): boolean {
-    const initialLength = this.products.length;
-    this.products = this.products.filter(product => product.id !== id);
-    return this.products.length < initialLength;
+  async updateProduct(id: string, updateProductDto: Partial<CreateProductDto>) {
+    return this.prisma.product.update({
+      where: { id },
+      data: updateProductDto,
+    });
   }
 
-  recordSale(recordSaleDto: RecordSaleDto): Sale | undefined {
-    const product = this.getProductById(recordSaleDto.productId);
-    if (!product || product.stock < recordSaleDto.quantity) {
-      // Handle insufficient stock or product not found
-      return undefined;
-    }
-
-    product.stock -= recordSaleDto.quantity;
-
-    const newSale: Sale = {
-      id: this.nextSaleId++,
-      productId: recordSaleDto.productId,
-      quantity: recordSaleDto.quantity,
-      saleDate: new Date(),
-    };
-    this.sales.push(newSale);
-    return newSale;
+  async deleteProduct(id: string) {
+    return this.prisma.product.delete({
+      where: { id },
+    });
   }
 
-  getSales(): Sale[] {
-    return this.sales;
+  async recordSale(recordSaleDto: RecordSaleDto, sellerId: string, gymId: string) {
+    return this.prisma.$transaction(async (tx) => {
+      // Create the sale
+      const sale = await tx.sale.create({
+        data: {
+          total: recordSaleDto.total,
+          subtotal: recordSaleDto.subtotal,
+          tax: recordSaleDto.tax || 0,
+          discount: recordSaleDto.discount || 0,
+          notes: recordSaleDto.notes,
+          sellerId,
+          gymId,
+        },
+      });
+
+      // Create sale items and update product stock
+      for (const item of recordSaleDto.items) {
+        await tx.saleItem.create({
+          data: {
+            saleId: sale.id,
+            productId: item.productId,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            total: item.quantity * item.unitPrice,
+          },
+        });
+
+        // Update product stock
+        await tx.product.update({
+          where: { id: item.productId },
+          data: {
+            stock: {
+              decrement: item.quantity,
+            },
+          },
+        });
+      }
+
+      return sale;
+    });
+  }
+
+  async getSales(gymId: string) {
+    return this.prisma.sale.findMany({
+      where: { gymId },
+      include: {
+        items: {
+          include: {
+            product: true,
+          },
+        },
+        seller: {
+          select: {
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 }

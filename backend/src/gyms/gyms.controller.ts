@@ -1,23 +1,32 @@
-import { Controller, Get, Post, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards } from '@nestjs/common';
 import { GymsService } from './gyms.service';
+import { CreateGymDto } from './dto/create-gym.dto';
 import { JoinGymDto } from './dto/join-gym.dto';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { AuthGuard } from '../common/guards/auth.guard';
-import { GetUser } from '../common/decorators/get-user.decorator';
-import { User } from '@prisma/client';
 
-@Controller('gyms')
+@Controller('api/gyms')
+@UseGuards(AuthGuard)
 export class GymsController {
   constructor(private readonly gymsService: GymsService) {}
 
-  @UseGuards(AuthGuard)
   @Post('join-by-code')
-  joinByCode(@Body() joinGymDto: JoinGymDto, @GetUser() user: User) {
-    return this.gymsService.joinGymByCode(user.id, joinGymDto.joinCode);
+  async joinGymByCode(@CurrentUser('id') userId: string, @Body() joinGymDto: JoinGymDto) {
+    return this.gymsService.joinGymByCode(userId, joinGymDto);
   }
 
-  @UseGuards(AuthGuard)
   @Get('my-gym')
-  getMyGym(@GetUser() user: User) {
-    return this.gymsService.findGymByUser(user.id);
+  async findMyGym(@CurrentUser('id') userId: string) {
+    return this.gymsService.findMyGym(userId);
+  }
+
+  @Post()
+  async create(@Body() createGymDto: CreateGymDto, @CurrentUser('id') ownerId: string) {
+    return this.gymsService.create(createGymDto, ownerId);
+  }
+
+  @Get()
+  async findAll() {
+    return this.gymsService.findAll();
   }
 }

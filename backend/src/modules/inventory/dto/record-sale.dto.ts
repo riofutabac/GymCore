@@ -1,4 +1,12 @@
 export class RecordSaleDto {
-  productId: string;
-  quantity: number;
+  total: number;
+  subtotal: number;
+  tax?: number;
+  discount?: number;
+  notes?: string;
+  items: {
+    productId: string;
+    quantity: number;
+    unitPrice: number;
+  }[];
 }

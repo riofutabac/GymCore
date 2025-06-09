@@ -1,9 +1,14 @@
-import { Controller, Get, Post, Body, Req } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards } from '@nestjs/common';
 import { AccessControlService } from './access-control.service';
 import { QrGeneratorService } from './qr-generator.service';
-import { Request } from 'express';
+import { ValidateQRDto } from './dto/validate-qr.dto';
+import { AuthGuard } from '../../common/guards/auth.guard';
+import { RoleGuard } from '../../common/guards/role.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
-@Controller('access-control')
+@Controller('api/access-control')
+@UseGuards(AuthGuard)
 export class AccessControlController {
   constructor(
     private readonly accessControlService: AccessControlService,
@@ -11,14 +16,20 @@ export class AccessControlController {
   ) {}
 
   @Get('my-qr')
-  async getMyQr(@Req() req: Request): Promise<string> {
-    // Assuming user information is available in the request, e.g., through authentication
-    const userId = req.user['id']; // Adjust based on how your authentication provides the user ID
-    return this.qrGeneratorService.generateDynamicQR(userId);
+  @UseGuards(RoleGuard)
+  @Roles(['CLIENT'])
+  async getMyQR(@CurrentUser('id') userId: string) {
+    const qrCode = await this.qrGeneratorService.generateDynamicQR(userId);
+    return { qrCode, expiresIn: 30000 };
   }
 
   @Post('validate-qr')
-  async validateQr(@Body('qrCode') qrCode: string): Promise<any> {
-    return this.accessControlService.validateQR(qrCode);
+  @UseGuards(RoleGuard)
+  @Roles(['RECEPTION', 'MANAGER'])
+  async validateQR(
+    @Body() validateQRDto: ValidateQRDto,
+    @CurrentUser('id') validatorId: string,
+  ) {
+    return this.accessControlService.validateQR(validateQRDto, validatorId);
   }
 }

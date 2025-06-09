@@ -2,54 +2,51 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateGymDto } from './dto/create-gym.dto';
 import { JoinGymDto } from './dto/join-gym.dto';
-import { generateUniqueCode } from '../utils/generate-unique-code'; // Assuming you have a utility function for generating codes
 
 @Injectable()
 export class GymsService {
   constructor(private prisma: PrismaService) {}
 
-  async create(createGymDto: CreateGymDto) {
-    const joinCode = await generateUniqueCode(this.prisma.gym, 'joinCode');
+  async create(createGymDto: CreateGymDto, ownerId: string) {
     return this.prisma.gym.create({
       data: {
         ...createGymDto,
-        joinCode,
+        ownerId,
+        joinCode: this.generateJoinCode(),
       },
     });
   }
 
   async findAll() {
-    return this.prisma.gym.findMany();
+    return this.prisma.gym.findMany({
+      include: {
+        owner: true,
+        _count: {
+          select: {
+            members: true,
+            staff: true,
+          },
+        },
+      },
+    });
   }
 
-  async findOne(id: number) {
-    const gym = await this.prisma.gym.findUnique({ where: { id } });
+  async findOne(id: string) {
+    const gym = await this.prisma.gym.findUnique({
+      where: { id },
+      include: {
+        owner: true,
+        members: true,
+        staff: true,
+      },
+    });
     if (!gym) {
       throw new NotFoundException(`Gym with ID ${id} not found`);
     }
     return gym;
   }
 
-  async update(id: number, updateGymDto: any) { // Consider creating an UpdateGymDto
-    const gym = await this.prisma.gym.findUnique({ where: { id } });
-    if (!gym) {
-      throw new NotFoundException(`Gym with ID ${id} not found`);
-    }
-    return this.prisma.gym.update({
-      where: { id },
-      data: updateGymDto,
-    });
-  }
-
-  async remove(id: number) {
-    const gym = await this.prisma.gym.findUnique({ where: { id } });
-    if (!gym) {
-      throw new NotFoundException(`Gym with ID ${id} not found`);
-    }
-    return this.prisma.gym.delete({ where: { id } });
-  }
-
-  async joinGymByCode(userId: number, joinGymDto: JoinGymDto) {
+  async joinGymByCode(userId: string, joinGymDto: JoinGymDto) {
     const gym = await this.prisma.gym.findUnique({
       where: { joinCode: joinGymDto.joinCode },
     });
@@ -58,29 +55,41 @@ export class GymsService {
       throw new NotFoundException('Invalid join code');
     }
 
-    // Link the user to the gym
-    // This assumes you have a many-to-many relationship between User and Gym
-    // or a field in the User model to store the gymId
+    // Update user to be member of the gym
     await this.prisma.user.update({
       where: { id: userId },
       data: {
-        gymId: gym.id,
+        memberOfGymId: gym.id,
       },
     });
 
     return gym;
   }
 
-  async findMyGym(userId: number) {
+  async findMyGym(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: { gym: true }, // Include the gym relation
+      include: {
+        memberOfGym: true,
+        ownedGym: true,
+        staffOfGym: true,
+      },
     });
 
-    if (!user || !user.gym) {
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const gym = user.ownedGym || user.memberOfGym || user.staffOfGym;
+
+    if (!gym) {
       throw new NotFoundException('User is not associated with a gym');
     }
 
-    return user.gym;
+    return gym;
+  }
+
+  private generateJoinCode(): string {
+    return Math.random().toString(36).substring(2, 8).toUpperCase();
   }
 }

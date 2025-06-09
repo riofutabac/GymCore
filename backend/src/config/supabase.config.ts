@@ -1,8 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
-import * as dotenv from 'dotenv';
-
-dotenv.config();
-
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_KEY;
-export const supabase = createClient(supabaseUrl, supabaseKey);
+// Mock Supabase config for development without external dependencies
+export const supabaseConfig = {
+  url: process.env.SUPABASE_URL || 'mock-url',
+  key: process.env.SUPABASE_ANON_KEY || 'mock-key',
+};

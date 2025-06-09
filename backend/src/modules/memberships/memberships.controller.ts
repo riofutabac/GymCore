@@ -1,44 +1,36 @@
-import { Controller, Get, Post, Req, Body, UseGuards, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UseGuards, NotFoundException } from '@nestjs/common';
 import { MembershipsService } from './memberships.service';
-import { AuthGuard } from '../../common/guards/auth.guard'; // Assuming you have an AuthGuard
-import { Request } from 'express';
-import { RenewMembershipDto } from './dto/renew-membership.dto'; // Assuming this DTO exists
+import { RenewMembershipDto } from './dto/renew-membership.dto';
+import { AuthGuard } from '../../common/guards/auth.guard';
+import { RoleGuard } from '../../common/guards/role.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
-@UseGuards(AuthGuard) // Protect these endpoints with your AuthGuard
-@Controller('memberships')
+@Controller('api/memberships')
+@UseGuards(AuthGuard)
 export class MembershipsController {
   constructor(private readonly membershipsService: MembershipsService) {}
 
-  @Get('/my-membership')
-  async getMyMembership(@Req() req: Request) {
-    // Assuming user information is attached to the request by the AuthGuard
-    const userId = req.user.id; // Adjust based on how your user is represented in the request
-
-    const membership = await this.membershipsService.findMembershipByUserId(userId);
-
-    if (!membership) {
-      throw new NotFoundException('Membership not found for this user.');
-    }
-
-    return membership;
+  @Get('my-membership')
+  async getMyMembership(@CurrentUser('id') userId: string) {
+    return this.membershipsService.getMyMembership(userId);
   }
 
-  @Post('/renew')
-  async renewMembership(@Req() req: Request, @Body() renewMembershipDto: RenewMembershipDto) {
-    const userId = req.user.id; // Adjust based on how your user is represented in the request
-
-    // You would likely pass relevant data from renewMembershipDto to the service
-    const updatedMembership = await this.membershipsService.renewMembership(userId, renewMembershipDto);
-
-    return updatedMembership;
+  @Post(':id/renew')
+  @UseGuards(RoleGuard)
+  @Roles(['CLIENT', 'RECEPTION', 'MANAGER'])
+  async renewMembership(
+    @Param('id') membershipId: string,
+    @Body() renewMembershipDto: RenewMembershipDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.membershipsService.renew(userId, renewMembershipDto);
   }
 
-  @Post('/suspend')
-  async suspendMembership(@Req() req: Request) {
-    const userId = req.user.id; // Adjust based on how your user is represented in the request
-
-    const updatedMembership = await this.membershipsService.suspendMembership(userId);
-
-    return updatedMembership;
+  @Post(':id/suspend')
+  @UseGuards(RoleGuard)
+  @Roles(['MANAGER', 'SYS_ADMIN'])
+  async suspendMembership(@Param('id') membershipId: string) {
+    return this.membershipsService.suspend(membershipId);
   }
 }

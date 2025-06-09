@@ -1,12 +1,16 @@
 import { Gym as PrismaGym } from '@prisma/client';
 
 export class Gym implements PrismaGym {
-  id: number;
+  id: string;
+  name: string;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  description: string | null;
   joinCode: string;
+  isActive: boolean;
+  settings: any;
   createdAt: Date;
   updatedAt: Date;
-  // Add other fields from your Prisma Gym model here
-  // For example:
-  // name: string;
-  // description: string | null;
+  ownerId: string;
 }

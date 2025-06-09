@@ -1,9 +1,12 @@
 import { Module } from '@nestjs/common';
 import { AccessControlService } from './access-control.service';
-import { QrGeneratorService } from '../qr-generator/qr-generator.service';
+import { AccessControlController } from './access-control.controller';
+import { QrGeneratorService } from './qr-generator.service';
+import { PrismaModule } from '../../prisma/prisma.module';
 
 @Module({
-  imports: [],
+  imports: [PrismaModule],
+  controllers: [AccessControlController],
   providers: [AccessControlService, QrGeneratorService],
   exports: [AccessControlService, QrGeneratorService],
 })

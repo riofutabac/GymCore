@@ -1,45 +1,59 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { ConfigService } from '@nestjs/config';
 import { LoginDto, RegisterDto } from './dto/auth.dto';
 
 @Injectable()
 export class AuthService {
-  private supabase: SupabaseClient;
-
-  constructor(private configService: ConfigService) {
-    this.supabase = createClient(
-      this.configService.get<string>('SUPABASE_URL'),
-      this.configService.get<string>('SUPABASE_ANON_KEY'),
-      {
-        auth: {
-          storage: null, // Use cookies or other storage appropriate for your app
-        },
-      }
-    );
-  }
+  // Mock users for development
+  private users = [
+    { id: '1', email: 'admin@gym.com', password: 'password123', role: 'MANAGER' },
+    { id: '2', email: 'client@gym.com', password: 'password123', role: 'CLIENT' },
+  ];
 
   async login({ email, password }: LoginDto) {
-    const { data, error } = await this.supabase.auth.signInWithPassword({ email, password });
-    if (error) {
+    const user = this.users.find(u => u.email === email && u.password === password);
+    
+    if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
-    return data;
+
+    // Return mock token
+    return {
+      user: { id: user.id, email: user.email, role: user.role },
+      access_token: `mock-token-${user.id}`,
+    };
   }
 
   async register({ email, password }: RegisterDto) {
-    const { data, error } = await this.supabase.auth.signUp({ email, password });
-    if (error) {
-      throw new UnauthorizedException(error.message);
+    // Check if user already exists
+    const existingUser = this.users.find(u => u.email === email);
+    if (existingUser) {
+      throw new UnauthorizedException('User already exists');
     }
-    return data;
+
+    const newUser = {
+      id: (this.users.length + 1).toString(),
+      email,
+      password,
+      role: 'CLIENT',
+    };
+
+    this.users.push(newUser);
+
+    return {
+      user: { id: newUser.id, email: newUser.email, role: newUser.role },
+      access_token: `mock-token-${newUser.id}`,
+    };
   }
 
-  async getProfile(accessToken: string) {
-    const { data, error } = await this.supabase.auth.getUser(accessToken);
-    if (error) {
-      throw new UnauthorizedException('Invalid token');
+  async validateToken(token: string) {
+    // Extract user ID from mock token
+    const userId = token.replace('mock-token-', '');
+    const user = this.users.find(u => u.id === userId);
+    
+    if (!user) {
+      return null;
     }
-    return data.user;
+
+    return { id: user.id, email: user.email, role: user.role };
   }
 }

@@ -24,24 +24,27 @@ export class AuthService {
   }
 
   async register({ email, password }: RegisterDto) {
-    // Check if user already exists
+    // 1. Verificó si el usuario ya existía
     const existingUser = this.users.find(u => u.email === email);
     if (existingUser) {
       throw new UnauthorizedException('User already exists');
     }
 
+    // 2. Como NO existía "test@gym.com", creó un nuevo usuario
     const newUser = {
-      id: (this.users.length + 1).toString(),
-      email,
-      password,
-      role: 'CLIENT',
+      id: (this.users.length + 1).toString(), // ID = "3" (porque ya había 2 usuarios)
+      email, // "test@gym.com"
+      password, // "password123"
+      role: 'CLIENT', // Rol por defecto para nuevos usuarios
     };
 
+    // 3. Lo agregó al array de usuarios en memoria
     this.users.push(newUser);
 
+    // 4. Retornó la respuesta con el token
     return {
       user: { id: newUser.id, email: newUser.email, role: newUser.role },
-      access_token: `mock-token-${newUser.id}`,
+      access_token: `mock-token-${newUser.id}`, // "mock-token-3"
     };
   }
 

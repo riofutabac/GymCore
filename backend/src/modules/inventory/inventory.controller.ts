@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UseGuards, BadRequestException } from '@nestjs/common';
 import { InventoryService } from './inventory.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { RecordSaleDto } from './dto/record-sale.dto';
@@ -15,13 +15,24 @@ export class InventoryController {
     @Body() createProductDto: CreateProductDto, 
     @CurrentUser() user: any
   ) {
-    const gymId = user.staffOfGymId || user.memberOfGymId || 'default-gym-id';
+    // FIX: Obtener gymId correctamente según el rol del usuario
+    let gymId = user.staffOfGymId || user.memberOfGymId;
+    
+    // Si es propietario, usar su gimnasio
+    if (user.role === 'SYS_ADMIN' && !gymId) {
+      gymId = 'demo-gym-id'; // Usar un ID por defecto para demo
+    }
+    
+    if (!gymId) {
+      throw new BadRequestException('El usuario no está asignado a un gimnasio.');
+    }
+    
     return this.inventoryService.createProduct(createProductDto, gymId);
   }
 
   @Get('products')
   getProducts(@CurrentUser() user: any) {
-    const gymId = user.staffOfGymId || user.memberOfGymId || 'default-gym-id';
+    const gymId = user.staffOfGymId || user.memberOfGymId || 'demo-gym-id';
     return this.inventoryService.getProducts(gymId);
   }
 
@@ -30,13 +41,13 @@ export class InventoryController {
     @Body() recordSaleDto: RecordSaleDto, 
     @CurrentUser() user: any
   ) {
-    const gymId = user.staffOfGymId || user.memberOfGymId || 'default-gym-id';
+    const gymId = user.staffOfGymId || user.memberOfGymId || 'demo-gym-id';
     return this.inventoryService.recordSale(recordSaleDto, user.id, gymId);
   }
 
   @Get('sales')
   getSales(@CurrentUser() user: any) {
-    const gymId = user.staffOfGymId || user.memberOfGymId || 'default-gym-id';
+    const gymId = user.staffOfGymId || user.memberOfGymId || 'demo-gym-id';
     return this.inventoryService.getSales(gymId);
   }
 }

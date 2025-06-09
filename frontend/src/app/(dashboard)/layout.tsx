@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -22,20 +22,22 @@ import {
   ShoppingCart,
   Users,
   BarChart3,
-  Building
+  Building,
+  Loader2
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 interface User {
   id: string;
   email: string;
-  role: string;
+  role: 'CLIENT' | 'RECEPTION' | 'MANAGER' | 'SYS_ADMIN';
   name?: string;
 }
 
 const roleConfig = {
   CLIENT: {
     title: "Panel del Socio",
+    home: "/member",
     links: [
       { href: "/member", label: "Mi Membresía", icon: User },
       { href: "/member/qr-code", label: "Código QR", icon: QrCode },
@@ -43,8 +45,10 @@ const roleConfig = {
     ]
   },
   RECEPTION: {
-    title: "Panel de Recepción", 
+    title: "Panel de Recepción",
+    home: "/reception",
     links: [
+      { href: "/reception", label: "Dashboard", icon: BarChart3 },
       { href: "/reception/access-scan", label: "Escáner QR", icon: QrCode },
       { href: "/reception/pos", label: "Punto de Venta", icon: ShoppingCart },
       { href: "/reception/manual-entry", label: "Ingreso Manual", icon: Users },
@@ -52,6 +56,7 @@ const roleConfig = {
   },
   MANAGER: {
     title: "Panel del Gerente",
+    home: "/manager",
     links: [
       { href: "/manager", label: "Dashboard", icon: BarChart3 },
       { href: "/manager/inventory", label: "Inventario", icon: ShoppingCart },
@@ -61,12 +66,22 @@ const roleConfig = {
   },
   SYS_ADMIN: {
     title: "Panel de Administrador",
+    home: "/admin",
     links: [
       { href: "/admin", label: "Dashboard", icon: BarChart3 },
       { href: "/admin/gyms", label: "Gimnasios", icon: Building },
       { href: "/admin/users", label: "Usuarios", icon: Users },
+      { href: "/admin/settings", label: "Configuración", icon: Settings },
     ]
   }
+};
+
+// Mapa de acceso a rutas por rol
+const rolePathAccess: Record<string, User['role'][]> = {
+  '/member': ['CLIENT'],
+  '/reception': ['RECEPTION', 'MANAGER', 'SYS_ADMIN'],
+  '/manager': ['MANAGER', 'SYS_ADMIN'],
+  '/admin': ['SYS_ADMIN'],
 };
 
 export default function DashboardLayout({
@@ -77,6 +92,7 @@ export default function DashboardLayout({
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -88,15 +104,30 @@ export default function DashboardLayout({
     }
 
     try {
-      const parsedUser = JSON.parse(userData);
+      const parsedUser: User = JSON.parse(userData);
       setUser(parsedUser);
+
+      // Verificación de acceso por rol
+      const currentRoute = Object.keys(rolePathAccess).find(path => pathname.startsWith(path));
+      
+      if (currentRoute) {
+        const allowedRoles = rolePathAccess[currentRoute];
+        if (!allowedRoles.includes(parsedUser.role)) {
+          console.warn(`ACCESO DENEGADO: Usuario con rol '${parsedUser.role}' intentó acceder a '${pathname}'. Redirigiendo...`);
+          const userHome = roleConfig[parsedUser.role]?.home || '/login';
+          router.push(userHome);
+          return;
+        }
+      }
+
     } catch (error) {
-      console.error("Error parsing user data:", error);
+      console.error("Error parsing user data, logging out:", error);
+      localStorage.clear();
       router.push("/login");
     } finally {
       setIsLoading(false);
     }
-  }, [router]);
+  }, [pathname, router]);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -106,8 +137,8 @@ export default function DashboardLayout({
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <Loader2 className="w-16 h-16 animate-spin text-primary" />
       </div>
     );
   }
@@ -116,17 +147,17 @@ export default function DashboardLayout({
     return null;
   }
 
-  const config = roleConfig[user.role as keyof typeof roleConfig];
+  const config = roleConfig[user.role];
   const userInitials = user.name?.split(' ').map(n => n[0]).join('') || user.email.slice(0, 2).toUpperCase();
 
   const Sidebar = ({ className = "" }: { className?: string }) => (
     <div className={`flex flex-col h-full bg-white border-r ${className}`}>
       <div className="p-6 border-b">
         <div className="flex items-center gap-2">
-          <Dumbbell className="h-8 w-8 text-blue-600" />
+          <Dumbbell className="h-8 w-8 text-primary" />
           <span className="text-xl font-bold">GymCore</span>
         </div>
-        <p className="text-sm text-muted-foreground mt-1">{config.title}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{config.title}</p>
       </div>
       
       <nav className="flex-1 p-4">
@@ -135,9 +166,11 @@ export default function DashboardLayout({
             <li key={link.href}>
               <Link
                 href={link.href}
-                className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                  pathname === link.href ? 'bg-primary/10 text-primary font-semibold' : 'hover:bg-gray-100'
+                }`}
               >
-                <link.icon className="h-5 w-5" />
+                <link.icon className="w-5 h-5" />
                 {link.label}
               </Link>
             </li>
@@ -160,7 +193,7 @@ export default function DashboardLayout({
           <Sheet>
             <SheetTrigger asChild>
               <Button variant="ghost" size="sm">
-                <Menu className="h-6 w-6" />
+                <Menu className="w-6 h-6" />
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="p-0 w-64">
@@ -169,30 +202,30 @@ export default function DashboardLayout({
           </Sheet>
           
           <div className="flex items-center gap-2">
-            <Dumbbell className="h-6 w-6 text-blue-600" />
+            <Dumbbell className="h-6 w-6 text-primary" />
             <span className="font-bold">GymCore</span>
           </div>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                <Avatar className="h-8 w-8">
+              <Button variant="ghost" className="relative w-8 h-8 rounded-full">
+                <Avatar className="w-8 h-8">
                   <AvatarFallback>{userInitials}</AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56" align="end">
-              <DropdownMenuItem>
-                <User className="mr-2 h-4 w-4" />
+              <DropdownMenuItem onClick={() => router.push('/member/profile')}>
+                <User className="w-4 h-4 mr-2" />
                 <span>Perfil</span>
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Settings className="mr-2 h-4 w-4" />
+              <DropdownMenuItem onClick={() => router.push('/admin/settings')}>
+                <Settings className="w-4 h-4 mr-2" />
                 <span>Configuración</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout}>
-                <LogOut className="mr-2 h-4 w-4" />
+                <LogOut className="w-4 h-4 mr-2" />
                 <span>Cerrar sesión</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -213,24 +246,24 @@ export default function DashboardLayout({
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                <Avatar className="h-8 w-8">
+              <Button variant="ghost" className="relative w-8 h-8 rounded-full">
+                <Avatar className="w-8 h-8">
                   <AvatarFallback>{userInitials}</AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56" align="end">
-              <DropdownMenuItem>
-                <User className="mr-2 h-4 w-4" />
+              <DropdownMenuItem onClick={() => router.push('/member/profile')}>
+                <User className="w-4 h-4 mr-2" />
                 <span>Perfil</span>
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Settings className="mr-2 h-4 w-4" />
+              <DropdownMenuItem onClick={() => router.push('/admin/settings')}>
+                <Settings className="w-4 h-4 mr-2" />
                 <span>Configuración</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout}>
-                <LogOut className="mr-2 h-4 w-4" />
+                <LogOut className="w-4 h-4 mr-2" />
                 <span>Cerrar sesión</span>
               </DropdownMenuItem>
             </DropdownMenuContent>

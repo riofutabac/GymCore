@@ -29,4 +29,20 @@ export class AuthController {
   async logout() {
     return { success: true, message: 'Logged out successfully' };
   }
+
+  // FIX: Añadir endpoint para crear usuarios (para admin)
+  @Post('create-user')
+  @UseGuards(AuthGuard)
+  async createUser(@Body() userData: any, @CurrentUser() user: any) {
+    // Solo admins pueden crear usuarios
+    if (user.role !== 'SYS_ADMIN') {
+      throw new Error('No tienes permisos para crear usuarios');
+    }
+    
+    return this.authService.register({
+      email: userData.email,
+      password: userData.password,
+      name: userData.name
+    });
+  }
 }

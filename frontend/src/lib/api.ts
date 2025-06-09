@@ -187,6 +187,19 @@ export const authAPI = {
       debugLog('AUTH: Failed to get current user', error);
       throw error;
     }
+  },
+
+  // FIX: Añadir función para crear usuarios
+  createUser: async (userData: any) => {
+    debugLog('AUTH: Creating user', userData);
+    try {
+      const result = await apiRequest('/auth/create-user', createFetchOptions('POST', userData));
+      debugLog('AUTH: User created successfully', result);
+      return result;
+    } catch (error) {
+      debugLog('AUTH: Failed to create user', error);
+      throw error;
+    }
   }
 };
 

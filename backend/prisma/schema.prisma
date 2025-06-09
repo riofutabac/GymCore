@@ -1,0 +1,305 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============= GIMNASIOS =============
+model Gym {
+  id          String   @id @default(cuid())
+  name        String
+  address     String?
+  phone       String?
+  email       String?
+  description String?
+  
+  // Código único para que los socios se unan
+  joinCode    String   @unique @default(cuid())
+  
+  // Estado del gimnasio
+  isActive    Boolean  @default(true)
+  
+  // Configuraciones
+  settings    Json?    // JSON para configuraciones flexibles
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relaciones
+  owner       User     @relation("GymOwner", fields: [ownerId], references: [id])
+  ownerId     String   @unique
+  
+  members     User[]   @relation("GymMembers")
+  staff       User[]   @relation("GymStaff")
+  products    Product[]
+  sales       Sale[]
+  accessLogs  AccessLog[]
+  
+  @@map("gyms")
+}
+
+// ============= USUARIOS =============
+model User {
+  id            String    @id @default(cuid()) // Compatible con Supabase Auth UUID
+  email         String    @unique
+  name          String?
+  phone         String?
+  avatarUrl     String?
+  
+  // Roles y permisos
+  role          UserRole  @default(CLIENT)
+  permissions   String[]  @default([])
+  
+  // Estados
+  isActive      Boolean   @default(true)
+  emailVerified Boolean   @default(false)
+  
+  // Metadatos
+  metadata      Json?
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relaciones de gimnasio
+  ownedGym      Gym?      @relation("GymOwner")
+  memberOfGym   Gym?      @relation("GymMembers", fields: [memberOfGymId], references: [id])
+  memberOfGymId String?
+  staffOfGym    Gym?      @relation("GymStaff", fields: [staffOfGymId], references: [id])
+  staffOfGymId  String?
+  
+  // Otras relaciones
+  membership    Membership?
+  accessLogs    AccessLog[]
+  sales         Sale[]     @relation("Seller")
+  
+  @@map("users")
+}
+
+enum UserRole {
+  CLIENT        // Socio del gimnasio
+  RECEPTION     // Personal de recepción
+  MANAGER       // Gerente del gimnasio
+  SYS_ADMIN     // Administrador del sistema
+}
+
+// ============= MEMBRESÍAS =============
+model Membership {
+  id            String            @id @default(cuid())
+  type          String            @default("MONTHLY") // MONTHLY, ANNUAL, etc.
+  status        MembershipStatus  @default(PENDING_PAYMENT)
+  
+  // Fechas
+  startDate     DateTime?
+  expiresAt     DateTime?
+  lastPayment   DateTime?
+  
+  // Precios y pagos
+  monthlyPrice  Float?
+  totalPaid     Float             @default(0)
+  
+  // Configuraciones
+  autoRenewal   Boolean           @default(false)
+  
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  
+  // Relaciones
+  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        String            @unique
+  
+  payments      Payment[]
+  
+  @@map("memberships")
+}
+
+enum MembershipStatus {
+  ACTIVE
+  EXPIRED
+  PENDING_PAYMENT
+  SUSPENDED
+  CANCELLED
+}
+
+// ============= PAGOS =============
+model Payment {
+  id            String        @id @default(cuid())
+  amount        Float
+  currency      String        @default("USD")
+  method        PaymentMethod @default(CASH)
+  status        PaymentStatus @default(PENDING)
+  
+  // Referencias externas
+  stripeId      String?       // Para Stripe en V2
+  externalId    String?       // Para otras pasarelas
+  
+  // Metadatos
+  description   String?
+  metadata      Json?
+  
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  
+  // Relaciones
+  membership    Membership    @relation(fields: [membershipId], references: [id])
+  membershipId  String
+  
+  @@map("payments")
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  TRANSFER
+  STRIPE
+  OTHER
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+// ============= CONTROL DE ACCESO =============
+model AccessLog {
+  id            String      @id @default(cuid())
+  type          AccessType  @default(QR_CODE)
+  status        AccessStatus @default(GRANTED)
+  
+  // Detalles del acceso
+  method        String?     // "QR_SCAN", "MANUAL", "BIOMETRIC"
+  deviceInfo    String?     // Info del dispositivo usado
+  
+  createdAt     DateTime    @default(now())
+  
+  // Relaciones
+  user          User        @relation(fields: [userId], references: [id])
+  userId        String
+  gym           Gym         @relation(fields: [gymId], references: [id])
+  gymId         String
+  
+  @@map("access_logs")
+}
+
+enum AccessType {
+  QR_CODE
+  MANUAL
+  BIOMETRIC
+  FACIAL_RECOGNITION
+}
+
+enum AccessStatus {
+  GRANTED
+  DENIED
+}
+
+// ============= INVENTARIO =============
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  price       Float
+  cost        Float?   // Precio de costo
+  stock       Int      @default(0)
+  minStock    Int      @default(0)
+  
+  // Categorización
+  category    String?
+  sku         String?  @unique
+  barcode     String?
+  
+  // Estados
+  isActive    Boolean  @default(true)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relaciones
+  gym         Gym      @relation(fields: [gymId], references: [id])
+  gymId       String
+  
+  saleItems   SaleItem[]
+  
+  @@map("products")
+}
+
+// ============= VENTAS =============
+model Sale {
+  id          String     @id @default(cuid())
+  total       Float
+  subtotal    Float
+  tax         Float      @default(0)
+  discount    Float      @default(0)
+  
+  // Metadatos
+  notes       String?
+  
+  createdAt   DateTime   @default(now())
+  
+  // Relaciones
+  seller      User       @relation("Seller", fields: [sellerId], references: [id])
+  sellerId    String
+  gym         Gym        @relation(fields: [gymId], references: [id])
+  gymId       String
+  
+  items       SaleItem[]
+  
+  @@map("sales")
+}
+
+model SaleItem {
+  id        String  @id @default(cuid())
+  quantity  Int
+  unitPrice Float
+  total     Float
+  
+  // Relaciones
+  sale      Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  saleId    String
+  product   Product @relation(fields: [productId], references: [id])
+  productId String
+  
+  @@map("sale_items")
+}
+
+// ============= NOTIFICACIONES =============
+model Notification {
+  id        String             @id @default(cuid())
+  type      NotificationType   @default(EMAIL)
+  status    NotificationStatus @default(PENDING)
+  
+  // Contenido
+  title     String
+  message   String
+  
+  // Destinatario
+  recipient String             // Email o teléfono
+  
+  // Metadatos
+  metadata  Json?
+  
+  sentAt    DateTime?
+  createdAt DateTime           @default(now())
+  
+  @@map("notifications")
+}
+
+enum NotificationType {
+  EMAIL
+  SMS
+  PUSH
+  IN_APP
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  DELIVERED
+  FAILED
+}

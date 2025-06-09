@@ -55,71 +55,63 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-display: swap; /* Optimización de fuentes */
   }
 }
 
-/* Animaciones para toasts */
-@keyframes slide-in-from-top-full {
+/* Animaciones optimizadas con transform3d para hardware acceleration */
+@keyframes slideInOptimized {
   from {
-    transform: translateY(-100%);
+    transform: translate3d(0, -100%, 0);
+    opacity: 0;
   }
   to {
-    transform: translateY(0);
-  }
-}
-
-@keyframes slide-in-from-bottom-full {
-  from {
-    transform: translateY(100%);
-  }
-  to {
-    transform: translateY(0);
-  }
-}
-
-@keyframes slide-out-to-right-full {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(100%);
-  }
-}
-
-@keyframes fade-out-80 {
-  from {
+    transform: translate3d(0, 0, 0);
     opacity: 1;
   }
+}
+
+@keyframes fadeInOptimized {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
   to {
-    opacity: 0.2;
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
   }
 }
 
-.animate-in {
-  animation-name: slide-in-from-top-full;
-  animation-duration: 0.2s;
-  animation-timing-function: ease-out;
+/* Clases optimizadas para animaciones */
+.animate-slide-in {
+  animation: slideInOptimized 0.2s ease-out;
+  will-change: transform;
 }
 
-.animate-out {
-  animation-name: slide-out-to-right-full;
-  animation-duration: 0.2s;
-  animation-timing-function: ease-in;
+.animate-fade-in {
+  animation: fadeInOptimized 0.15s ease-out;
+  will-change: opacity, transform;
 }
 
-.fade-out-80 {
-  animation-name: fade-out-80;
-  animation-duration: 0.2s;
+/* Optimización para elementos con hover */
+.hover-scale {
+  transition: transform 0.15s ease-out;
+  will-change: transform;
 }
 
-.slide-in-from-top-full {
-  animation-name: slide-in-from-top-full;
+.hover-scale:hover {
+  transform: scale(1.02);
 }
 
-.slide-in-from-bottom-full {
-  animation-name: slide-in-from-bottom-full;
+/* Skeleton loading optimizado */
+.skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+  will-change: background-position;
 }
 
-.slide-out-to-right-full {
-  animation-name: slide-out-to-right-full;
+@keyframes loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }

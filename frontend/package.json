@@ -4,10 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:turbo": "next dev --turbo",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "clean": "rimraf .next node_modules/.cache"
+    "clean": "rimraf .next node_modules/.cache",
+    "analyze": "ANALYZE=true npm run build",
+    "dev:clean": "npm run clean && npm run dev"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.0.5",
@@ -19,6 +22,7 @@
     "@radix-ui/react-select": "^2.0.0",
     "@radix-ui/react-separator": "^1.0.3",
     "@radix-ui/react-slot": "^1.2.3",
+    "@radix-ui/react-switch": "^1.2.5",
     "@radix-ui/react-toast": "^1.2.14",
     "axios": "^1.6.2",
     "class-variance-authority": "^0.7.1",
@@ -30,6 +34,7 @@
     "tailwind-merge": "^2.6.0"
   },
   "devDependencies": {
+    "@next/bundle-analyzer": "^14.2.0",
     "@types/node": "^20.8.0",
     "@types/react": "^18.2.25",
     "@types/react-dom": "^18.2.11",

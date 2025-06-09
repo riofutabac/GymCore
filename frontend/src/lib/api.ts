@@ -187,6 +187,19 @@ export const authAPI = {
       debugLog('AUTH: Failed to get current user', error);
       throw error;
     }
+  },
+
+  // Función para crear usuarios (admin)
+  createUser: async (userData: any) => {
+    debugLog('AUTH: Creating user', userData);
+    try {
+      const result = await apiRequest('/auth/create-user', createFetchOptions('POST', userData));
+      debugLog('AUTH: User created successfully', result);
+      return result;
+    } catch (error) {
+      debugLog('AUTH: Failed to create user', error);
+      throw error;
+    }
   }
 };
 
@@ -279,7 +292,15 @@ export const inventoryApi = {
 // Gyms API functions
 export const gymsAPI = {
   getAll: async () => {
-    return await apiRequest('/gyms', createFetchOptions('GET'));
+    debugLog('GYMS: Getting all gyms');
+    try {
+      const result = await apiRequest('/gyms', createFetchOptions('GET'));
+      debugLog('GYMS: Got all gyms', result);
+      return result;
+    } catch (error) {
+      debugLog('GYMS: Failed to get all gyms', error);
+      throw error;
+    }
   },
   
   getById: async (id: string) => {
@@ -287,7 +308,15 @@ export const gymsAPI = {
   },
   
   create: async (gymData: any) => {
-    return await apiRequest('/gyms', createFetchOptions('POST', gymData));
+    debugLog('GYMS: Creating gym');
+    try {
+      const result = await apiRequest('/gyms', createFetchOptions('POST', gymData));
+      debugLog('GYMS: Gym created', result);
+      return result;
+    } catch (error) {
+      debugLog('GYMS: Failed to create gym', error);
+      throw error;
+    }
   },
   
   update: async (id: string, gymData: any) => {
@@ -295,7 +324,15 @@ export const gymsAPI = {
   },
   
   delete: async (id: string) => {
-    return await apiRequest(`/gyms/${id}`, createFetchOptions('DELETE'));
+    debugLog('GYMS: Deleting gym');
+    try {
+      const result = await apiRequest(`/gyms/${id}`, createFetchOptions('DELETE'));
+      debugLog('GYMS: Gym deleted', result);
+      return result;
+    } catch (error) {
+      debugLog('GYMS: Failed to delete gym', error);
+      throw error;
+    }
   },
   
   joinByCode: async (code: string) => {
@@ -326,7 +363,27 @@ export const membershipApi = {
   },
   
   renew: async (membershipId: string, renewData: any) => {
-    return await apiRequest(`/memberships/${membershipId}/renew`, createFetchOptions('POST', renewData));
+    debugLog('MEMBERSHIP: Renewing membership');
+    try {
+      const result = await apiRequest(`/memberships/${membershipId}/renew`, createFetchOptions('POST', renewData));
+      debugLog('MEMBERSHIP: Membership renewed', result);
+      return result;
+    } catch (error) {
+      debugLog('MEMBERSHIP: Failed to renew membership', error);
+      throw error;
+    }
+  },
+
+  getAllMemberships: async () => {
+    debugLog('MEMBERSHIP: Getting all memberships');
+    try {
+      const result = await apiRequest('/memberships/all', createFetchOptions('GET'));
+      debugLog('MEMBERSHIP: Got all memberships', result);
+      return result;
+    } catch (error) {
+      debugLog('MEMBERSHIP: Failed to get all memberships', error);
+      throw error;
+    }
   }
 };
 

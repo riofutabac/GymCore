@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback, memo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -11,13 +11,33 @@ import { useToast } from "@/components/ui/use-toast";
 import { Dumbbell, Loader2, Users } from "lucide-react";
 import { gymsAPI } from "@/lib/api";
 
+// Componente memoizado para códigos de prueba
+const TestCodes = memo(() => (
+  <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+    <h4 className="text-sm font-medium text-blue-900 mb-2">
+      ℹ️ Códigos de prueba:
+    </h4>
+    <ul className="text-xs text-blue-800 space-y-1">
+      <li>• <strong>GYM123</strong> - GymCore Demo</li>
+      <li>• <strong>FIT456</strong> - FitnessWorld</li>
+      <li>• <strong>HEALTH789</strong> - HealthClub</li>
+    </ul>
+  </div>
+));
+
+TestCodes.displayName = 'TestCodes';
+
 export default function GymJoinPage() {
   const [joinCode, setJoinCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setJoinCode(e.target.value.toUpperCase());
+  }, []);
+
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!joinCode.trim()) {
@@ -39,8 +59,8 @@ export default function GymJoinPage() {
         description: `Bienvenido a ${response.gym?.name || 'tu nuevo gimnasio'}`,
       });
 
-      // Redirigir al dashboard de cliente
-      router.push("/member");
+      // Optimizar navegación
+      router.replace("/member");
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -50,7 +70,7 @@ export default function GymJoinPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [joinCode, router, toast]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -72,9 +92,9 @@ export default function GymJoinPage() {
               <Input
                 id="joinCode"
                 type="text"
-                placeholder="Ej: ABC123"
+                placeholder="Ej: GYM123"
                 value={joinCode}
-                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                onChange={handleInputChange}
                 className="text-center text-lg font-mono"
                 maxLength={6}
                 required
@@ -109,17 +129,7 @@ export default function GymJoinPage() {
             </div>
           </div>
 
-          {/* Información adicional */}
-          <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-            <h4 className="text-sm font-medium text-blue-900 mb-2">
-              ℹ️ Códigos de prueba:
-            </h4>
-            <ul className="text-xs text-blue-800 space-y-1">
-              <li>• <strong>GYM123</strong> - PowerFit Gym</li>
-              <li>• <strong>FIT456</strong> - FitnessWorld</li>
-              <li>• <strong>HEALTH789</strong> - HealthClub</li>
-            </ul>
-          </div>
+          <TestCodes />
         </CardContent>
       </Card>
     </div>

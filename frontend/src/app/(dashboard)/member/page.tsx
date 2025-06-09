@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,155 +15,120 @@ import {
   QrCode,
   User
 } from "lucide-react";
-import { membershipApi, gymApi } from "@/lib/api";
 import { useToast } from "@/components/ui/use-toast";
-import QRGenerator from "@/components/QRGenerator";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 
-interface Membership {
-  id: string;
-  type: string;
-  status: string;
-  startDate: string;
-  expiresAt: string;
-  lastPayment: string;
-  monthlyPrice: number;
-  totalPaid: number;
-  autoRenewal: boolean;
-  payments?: Payment[];
-}
+// Lazy loading del componente QR
+const QRGenerator = dynamic(() => import("@/components/QRGenerator"), {
+  loading: () => <div className="h-48 bg-gray-200 rounded-lg skeleton"></div>,
+  ssr: false
+});
 
-interface Payment {
-  id: string;
-  amount: number;
-  method: string;
-  status: string;
-  createdAt: string;
-  description?: string;
-}
-
-interface Gym {
-  id: string;
-  name: string;
-  address: string;
-  phone?: string;
-  email?: string;
-}
+// Componente memoizado para las tarjetas de métricas
+const MetricCard = memo(({ title, value, description, icon: Icon, color = "" }: {
+  title: string;
+  value: string | number;
+  description: string;
+  icon: any;
+  color?: string;
+}) => (
+  <Card className="animate-fade-in hover-scale">
+    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+      <CardTitle className="text-sm font-medium">{title}</CardTitle>
+      <Icon className="h-4 w-4 text-muted-foreground" />
+    </CardHeader>
+    <CardContent>
+      <div className={`text-2xl font-bold ${color}`}>
+        {typeof value === 'string' ? value : (
+          typeof value === 'number' && title.includes('Precio') ? `$${value.toFixed(2)}` : value
+        )}
+      </div>
+      <p className="text-xs text-muted-foreground">{description}</p>
+    </CardContent>
+  </Card>
+));
+MetricCard.displayName = 'MetricCard';
 
 export default function MemberDashboard() {
-  const [membership, setMembership] = useState<Membership | null>(null);
-  const [gym, setGym] = useState<Gym | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
   const { toast } = useToast();
 
-  useEffect(() => {
-    loadMembershipData();
-    loadGymData();
-  }, [retryCount]);
+  // Datos optimizados con useMemo
+  const membershipData = useMemo(() => ({
+    id: "demo-1",
+    type: "PREMIUM",
+    status: "ACTIVE",
+    startDate: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    lastPayment: new Date().toISOString(),
+    monthlyPrice: 50.00,
+    totalPaid: 150.00,
+    autoRenewal: true
+  }), []);
 
-  const loadMembershipData = async () => {
-    try {
-      // Fallback data if API fails
-      const fallbackMembership = {
-        id: "demo-1",
-        type: "PREMIUM",
-        status: "ACTIVE",
-        startDate: new Date().toISOString(),
-        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        lastPayment: new Date().toISOString(),
-        monthlyPrice: 50.00,
-        totalPaid: 150.00,
-        autoRenewal: true
-      };
-      
-      setMembership(fallbackMembership);
-    } catch (err: any) {
-      if (err.response?.status === 404) {
-        setError("No tienes una membresía activa");
-      } else {
-        setError("Error al cargar información de membresía");
-      }
-    }
-  };
+  const gymData = useMemo(() => ({
+    id: "demo-gym",
+    name: "GymCore Demo",
+    address: "Calle Principal 123, Ciudad",
+    phone: "+1 234 567 8900",
+    email: "info@gymcore.demo"
+  }), []);
 
-  const loadGymData = async () => {
-    try {
-      const fallbackGym = {
-        id: "demo-gym",
-        name: "GymCore Demo",
-        address: "Calle Principal 123, Ciudad",
-        phone: "+1 234 567 8900",
-        email: "info@gymcore.demo"
-      };
-      
-      setGym(fallbackGym);
-    } catch (err: any) {
-      console.error("Error loading gym data:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRetry = () => {
-    setRetryCount(prev => prev + 1);
-    setError(null);
-    setLoading(true);
-  };
-
+  // Funciones optimizadas
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'ACTIVE': return 'bg-green-500';
-      case 'EXPIRED': return 'bg-red-500';
-      case 'PENDING_PAYMENT': return 'bg-yellow-500';
-      case 'SUSPENDED': return 'bg-gray-500';
-      default: return 'bg-gray-500';
-    }
+    const colors = {
+      'ACTIVE': 'bg-green-500',
+      'EXPIRED': 'bg-red-500',
+      'PENDING_PAYMENT': 'bg-yellow-500',
+      'SUSPENDED': 'bg-gray-500'
+    };
+    return colors[status as keyof typeof colors] || 'bg-gray-500';
   };
 
   const getStatusText = (status: string) => {
-    switch (status) {
-      case 'ACTIVE': return 'Activa';
-      case 'EXPIRED': return 'Expirada';
-      case 'PENDING_PAYMENT': return 'Pago Pendiente';
-      case 'SUSPENDED': return 'Suspendida';
-      default: return status;
-    }
+    const texts = {
+      'ACTIVE': 'Activa',
+      'EXPIRED': 'Expirada',
+      'PENDING_PAYMENT': 'Pago Pendiente',
+      'SUSPENDED': 'Suspendida'
+    };
+    return texts[status as keyof typeof texts] || status;
   };
 
   const getDaysRemaining = (expiresAt: string) => {
     const today = new Date();
     const expiry = new Date(expiresAt);
     const diffTime = expiry.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
+
+  useEffect(() => {
+    // Simular carga rápida
+    const timer = setTimeout(() => setLoading(false), 500);
+    return () => clearTimeout(timer);
+  }, []);
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[1, 2, 3].map((i) => (
-            <Card key={i}>
-              <CardContent className="p-6">
-                <div className="animate-pulse space-y-4">
-                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                  <div className="h-8 bg-gray-200 rounded"></div>
-                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                </div>
-              </CardContent>
-            </Card>
+      <div className="space-y-6 animate-fade-in">
+        <div className="skeleton h-8 w-64 rounded"></div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="skeleton h-32 rounded-lg"></div>
           ))}
         </div>
       </div>
     );
   }
 
+  const daysRemaining = getDaysRemaining(membershipData.expiresAt);
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
+      {/* Header optimizado */}
+      <div className="animate-fade-in">
         <h1 className="text-3xl font-bold tracking-tight">Mi Dashboard</h1>
         <p className="text-muted-foreground">
           Estado de tu membresía y acceso al gimnasio
@@ -171,142 +136,78 @@ export default function MemberDashboard() {
       </div>
 
       {/* Información del Gimnasio */}
-      {gym && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User className="h-5 w-5" />
-              Mi Gimnasio
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <h3 className="font-semibold text-lg">{gym.name}</h3>
-              <p className="text-muted-foreground">{gym.address}</p>
-              {gym.phone && (
-                <p className="text-sm">📞 {gym.phone}</p>
-              )}
-              {gym.email && (
-                <p className="text-sm">✉️ {gym.email}</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Error state with retry */}
-      {error && (
-        <Alert variant="destructive">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription className="flex justify-between items-center">
-            {error}
-            <Button variant="outline" size="sm" onClick={handleRetry}>
-              Reintentar
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* Membership Info */}
-      {membership && (
-        <>
-          {/* Status Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Estado</CardTitle>
-                <CheckCircle className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  <Badge className={getStatusColor(membership.status)}>
-                    {getStatusText(membership.status)}
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Días Restantes</CardTitle>
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {getDaysRemaining(membership.expiresAt)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Vence el {new Date(membership.expiresAt).toLocaleDateString()}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Precio Mensual</CardTitle>
-                <CreditCard className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  ${membership.monthlyPrice?.toFixed(2)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Total pagado: ${membership.totalPaid.toFixed(2)}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Último Pago</CardTitle>
-                <Clock className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-sm font-bold">
-                  {membership.lastPayment 
-                    ? new Date(membership.lastPayment).toLocaleDateString()
-                    : "Sin pagos"
-                  }
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Renovación {membership.autoRenewal ? "automática" : "manual"}
-                </p>
-              </CardContent>
-            </Card>
+      <Card className="animate-fade-in">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <User className="h-5 w-5" />
+            Mi Gimnasio
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            <h3 className="font-semibold text-lg">{gymData.name}</h3>
+            <p className="text-muted-foreground">{gymData.address}</p>
+            <p className="text-sm">📞 {gymData.phone}</p>
+            <p className="text-sm">✉️ {gymData.email}</p>
           </div>
+        </CardContent>
+      </Card>
 
-          {/* Progress Bar */}
-          {membership.status === 'ACTIVE' && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Progreso de Membresía</CardTitle>
-                <CardDescription>
-                  Tiempo transcurrido en tu período actual
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Inicio: {new Date(membership.startDate).toLocaleDateString()}</span>
-                    <span>Vence: {new Date(membership.expiresAt).toLocaleDateString()}</span>
-                  </div>
-                  <Progress value={75} className="w-full" />
-                  <p className="text-xs text-muted-foreground text-center">
-                    Te quedan {getDaysRemaining(membership.expiresAt)} días
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </>
-      )}
+      {/* Status Cards optimizadas */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <MetricCard
+          title="Estado"
+          value={<Badge className={getStatusColor(membershipData.status)}>{getStatusText(membershipData.status)}</Badge>}
+          description="Estado de membresía"
+          icon={CheckCircle}
+        />
+        <MetricCard
+          title="Días Restantes"
+          value={daysRemaining}
+          description={`Vence el ${new Date(membershipData.expiresAt).toLocaleDateString()}`}
+          icon={Calendar}
+        />
+        <MetricCard
+          title="Precio Mensual"
+          value={membershipData.monthlyPrice}
+          description={`Total pagado: $${membershipData.totalPaid.toFixed(2)}`}
+          icon={CreditCard}
+        />
+        <MetricCard
+          title="Último Pago"
+          value={new Date(membershipData.lastPayment).toLocaleDateString()}
+          description={`Renovación ${membershipData.autoRenewal ? "automática" : "manual"}`}
+          icon={Clock}
+        />
+      </div>
 
-      {/* QR Code Section */}
+      {/* Progress Bar optimizada */}
+      <Card className="animate-fade-in">
+        <CardHeader>
+          <CardTitle>Progreso de Membresía</CardTitle>
+          <CardDescription>
+            Tiempo transcurrido en tu período actual
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span>Inicio: {new Date(membershipData.startDate).toLocaleDateString()}</span>
+              <span>Vence: {new Date(membershipData.expiresAt).toLocaleDateString()}</span>
+            </div>
+            <Progress value={75} className="w-full h-2" />
+            <p className="text-xs text-muted-foreground text-center">
+              Te quedan {daysRemaining} días
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* QR Code Section con lazy loading */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <QRGenerator />
         
-        {/* Quick Actions */}
-        <Card>
+        <Card className="animate-fade-in">
           <CardHeader>
             <CardTitle>Acciones Rápidas</CardTitle>
             <CardDescription>
@@ -315,62 +216,21 @@ export default function MemberDashboard() {
           </CardHeader>
           <CardContent className="space-y-4">
             <Link href="/member/qr-code">
-              <Button className="w-full" variant="outline">
+              <Button className="w-full hover-scale" variant="outline">
                 <QrCode className="h-4 w-4 mr-2" />
                 Ver Código QR Completo
               </Button>
             </Link>
             
             <Link href="/member/profile">
-              <Button className="w-full" variant="outline">
+              <Button className="w-full hover-scale" variant="outline">
                 <User className="h-4 w-4 mr-2" />
                 Editar Perfil
               </Button>
             </Link>
-
-            {membership?.status === 'PENDING_PAYMENT' && (
-              <Button className="w-full">
-                <CreditCard className="h-4 w-4 mr-2" />
-                Renovar Membresía
-              </Button>
-            )}
           </CardContent>
         </Card>
       </div>
-
-      {/* Recent Payments */}
-      {membership?.payments && membership.payments.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Últimos Pagos</CardTitle>
-            <CardDescription>
-              Historial de tus pagos recientes
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {membership.payments.slice(0, 5).map((payment) => (
-                <div key={payment.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div>
-                    <p className="font-medium">${payment.amount.toFixed(2)}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {payment.description || payment.method}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <Badge variant={payment.status === 'COMPLETED' ? 'default' : 'secondary'}>
-                      {payment.status}
-                    </Badge>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {new Date(payment.createdAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

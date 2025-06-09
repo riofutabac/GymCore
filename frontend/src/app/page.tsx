@@ -17,6 +17,7 @@ import {
   Package,
 } from "lucide-react";
 import type { Metadata } from 'next';
+import { memo } from 'react';
 
 export const metadata: Metadata = {
   title: 'GymCore - Gestión Integral de Gimnasios',
@@ -26,8 +27,8 @@ export const metadata: Metadata = {
   },
 };
 
-// Componente para las tarjetas de características para evitar repetición
-const FeatureCard = ({
+// Memoizar componente para evitar re-renders innecesarios
+const FeatureCard = memo(({
   icon,
   title,
   description,
@@ -39,15 +40,51 @@ const FeatureCard = ({
   <Card className="transition-all duration-300 ease-in-out transform bg-card/50 hover:bg-card/90 hover:-translate-y-1">
     <CardHeader className="flex flex-col items-center text-center">
       <div className="p-4 mb-4 rounded-full bg-primary/10">{icon}</div>
-      <CardTitle>{title}</CardTitle>
+      <CardTitle className="text-lg">{title}</CardTitle>
     </CardHeader>
     <CardContent>
-      <CardDescription className="text-center">
+      <CardDescription className="text-center text-sm">
         {description}
       </CardDescription>
     </CardContent>
   </Card>
-);
+));
+
+FeatureCard.displayName = 'FeatureCard';
+
+// Pre-definir las características para evitar recálculos
+const features = [
+  {
+    icon: <QrCode className="w-10 h-10 text-primary" />,
+    title: "Control de Acceso con QR",
+    description: "Acceso rápido, seguro y sin contacto para tus socios mediante códigos QR dinámicos y únicos."
+  },
+  {
+    icon: <Users className="w-10 h-10 text-primary" />,
+    title: "Gestión de Socios",
+    description: "Administra membresías, perfiles, pagos y seguimientos de manera centralizada y eficiente."
+  },
+  {
+    icon: <BarChart3 className="w-10 h-10 text-primary" />,
+    title: "Reportes y Analíticas",
+    description: "Obtén métricas clave sobre ingresos, asistencia y ventas para tomar decisiones informadas."
+  },
+  {
+    icon: <ShieldCheck className="w-10 h-10 text-primary" />,
+    title: "Seguridad y Roles",
+    description: "Asigna roles específicos (Gerente, Recepción, Cliente) con permisos definidos para cada función."
+  },
+  {
+    icon: <Package className="w-10 h-10 text-primary" />,
+    title: "Gestión de Inventario",
+    description: "Controla el stock de tus productos, registra ventas en el punto de venta (POS) y optimiza tu inventario."
+  },
+  {
+    icon: <Zap className="w-10 h-10 text-primary" />,
+    title: "Plataforma Moderna",
+    description: "Una interfaz rápida, intuitiva y adaptable a cualquier dispositivo para una experiencia de usuario superior."
+  }
+] as const;
 
 export default function Home() {
   return (
@@ -73,11 +110,10 @@ export default function Home() {
       <main className="flex-1">
         {/* Hero Section */}
         <section className="relative py-24 sm:py-32">
-          {/* Fondo decorativo */}
           <div
             aria-hidden="true"
             className="absolute inset-0 -z-10 h-full w-full bg-background bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] dark:bg-[radial-gradient(rgba(255,255,255,0.1)_1px,transparent_1px)] [background-size:16px_16px]"
-          ></div>
+          />
 
           <div className="container text-center">
             <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl">
@@ -116,36 +152,14 @@ export default function Home() {
               </p>
             </div>
             <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-              <FeatureCard
-                icon={<QrCode className="w-10 h-10 text-primary" />}
-                title="Control de Acceso con QR"
-                description="Acceso rápido, seguro y sin contacto para tus socios mediante códigos QR dinámicos y únicos."
-              />
-              <FeatureCard
-                icon={<Users className="w-10 h-10 text-primary" />}
-                title="Gestión de Socios"
-                description="Administra membresías, perfiles, pagos y seguimientos de manera centralizada y eficiente."
-              />
-              <FeatureCard
-                icon={<BarChart3 className="w-10 h-10 text-primary" />}
-                title="Reportes y Analíticas"
-                description="Obtén métricas clave sobre ingresos, asistencia y ventas para tomar decisiones informadas."
-              />
-              <FeatureCard
-                icon={<ShieldCheck className="w-10 h-10 text-primary" />}
-                title="Seguridad y Roles"
-                description="Asigna roles específicos (Gerente, Recepción, Cliente) con permisos definidos para cada función."
-              />
-              <FeatureCard
-                icon={<Package className="w-10 h-10 text-primary" />}
-                title="Gestión de Inventario"
-                description="Controla el stock de tus productos, registra ventas en el punto de venta (POS) y optimiza tu inventario."
-              />
-              <FeatureCard
-                icon={<Zap className="w-10 h-10 text-primary" />}
-                title="Plataforma Moderna"
-                description="Una interfaz rápida, intuitiva y adaptable a cualquier dispositivo para una experiencia de usuario superior."
-              />
+              {features.map((feature, index) => (
+                <FeatureCard
+                  key={index}
+                  icon={feature.icon}
+                  title={feature.title}
+                  description={feature.description}
+                />
+              ))}
             </div>
           </div>
         </section>

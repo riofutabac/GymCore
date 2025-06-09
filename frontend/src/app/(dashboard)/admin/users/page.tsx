@@ -28,6 +28,7 @@ import {
   Crown,
   Shield
 } from "lucide-react";
+import { authAPI } from "@/lib/api";
 
 interface User {
   id: string;
@@ -125,10 +126,13 @@ export default function UsersManagementPage() {
 
   const createUser = async () => {
     try {
-      // Aquí iría la llamada real a la API
+      // FIX: Llamar a la API para crear el usuario
+      const response = await authAPI.register(newUser.email, newUser.password, newUser.name);
+      
+      // Agregar el nuevo usuario a la lista local
       const newUserData = {
         ...newUser,
-        id: Date.now().toString(),
+        id: response.user.id,
         isActive: true,
         emailVerified: false,
         createdAt: new Date().toISOString(),
@@ -138,7 +142,7 @@ export default function UsersManagementPage() {
       
       toast({
         title: "Usuario creado",
-        description: "El usuario se ha creado correctamente",
+        description: "El usuario se ha creado correctamente en la base de datos",
       });
       
       setIsCreateDialogOpen(false);

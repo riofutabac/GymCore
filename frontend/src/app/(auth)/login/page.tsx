@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,7 @@ export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
@@ -27,31 +27,32 @@ export default function LoginPage() {
       
       const { user, token } = response;
       
-      // Guardar token en localStorage
+      // Optimizar almacenamiento
+      const userString = JSON.stringify(user);
       localStorage.setItem("token", token);
-      localStorage.setItem("user", JSON.stringify(user));
+      localStorage.setItem("user", userString);
 
       toast({
         title: "¡Bienvenido!",
         description: "Has iniciado sesión correctamente.",
       });
 
-      // Redirigir según el rol
+      // Usar replace para evitar back button
       switch (user.role) {
         case "CLIENT":
-          router.push("/member");
+          router.replace("/member");
           break;
         case "RECEPTION":
-          router.push("/reception");
+          router.replace("/reception");
           break;
         case "MANAGER":
-          router.push("/manager");
+          router.replace("/manager");
           break;
         case "SYS_ADMIN":
-          router.push("/admin");
+          router.replace("/admin");
           break;
         default:
-          router.push("/member");
+          router.replace("/member");
       }
     } catch (error: any) {
       toast({
@@ -62,7 +63,7 @@ export default function LoginPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [email, password, router, toast]);
 
   return (
     <div className="flex items-center justify-center min-h-screen px-4 py-12 bg-muted/40 sm:px-6 lg:px-8">

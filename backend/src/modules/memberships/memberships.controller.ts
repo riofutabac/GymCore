@@ -16,6 +16,26 @@ export class MembershipsController {
     return this.membershipsService.getMyMembership(userId);
   }
 
+  @Get('all')
+  @UseGuards(RoleGuard)
+  @Roles(['MANAGER', 'SYS_ADMIN'])
+  async getAllMemberships(@CurrentUser() user: any) {
+    console.log('🎫 [MEMBERSHIPS] Getting all memberships for user:', user);
+    
+    let gymId = user.staffOfGymId || user.memberOfGymId;
+    
+    if (user.role === 'SYS_ADMIN' && !gymId) {
+      // Para administradores del sistema, obtener su gimnasio
+      const userWithGym = await this.membershipsService['prisma'].user.findUnique({
+        where: { id: user.id },
+        include: { ownedGym: true }
+      });
+      gymId = userWithGym?.ownedGym?.id;
+    }
+    
+    return this.membershipsService.getAllMemberships(gymId);
+  }
+
   @Post(':id/renew')
   @UseGuards(RoleGuard)
   @Roles(['CLIENT', 'RECEPTION', 'MANAGER'])

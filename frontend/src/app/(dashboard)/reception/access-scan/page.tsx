@@ -83,6 +83,18 @@ export default function AccessScanPage() {
     }
   };
 
+  // FIX: Función para simular escaneo de QR
+  const simulateScan = () => {
+    // Simula un código QR válido del cliente de prueba
+    const mockUserId = 'client-demo-id';
+    const mockQrData = `${mockUserId}-${Date.now()}`;
+    setQrData(mockQrData);
+    toast({
+      title: "QR Simulado",
+      description: "Datos de QR de prueba insertados. Haz clic en 'Validar'.",
+    });
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -140,6 +152,16 @@ export default function AccessScanPage() {
                   Validar Acceso
                 </>
               )}
+            </Button>
+
+            {/* FIX: Botón para simular escaneo */}
+            <Button 
+              onClick={simulateScan} 
+              variant="outline" 
+              className="w-full"
+            >
+              <QrCode className="h-4 w-4 mr-2" />
+              Simular Escaneo de Cliente de Prueba
             </Button>
 
             {/* Instructions */}

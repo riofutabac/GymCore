@@ -16,11 +16,16 @@ export class InventoryService {
     });
   }
 
-  async getProducts(gymId: string) {
-    return this.prisma.product.findMany({
-      where: { gymId },
-      orderBy: { createdAt: 'desc' },
-    });
+  async getProducts(gymId?: string) {
+    const whereClause = gymId ? { gymId } : {};
+    
+    return {
+      success: true,
+      data: await this.prisma.product.findMany({
+        where: whereClause,
+        orderBy: { createdAt: 'desc' },
+      }),
+    };
   }
 
   async getProductById(id: string) {
@@ -29,7 +34,7 @@ export class InventoryService {
     });
     
     if (!product) {
-      throw new NotFoundException(`Product with ID ${id} not found`);
+      throw new NotFoundException(`Producto con ID ${id} no encontrado`);
     }
     
     return product;
@@ -50,7 +55,7 @@ export class InventoryService {
 
   async recordSale(recordSaleDto: RecordSaleDto, sellerId: string, gymId: string) {
     return this.prisma.$transaction(async (tx) => {
-      // Create the sale
+      // Crear la venta
       const sale = await tx.sale.create({
         data: {
           total: recordSaleDto.total,
@@ -63,7 +68,7 @@ export class InventoryService {
         },
       });
 
-      // Create sale items and update product stock
+      // Crear items de venta y actualizar stock
       for (const item of recordSaleDto.items) {
         await tx.saleItem.create({
           data: {
@@ -75,7 +80,7 @@ export class InventoryService {
           },
         });
 
-        // Update product stock
+        // Actualizar stock del producto
         await tx.product.update({
           where: { id: item.productId },
           data: {
@@ -86,27 +91,33 @@ export class InventoryService {
         });
       }
 
-      return sale;
+      return {
+        success: true,
+        data: sale,
+      };
     });
   }
 
   async getSales(gymId: string) {
-    return this.prisma.sale.findMany({
-      where: { gymId },
-      include: {
-        items: {
-          include: {
-            product: true,
+    return {
+      success: true,
+      data: await this.prisma.sale.findMany({
+        where: { gymId },
+        include: {
+          items: {
+            include: {
+              product: true,
+            },
+          },
+          seller: {
+            select: {
+              name: true,
+              email: true,
+            },
           },
         },
-        seller: {
-          select: {
-            name: true,
-            email: true,
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+        orderBy: { createdAt: 'desc' },
+      }),
+    };
   }
 }

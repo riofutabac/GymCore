@@ -1,8 +1,11 @@
 import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { Observable } from 'rxjs';
+import { AuthService } from '../../auth/auth.service';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
+  constructor(private authService: AuthService) {}
+
   canActivate(
     context: ExecutionContext,
   ): boolean | Promise<boolean> | Observable<boolean> {
@@ -19,18 +22,19 @@ export class AuthGuard implements CanActivate {
       throw new UnauthorizedException('Invalid authorization format');
     }
 
-    // Mock user validation - in real app, validate token properly
-    if (token.startsWith('mock-token-')) {
-      const userId = token.replace('mock-token-', '');
-      request.user = { 
-        id: userId, 
-        email: `user${userId}@gym.com`, 
-        role: 'CLIENT',
-        gymId: 'mock-gym-id' 
-      };
-      return true;
-    }
+    return this.validateToken(token, request);
+  }
 
-    throw new UnauthorizedException('Invalid token');
+  private async validateToken(token: string, request: any): Promise<boolean> {
+    try {
+      const user = await this.authService.validateToken(token);
+      if (!user) {
+        throw new UnauthorizedException('Invalid token');
+      }
+      request.user = user;
+      return true;
+    } catch (error) {
+      throw new UnauthorizedException('Invalid token');
+    }
   }
 }

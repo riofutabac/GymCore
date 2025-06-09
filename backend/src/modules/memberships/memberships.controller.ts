@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, UseGuards, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UseGuards } from '@nestjs/common';
 import { MembershipsService } from './memberships.service';
 import { RenewMembershipDto } from './dto/renew-membership.dto';
 import { AuthGuard } from '../../common/guards/auth.guard';
@@ -6,12 +6,12 @@ import { RoleGuard } from '../../common/guards/role.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
-@Controller('api/memberships')
+@Controller('memberships')
 @UseGuards(AuthGuard)
 export class MembershipsController {
   constructor(private readonly membershipsService: MembershipsService) {}
 
-  @Get('my-membership')
+  @Get('my')
   async getMyMembership(@CurrentUser('id') userId: string) {
     return this.membershipsService.getMyMembership(userId);
   }

@@ -1,22 +1,13 @@
-// Base API configuration - Connect directly to NestJS backend
-const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:3001';
+// API configuration for GymCore frontend
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 const API_TIMEOUT = 10000;
-const DEBUG = process.env.NEXT_PUBLIC_DEBUG === 'true';
+const DEBUG = process.env.NODE_ENV === 'development';
 
 // Debug logging function
 const debugLog = (message: string, data?: any) => {
   if (DEBUG) {
     console.log(`[API DEBUG] ${message}`, data || '');
   }
-};
-
-// Connection debugging function - simplified for Next.js API routes
-const debugConnection = async () => {
-  if (!DEBUG) return;
-  
-  console.group('🔍 [CONNECTION DEBUG] Using Next.js API routes...');
-  console.log('✅ Using internal Next.js API routes - no external connection needed');
-  console.groupEnd();
 };
 
 // Helper function to get auth token
@@ -67,6 +58,7 @@ const handleResponse = async (response: Response) => {
       debugLog('Unauthorized - clearing token and redirecting');
       if (typeof window !== 'undefined') {
         localStorage.removeItem('token');
+        localStorage.removeItem('user');
         window.location.href = '/login';
       }
     }
@@ -93,15 +85,9 @@ const handleResponse = async (response: Response) => {
   }
 };
 
-// Generic API request function with enhanced debugging
+// Generic API request function
 const apiRequest = async (endpoint: string, options: RequestInit) => {
   const url = `${API_BASE_URL}${endpoint}`;
-  
-  // Run connection debug on first API call
-  if (DEBUG && typeof window !== 'undefined' && !(window as any).connectionDebugRun) {
-    (window as any).connectionDebugRun = true;
-    await debugConnection();
-  }
   
   debugLog(`🚀 Making request to: ${url}`, {
     method: options.method,
@@ -129,57 +115,31 @@ const apiRequest = async (endpoint: string, options: RequestInit) => {
     
     clearTimeout(timeoutId);
     
-    // Enhanced response debugging
-    debugLog(`📊 Response details:`, {
-      status: response.status,
-      statusText: response.statusText,
-      headers: Object.fromEntries(response.headers.entries()),
-      url: response.url,
-      redirected: response.redirected
-    });
-    
     return await handleResponse(response);
   } catch (error) {
     clearTimeout(timeoutId);
     
-    // Enhanced error debugging
-    console.group('🚨 [API ERROR] Request failed');
-    debugLog('Error details:', error);
-    
     if (error instanceof Error) {
-      debugLog('Error name:', error.name);
-      debugLog('Error message:', error.message);
+      debugLog('Error details:', error);
       
       if (error.name === 'AbortError') {
-        console.log('⏱️ Request was aborted (timeout)');
-      } else if (error.name === 'TypeError') {
-        if (error.message.includes('fetch')) {
-          console.log('🔌 Network error: Cannot connect to API');
-          console.log('❓ This might be a Next.js API route issue');
-        }
+        throw new Error('Request timeout');
       }
-    }
-    
-    console.groupEnd();
-    
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error('Request timeout');
-    }
-    if (error instanceof Error && (error.message.includes('fetch') || error.message.includes('NetworkError'))) {
-      debugLog('🔌 Network error - API route might not exist');
-      throw new Error('Network error - API route not found or not working properly.');
+      if (error.message.includes('fetch') || error.message.includes('NetworkError')) {
+        throw new Error('Network error - Cannot connect to API server.');
+      }
     }
     throw error;
   }
 };
 
-// Auth API functions with enhanced debugging
+// Auth API functions
 export const authAPI = {
   login: async (email: string, password: string) => {
     console.group('🔐 [AUTH] Login attempt');
     debugLog('Credentials:', { email, passwordLength: password.length });
     try {
-      const result = await apiRequest('/api/auth/login', createFetchOptions('POST', { email, password }));
+      const result = await apiRequest('/auth/login', createFetchOptions('POST', { email, password }));
       console.log('✅ Login successful');
       console.groupEnd();
       return result;
@@ -194,7 +154,7 @@ export const authAPI = {
     console.group('📝 [AUTH] Register attempt');
     debugLog('User data:', { email, name, passwordLength: password.length });
     try {
-      const result = await apiRequest('/api/auth/register', createFetchOptions('POST', { email, password, name }));
+      const result = await apiRequest('/auth/register', createFetchOptions('POST', { email, password, name }));
       console.log('✅ Register successful');
       console.groupEnd();
       return result;
@@ -208,7 +168,7 @@ export const authAPI = {
   logout: async () => {
     debugLog('AUTH: Attempting logout');
     try {
-      const result = await apiRequest('/api/auth/logout', createFetchOptions('POST'));
+      const result = await apiRequest('/auth/logout', createFetchOptions('POST'));
       debugLog('AUTH: Logout successful');
       return result;
     } catch (error) {
@@ -220,7 +180,7 @@ export const authAPI = {
   me: async () => {
     debugLog('AUTH: Getting current user');
     try {
-      const result = await apiRequest('/api/auth/me', createFetchOptions('GET'));
+      const result = await apiRequest('/auth/me', createFetchOptions('GET'));
       debugLog('AUTH: Got current user', result);
       return result;
     } catch (error) {
@@ -232,88 +192,141 @@ export const authAPI = {
 
 // Access Control API functions
 export const accessControlApi = {
+  getMyQR: async () => {
+    debugLog('ACCESS: Getting my QR code');
+    try {
+      const result = await apiRequest('/access-control/my-qr', createFetchOptions('GET'));
+      debugLog('ACCESS: Got QR code', result);
+      return { data: result };
+    } catch (error) {
+      debugLog('ACCESS: Failed to get QR code', error);
+      throw error;
+    }
+  },
+  
+  validateQR: async (qrData: string) => {
+    debugLog('ACCESS: Validating QR code');
+    try {
+      const result = await apiRequest('/access-control/validate-qr', createFetchOptions('POST', { qrData }));
+      debugLog('ACCESS: QR validation result', result);
+      return { data: result };
+    } catch (error) {
+      debugLog('ACCESS: QR validation failed', error);
+      throw error;
+    }
+  },
+  
   checkAccess: async (memberId: string) => {
-    return await apiRequest('/api/access-control/check', createFetchOptions('POST', { memberId }));
+    return await apiRequest('/access-control/check', createFetchOptions('POST', { memberId }));
   },
   
   getAccessLogs: async () => {
-    return await apiRequest('/api/access-control/logs', createFetchOptions('GET'));
+    return await apiRequest('/access-control/logs', createFetchOptions('GET'));
   }
 };
 
 // Inventory API functions
 export const inventoryApi = {
-  getAll: async () => {
-    return await apiRequest('/api/inventory', createFetchOptions('GET'));
+  getProducts: async () => {
+    debugLog('INVENTORY: Getting products');
+    try {
+      const result = await apiRequest('/inventory/products', createFetchOptions('GET'));
+      debugLog('INVENTORY: Got products', result);
+      return result;
+    } catch (error) {
+      debugLog('INVENTORY: Failed to get products', error);
+      throw error;
+    }
   },
   
-  create: async (itemData: any) => {
-    return await apiRequest('/api/inventory', createFetchOptions('POST', itemData));
+  createProduct: async (productData: any) => {
+    debugLog('INVENTORY: Creating product');
+    try {
+      const result = await apiRequest('/inventory/products', createFetchOptions('POST', productData));
+      debugLog('INVENTORY: Product created', result);
+      return result;
+    } catch (error) {
+      debugLog('INVENTORY: Failed to create product', error);
+      throw error;
+    }
   },
   
-  update: async (id: string, itemData: any) => {
-    return await apiRequest(`/api/inventory/${id}`, createFetchOptions('PUT', itemData));
+  recordSale: async (saleData: any) => {
+    debugLog('INVENTORY: Recording sale');
+    try {
+      const result = await apiRequest('/inventory/sales', createFetchOptions('POST', saleData));
+      debugLog('INVENTORY: Sale recorded', result);
+      return result;
+    } catch (error) {
+      debugLog('INVENTORY: Failed to record sale', error);
+      throw error;
+    }
   },
   
-  delete: async (id: string) => {
-    return await apiRequest(`/api/inventory/${id}`, createFetchOptions('DELETE'));
+  getSales: async () => {
+    debugLog('INVENTORY: Getting sales');
+    try {
+      const result = await apiRequest('/inventory/sales', createFetchOptions('GET'));
+      debugLog('INVENTORY: Got sales', result);
+      return result;
+    } catch (error) {
+      debugLog('INVENTORY: Failed to get sales', error);
+      throw error;
+    }
   }
 };
 
 // Gyms API functions
-export const gymsApi = {
+export const gymsAPI = {
   getAll: async () => {
-    return await apiRequest('/api/gyms', createFetchOptions('GET'));
+    return await apiRequest('/gyms', createFetchOptions('GET'));
   },
   
   getById: async (id: string) => {
-    return await apiRequest(`/api/gyms/${id}`, createFetchOptions('GET'));
+    return await apiRequest(`/gyms/${id}`, createFetchOptions('GET'));
   },
   
   create: async (gymData: any) => {
-    return await apiRequest('/api/gyms', createFetchOptions('POST', gymData));
+    return await apiRequest('/gyms', createFetchOptions('POST', gymData));
   },
   
   update: async (id: string, gymData: any) => {
-    return await apiRequest(`/api/gyms/${id}`, createFetchOptions('PUT', gymData));
+    return await apiRequest(`/gyms/${id}`, createFetchOptions('PUT', gymData));
   },
   
   delete: async (id: string) => {
-    return await apiRequest(`/api/gyms/${id}`, createFetchOptions('DELETE'));
+    return await apiRequest(`/gyms/${id}`, createFetchOptions('DELETE'));
   },
   
   joinByCode: async (code: string) => {
-    return await apiRequest('/api/gyms/join', createFetchOptions('POST', { code }));
+    debugLog('GYMS: Joining by code');
+    try {
+      const result = await apiRequest('/gyms/join', createFetchOptions('POST', { joinCode: code }));
+      debugLog('GYMS: Joined successfully', result);
+      return result;
+    } catch (error) {
+      debugLog('GYMS: Failed to join', error);
+      throw error;
+    }
   }
 };
 
 // Memberships API functions
-export const membershipsApi = {
-  getAll: async () => {
-    return await apiRequest('/api/memberships', createFetchOptions('GET'));
-  },
-  
-  create: async (membershipData: any) => {
-    return await apiRequest('/api/memberships', createFetchOptions('POST', membershipData));
-  },
-  
-  update: async (id: string, membershipData: any) => {
-    return await apiRequest(`/api/memberships/${id}`, createFetchOptions('PUT', membershipData));
-  }
-};
-
-// Real API functions - replace mock functions
 export const membershipApi = {
   getMy: async () => {
     debugLog('MEMBERSHIP: Getting my membership');
     try {
-      const result = await apiRequest('/api/memberships/my', createFetchOptions('GET'));
+      const result = await apiRequest('/memberships/my', createFetchOptions('GET'));
       debugLog('MEMBERSHIP: Got my membership', result);
       return result;
     } catch (error) {
       debugLog('MEMBERSHIP: Failed to get my membership', error);
       throw error;
     }
+  },
+  
+  renew: async (membershipId: string, renewData: any) => {
+    return await apiRequest(`/memberships/${membershipId}/renew`, createFetchOptions('POST', renewData));
   }
 };
 
@@ -321,7 +334,7 @@ export const gymApi = {
   getMyGym: async () => {
     debugLog('GYM: Getting my gym');
     try {
-      const result = await apiRequest('/api/gyms/my', createFetchOptions('GET'));
+      const result = await apiRequest('/gyms/my', createFetchOptions('GET'));
       debugLog('GYM: Got my gym', result);
       return result;
     } catch (error) {
@@ -331,14 +344,12 @@ export const gymApi = {
   }
 };
 
-// Export default API request function for custom usage
-export default apiRequest;
-
-// Export apiClient alias for backward compatibility
-export const apiClient = apiRequest;
-
-// Keep the uppercase versions for backward compatibility
+// Export aliases for backward compatibility
 export const accessControlAPI = accessControlApi;
 export const inventoryAPI = inventoryApi;
-export const gymsAPI = gymsApi;
-export const membershipsAPI = membershipsApi;
+export const gymsApi = gymsAPI;
+export const membershipsAPI = membershipApi;
+
+// Export default API request function
+export default apiRequest;
+export const apiClient = apiRequest;

@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import { Dumbbell, Loader2, Users } from "lucide-react";
-import { gymApi } from "@/lib/api";
+import { gymsAPI } from "@/lib/api";
 
 export default function GymJoinPage() {
   const [joinCode, setJoinCode] = useState("");
@@ -32,11 +32,11 @@ export default function GymJoinPage() {
     setIsLoading(true);
 
     try {
-      const response = await gymApi.joinByCode(joinCode.trim().toUpperCase());
+      const response = await gymsAPI.joinByCode(joinCode);
       
       toast({
         title: "¡Te has unido al gimnasio!",
-        description: `Bienvenido a ${response.data.name}`,
+        description: `Bienvenido a ${response.gym?.name || 'tu nuevo gimnasio'}`,
       });
 
       // Redirigir al dashboard de cliente
@@ -45,7 +45,7 @@ export default function GymJoinPage() {
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.response?.data?.message || "Código de gimnasio inválido",
+        description: error.message || "Código de gimnasio inválido",
       });
     } finally {
       setIsLoading(false);
@@ -112,12 +112,12 @@ export default function GymJoinPage() {
           {/* Información adicional */}
           <div className="mt-6 p-4 bg-blue-50 rounded-lg">
             <h4 className="text-sm font-medium text-blue-900 mb-2">
-              ℹ️ ¿Cómo obtener el código?
+              ℹ️ Códigos de prueba:
             </h4>
             <ul className="text-xs text-blue-800 space-y-1">
-              <li>• Pregunta en recepción de tu gimnasio</li>
-              <li>• Revisa el email de bienvenida</li>
-              <li>• Busca en las redes sociales del gimnasio</li>
+              <li>• <strong>GYM123</strong> - PowerFit Gym</li>
+              <li>• <strong>FIT456</strong> - FitnessWorld</li>
+              <li>• <strong>HEALTH789</strong> - HealthClub</li>
             </ul>
           </div>
         </CardContent>

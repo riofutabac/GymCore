@@ -13,30 +13,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // TODO: Replace with actual authentication logic
-    // This is a placeholder - integrate with your actual auth system
-    if (email === 'admin@gym.com' && password === 'admin123') {
-      const response = NextResponse.json(
-        { 
-          success: true, 
-          user: { 
-            id: 1, 
-            email, 
-            role: 'admin' 
-          } 
+    // Test credentials for different user types
+    const testUsers = [
+      { email: 'admin@gym.com', password: 'password123', role: 'MANAGER', id: 1, name: 'Admin User' },
+      { email: 'client@gym.com', password: 'password123', role: 'CLIENT', id: 2, name: 'Client User' },
+      { email: 'reception@gym.com', password: 'password123', role: 'RECEPTION', id: 3, name: 'Reception User' },
+    ];
+
+    const user = testUsers.find(u => u.email === email && u.password === password);
+
+    if (user) {
+      // Generate a simple JWT-like token (in production use proper JWT)
+      const token = `jwt-token-${user.id}-${Date.now()}`;
+      
+      return NextResponse.json({
+        success: true,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role
         },
-        { status: 200 }
-      );
-
-      // Set authentication cookie (optional)
-      response.cookies.set('auth-token', 'sample-jwt-token', {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        maxAge: 86400 // 24 hours
-      });
-
-      return response;
+        token
+      }, { status: 200 });
     }
 
     return NextResponse.json(

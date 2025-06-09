@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import { Dumbbell, Loader2 } from "lucide-react";
-import { apiClient } from "@/lib/api";
+import { authAPI } from "@/lib/api";
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -44,16 +44,12 @@ export default function RegisterPage() {
     setIsLoading(true);
 
     try {
-      const response = await apiClient.post("/auth/register", {
-        email: formData.email,
-        password: formData.password,
-        name: formData.name,
-      });
+      const response = await authAPI.register(formData.email, formData.password, formData.name);
 
-      const { user, access_token } = response.data;
+      const { user, token } = response;
       
       // Guardar token en localStorage
-      localStorage.setItem("token", access_token);
+      localStorage.setItem("token", token);
       localStorage.setItem("user", JSON.stringify(user));
 
       toast({
@@ -67,7 +63,7 @@ export default function RegisterPage() {
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.response?.data?.message || "Error al registrarse",
+        description: error.message || "Error al registrarse",
       });
     } finally {
       setIsLoading(false);

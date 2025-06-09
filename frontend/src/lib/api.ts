@@ -1,5 +1,5 @@
-// Base API configuration
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+// Base API configuration - Use Next.js API routes
+const API_BASE_URL = '';
 const API_TIMEOUT = 10000;
 const DEBUG = process.env.NEXT_PUBLIC_DEBUG === 'true';
 
@@ -10,63 +10,12 @@ const debugLog = (message: string, data?: any) => {
   }
 };
 
-// Connection debugging function
+// Connection debugging function - simplified for Next.js API routes
 const debugConnection = async () => {
   if (!DEBUG) return;
   
-  console.group('🔍 [CONNECTION DEBUG] Checking server status...');
-  
-  try {
-    // Test basic connectivity
-    debugLog('Testing basic connectivity to:', API_BASE_URL);
-    
-    const testResponse = await fetch(API_BASE_URL, {
-      method: 'GET',
-      mode: 'cors',
-      signal: AbortSignal.timeout(5000)
-    });
-    
-    debugLog(`Server responded with status: ${testResponse.status}`);
-    
-    if (testResponse.ok) {
-      console.log('✅ Server is reachable');
-    } else {
-      console.log('❌ Server responded but with error status');
-    }
-    
-  } catch (error) {
-    console.log('❌ Cannot reach server');
-    
-    if (error instanceof Error) {
-      if (error.name === 'TypeError' && error.message.includes('fetch')) {
-        console.log('🔌 Network Error: Server might be offline or CORS issue');
-      } else if (error.name === 'AbortError') {
-        console.log('⏱️ Timeout: Server is taking too long to respond');
-      } else {
-        console.log('🚫 Unknown connection error:', error.message);
-      }
-    }
-  }
-  
-  // Test specific auth endpoint
-  try {
-    debugLog('Testing auth endpoint availability...');
-    const authTest = await fetch(`${API_BASE_URL}/api/auth`, {
-      method: 'OPTIONS',
-      mode: 'cors',
-      signal: AbortSignal.timeout(3000)
-    });
-    
-    debugLog(`Auth endpoint status: ${authTest.status}`);
-    
-    if (authTest.status === 200 || authTest.status === 404) {
-      console.log('✅ Auth endpoint is reachable');
-    }
-    
-  } catch (authError) {
-    console.log('❌ Auth endpoint not reachable:', authError);
-  }
-  
+  console.group('🔍 [CONNECTION DEBUG] Using Next.js API routes...');
+  console.log('✅ Using internal Next.js API routes - no external connection needed');
   console.groupEnd();
 };
 
@@ -149,8 +98,8 @@ const apiRequest = async (endpoint: string, options: RequestInit) => {
   const url = `${API_BASE_URL}${endpoint}`;
   
   // Run connection debug on first API call
-  if (DEBUG && !window.connectionDebugRun) {
-    window.connectionDebugRun = true;
+  if (DEBUG && typeof window !== 'undefined' && !(window as any).connectionDebugRun) {
+    (window as any).connectionDebugRun = true;
     await debugConnection();
   }
   
@@ -173,8 +122,6 @@ const apiRequest = async (endpoint: string, options: RequestInit) => {
     const response = await fetch(url, {
       ...options,
       signal: controller.signal,
-      mode: 'cors',
-      credentials: 'omit'
     });
     
     const endTime = performance.now();
@@ -207,14 +154,8 @@ const apiRequest = async (endpoint: string, options: RequestInit) => {
         console.log('⏱️ Request was aborted (timeout)');
       } else if (error.name === 'TypeError') {
         if (error.message.includes('fetch')) {
-          console.log('🔌 Network error: Cannot connect to server');
-          console.log('❓ Possible causes:');
-          console.log('  - Backend server is not running');
-          console.log('  - Wrong API URL in .env.local');
-          console.log('  - CORS configuration issue');
-          console.log('  - Firewall blocking the connection');
-        } else if (error.message.includes('CORS')) {
-          console.log('🚫 CORS error: Server is not allowing frontend connections');
+          console.log('🔌 Network error: Cannot connect to API');
+          console.log('❓ This might be a Next.js API route issue');
         }
       }
     }
@@ -225,8 +166,8 @@ const apiRequest = async (endpoint: string, options: RequestInit) => {
       throw new Error('Request timeout');
     }
     if (error instanceof Error && (error.message.includes('fetch') || error.message.includes('NetworkError'))) {
-      debugLog('🔌 Network error - server might be down');
-      throw new Error('Network error - cannot connect to server. Check if backend is running.');
+      debugLog('🔌 Network error - API route might not exist');
+      throw new Error('Network error - API route not found or not working properly.');
     }
     throw error;
   }
@@ -309,6 +250,10 @@ export const gymsAPI = {
   
   delete: async (id: string) => {
     return await apiRequest(`/api/gyms/${id}`, createFetchOptions('DELETE'));
+  },
+  
+  joinByCode: async (code: string) => {
+    return await apiRequest('/api/gyms/join', createFetchOptions('POST', { code }));
   }
 };
 

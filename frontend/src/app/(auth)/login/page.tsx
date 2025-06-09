@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import { Dumbbell, Loader2 } from "lucide-react";
-import { apiClient } from "@/lib/api";
+import { authAPI } from "@/lib/api";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("admin@gym.com");
@@ -23,15 +23,12 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const response = await apiClient.post("/auth/login", {
-        email,
-        password,
-      });
-
-      const { user, access_token } = response.data;
+      const response = await authAPI.login(email, password);
+      
+      const { user, token } = response;
       
       // Guardar token en localStorage
-      localStorage.setItem("token", access_token);
+      localStorage.setItem("token", token);
       localStorage.setItem("user", JSON.stringify(user));
 
       toast({
@@ -60,7 +57,7 @@ export default function LoginPage() {
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.response?.data?.message || "Error al iniciar sesión",
+        description: error.message || "Error al iniciar sesión",
       });
     } finally {
       setIsLoading(false);
@@ -68,11 +65,11 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/40 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="flex items-center justify-center min-h-screen px-4 py-12 bg-muted/40 sm:px-6 lg:px-8">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <div className="flex items-center justify-center mb-4">
-            <Dumbbell className="h-8 w-8 text-primary" />
+            <Dumbbell className="w-8 h-8 text-primary" />
             <span className="ml-2 text-2xl font-bold">GymCore</span>
           </div>
           <CardTitle className="text-center">Iniciar Sesión</CardTitle>
@@ -108,20 +105,20 @@ export default function LoginPage() {
               className="w-full"
               disabled={isLoading}
             >
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Iniciar Sesión
             </Button>
           </form>
-          <div className="mt-4 text-center text-sm">
+          <div className="mt-4 text-sm text-center">
             ¿No tienes cuenta?{" "}
             <Link href="/register" className="text-primary hover:underline">
               Regístrate aquí
             </Link>
           </div>
           
-          <div className="mt-6 p-4 bg-secondary rounded-lg">
-            <h4 className="text-sm font-medium mb-2">Usuarios de prueba:</h4>
-            <div className="text-xs space-y-1 text-muted-foreground">
+          <div className="p-4 mt-6 rounded-lg bg-secondary">
+            <h4 className="mb-2 text-sm font-medium">Usuarios de prueba:</h4>
+            <div className="space-y-1 text-xs text-muted-foreground">
               <p>👤 <span className="font-semibold">Manager:</span> admin@gym.com / password123</p>
               <p>👤 <span className="font-semibold">Cliente:</span> client@gym.com / password123</p>
             </div>

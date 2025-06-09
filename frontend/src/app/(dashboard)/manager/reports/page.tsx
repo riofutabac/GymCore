@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useToast } from "@/components/ui/use-toast";
 import { 
   BarChart3, 
   TrendingUp, 
@@ -14,84 +15,112 @@ import {
   Calendar,
   Download,
   Filter,
-  Activity
+  Activity,
+  Loader2
 } from "lucide-react";
+import { inventoryApi, membershipApi } from "@/lib/api";
 
 interface ReportData {
-  period: string;
-  revenue: number;
-  members: number;
-  accessCount: number;
-  salesCount: number;
-  growth: number;
+  totalRevenue: number;
+  totalMembers: number;
+  totalSales: number;
+  totalProducts: number;
+  recentSales: any[];
+  recentMembers: any[];
 }
 
 export default function ReportsPage() {
   const [selectedPeriod, setSelectedPeriod] = useState("month");
-  const [reportData, setReportData] = useState<ReportData[]>([]);
+  const [reportData, setReportData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
-  // Datos simulados para demostración
   useEffect(() => {
     loadReportData();
   }, [selectedPeriod]);
 
   const loadReportData = async () => {
-    setLoading(true);
-    
-    // Simulamos datos de reportes
-    const mockData: ReportData[] = [
-      {
-        period: "Enero 2024",
-        revenue: 15420.50,
-        members: 234,
-        accessCount: 1850,
-        salesCount: 156,
-        growth: 12.5
-      },
-      {
-        period: "Febrero 2024",
-        revenue: 16890.75,
-        members: 251,
-        accessCount: 2100,
-        salesCount: 178,
-        growth: 9.5
-      },
-      {
-        period: "Marzo 2024",
-        revenue: 18250.00,
-        members: 267,
-        accessCount: 2350,
-        salesCount: 195,
-        growth: 8.1
-      },
-      {
-        period: "Abril 2024",
-        revenue: 17650.25,
-        members: 259,
-        accessCount: 2200,
-        salesCount: 182,
-        growth: -3.3
-      }
-    ];
-    
-    setTimeout(() => {
-      setReportData(mockData);
+    try {
+      setLoading(true);
+      
+      // Cargar datos reales de la API
+      const [salesResponse, membersResponse, productsResponse] = await Promise.all([
+        inventoryApi.getSales(),
+        membershipApi.getAllMemberships(),
+        inventoryApi.getProducts()
+      ]);
+
+      const sales = salesResponse.data || [];
+      const members = membersResponse.data || [];
+      const products = productsResponse.data || [];
+
+      // Calcular métricas
+      const totalRevenue = sales.reduce((sum: number, sale: any) => sum + sale.total, 0);
+      const totalSales = sales.length;
+      const totalMembers = members.length;
+      const totalProducts = products.length;
+
+      setReportData({
+        totalRevenue,
+        totalMembers,
+        totalSales,
+        totalProducts,
+        recentSales: sales.slice(0, 5),
+        recentMembers: members.slice(0, 5)
+      });
+
+    } catch (error: any) {
+      console.error('Error loading report data:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "No se pudieron cargar los datos del reporte",
+      });
+    } finally {
       setLoading(false);
-    }, 1000);
-  };
-
-  const currentPeriodData = reportData[reportData.length - 1];
-  const previousPeriodData = reportData[reportData.length - 2];
-
-  const calculateChange = (current: number, previous: number) => {
-    if (!previous) return 0;
-    return ((current - previous) / previous) * 100;
+    }
   };
 
   const exportReport = () => {
-    // Aquí iría la lógica para exportar el reporte
-    alert("Funcionalidad de exportación en desarrollo");
+    if (!reportData) return;
+    
+    // Crear datos para exportar
+    const reportContent = `
+REPORTE GYMCORE - ${new Date().toLocaleDateString()}
+=====================================
+
+RESUMEN EJECUTIVO:
+- Ingresos Totales: $${reportData.totalRevenue.toFixed(2)}
+- Total de Socios: ${reportData.totalMembers}
+- Ventas Realizadas: ${reportData.totalSales}
+- Productos en Inventario: ${reportData.totalProducts}
+
+VENTAS RECIENTES:
+${reportData.recentSales.map((sale: any, index: number) => 
+  `${index + 1}. $${sale.total} - ${new Date(sale.createdAt).toLocaleDateString()}`
+).join('\n')}
+
+SOCIOS RECIENTES:
+${reportData.recentMembers.map((member: any, index: number) => 
+  `${index + 1}. ${member.user?.name || 'Sin nombre'} - ${member.user?.email}`
+).join('\n')}
+    `;
+
+    // Crear y descargar archivo
+    const blob = new Blob([reportContent], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `reporte-gymcore-${new Date().toISOString().split('T')[0]}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+
+    toast({
+      title: "Reporte exportado",
+      description: "El reporte se ha descargado correctamente",
+    });
   };
 
   if (loading) {
@@ -100,19 +129,24 @@ export default function ReportsPage() {
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold">Reportes y Analíticas</h1>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[1, 2, 3, 4].map((i) => (
-            <Card key={i}>
-              <CardContent className="p-6">
-                <div className="animate-pulse space-y-4">
-                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                  <div className="h-8 bg-gray-200 rounded"></div>
-                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin" />
         </div>
+      </div>
+    );
+  }
+
+  if (!reportData) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-bold">Reportes y Analíticas</h1>
+        </div>
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center h-32">
+            <p className="text-muted-foreground">No se pudieron cargar los datos del reporte</p>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -124,7 +158,7 @@ export default function ReportsPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Reportes y Analíticas</h1>
           <p className="text-muted-foreground">
-            Métricas de rendimiento y análisis de datos
+            Métricas de rendimiento y análisis de datos en tiempo real
           </p>
         </div>
         
@@ -149,119 +183,95 @@ export default function ReportsPage() {
       </div>
 
       {/* KPI Cards */}
-      {currentPeriodData && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Ingresos Totales</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">${currentPeriodData.revenue.toLocaleString()}</div>
-              {previousPeriodData && (
-                <p className="text-xs text-muted-foreground">
-                  <span className={calculateChange(currentPeriodData.revenue, previousPeriodData.revenue) >= 0 ? 'text-green-600' : 'text-red-600'}>
-                    {calculateChange(currentPeriodData.revenue, previousPeriodData.revenue) >= 0 ? '+' : ''}
-                    {calculateChange(currentPeriodData.revenue, previousPeriodData.revenue).toFixed(1)}%
-                  </span> vs período anterior
-                </p>
-              )}
-            </CardContent>
-          </Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Ingresos Totales</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">${reportData.totalRevenue.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground">
+              De {reportData.totalSales} ventas realizadas
+            </p>
+          </CardContent>
+        </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Miembros Activos</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{currentPeriodData.members}</div>
-              {previousPeriodData && (
-                <p className="text-xs text-muted-foreground">
-                  <span className={calculateChange(currentPeriodData.members, previousPeriodData.members) >= 0 ? 'text-green-600' : 'text-red-600'}>
-                    {calculateChange(currentPeriodData.members, previousPeriodData.members) >= 0 ? '+' : ''}
-                    {calculateChange(currentPeriodData.members, previousPeriodData.members).toFixed(1)}%
-                  </span> vs período anterior
-                </p>
-              )}
-            </CardContent>
-          </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Socios Registrados</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{reportData.totalMembers}</div>
+            <p className="text-xs text-muted-foreground">
+              Total de membresías
+            </p>
+          </CardContent>
+        </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Accesos Registrados</CardTitle>
-              <Activity className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{currentPeriodData.accessCount}</div>
-              {previousPeriodData && (
-                <p className="text-xs text-muted-foreground">
-                  <span className={calculateChange(currentPeriodData.accessCount, previousPeriodData.accessCount) >= 0 ? 'text-green-600' : 'text-red-600'}>
-                    {calculateChange(currentPeriodData.accessCount, previousPeriodData.accessCount) >= 0 ? '+' : ''}
-                    {calculateChange(currentPeriodData.accessCount, previousPeriodData.accessCount).toFixed(1)}%
-                  </span> vs período anterior
-                </p>
-              )}
-            </CardContent>
-          </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Ventas Realizadas</CardTitle>
+            <BarChart3 className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{reportData.totalSales}</div>
+            <p className="text-xs text-muted-foreground">
+              Transacciones completadas
+            </p>
+          </CardContent>
+        </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Ventas Realizadas</CardTitle>
-              <BarChart3 className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{currentPeriodData.salesCount}</div>
-              {previousPeriodData && (
-                <p className="text-xs text-muted-foreground">
-                  <span className={calculateChange(currentPeriodData.salesCount, previousPeriodData.salesCount) >= 0 ? 'text-green-600' : 'text-red-600'}>
-                    {calculateChange(currentPeriodData.salesCount, previousPeriodData.salesCount) >= 0 ? '+' : ''}
-                    {calculateChange(currentPeriodData.salesCount, previousPeriodData.salesCount).toFixed(1)}%
-                  </span> vs período anterior
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Productos en Stock</CardTitle>
+            <Activity className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{reportData.totalProducts}</div>
+            <p className="text-xs text-muted-foreground">
+              Productos disponibles
+            </p>
+          </CardContent>
+        </Card>
+      </div>
 
-      {/* Historical Data */}
+      {/* Data Tables */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              Tendencia de Ingresos
+              <DollarSign className="h-5 w-5" />
+              Ventas Recientes
             </CardTitle>
             <CardDescription>
-              Evolución de los ingresos por período
+              Últimas transacciones realizadas
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {reportData.map((data, index) => (
-                <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div>
-                    <p className="font-medium">{data.period}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {data.members} miembros • {data.accessCount} accesos
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-bold">${data.revenue.toLocaleString()}</p>
-                    <div className="flex items-center gap-1">
-                      {data.growth >= 0 ? (
-                        <TrendingUp className="h-3 w-3 text-green-500" />
-                      ) : (
-                        <TrendingDown className="h-3 w-3 text-red-500" />
-                      )}
-                      <span className={`text-xs ${data.growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {data.growth >= 0 ? '+' : ''}{data.growth}%
-                      </span>
+              {reportData.recentSales.length > 0 ? (
+                reportData.recentSales.map((sale: any, index: number) => (
+                  <div key={sale.id || index} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div>
+                      <p className="font-medium">${sale.total.toFixed(2)}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {sale.items?.length || 0} productos - {sale.seller?.name || 'Vendedor'}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-muted-foreground">
+                        {new Date(sale.createdAt).toLocaleDateString()}
+                      </p>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-center text-muted-foreground py-4">
+                  No hay ventas registradas
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -269,55 +279,39 @@ export default function ReportsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5" />
-              Métricas de Actividad
+              <Users className="h-5 w-5" />
+              Socios Recientes
             </CardTitle>
             <CardDescription>
-              Resumen de actividad del gimnasio
+              Últimas membresías registradas
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent>
             <div className="space-y-4">
-              <div>
-                <div className="flex justify-between text-sm mb-2">
-                  <span>Tasa de ocupación promedio</span>
-                  <span>68%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-blue-600 h-2 rounded-full" style={{ width: '68%' }}></div>
-                </div>
-              </div>
-              
-              <div>
-                <div className="flex justify-between text-sm mb-2">
-                  <span>Retención de miembros</span>
-                  <span>87%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-green-600 h-2 rounded-full" style={{ width: '87%' }}></div>
-                </div>
-              </div>
-              
-              <div>
-                <div className="flex justify-between text-sm mb-2">
-                  <span>Satisfacción del cliente</span>
-                  <span>92%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-purple-600 h-2 rounded-full" style={{ width: '92%' }}></div>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 pt-4 border-t">
-              <div className="text-center">
-                <p className="text-2xl font-bold text-blue-600">4.8</p>
-                <p className="text-sm text-muted-foreground">Rating promedio</p>
-              </div>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-green-600">156</p>
-                <p className="text-sm text-muted-foreground">Nuevos miembros</p>
-              </div>
+              {reportData.recentMembers.length > 0 ? (
+                reportData.recentMembers.map((member: any, index: number) => (
+                  <div key={member.id || index} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div>
+                      <p className="font-medium">{member.user?.name || 'Sin nombre'}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {member.user?.email}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <Badge variant={member.status === 'ACTIVE' ? 'default' : 'secondary'}>
+                        {member.status}
+                      </Badge>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        ${member.monthlyPrice}/mes
+                      </p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-center text-muted-foreground py-4">
+                  No hay socios registrados
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -336,19 +330,19 @@ export default function ReportsPage() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Button variant="outline" className="h-20 flex-col">
+            <Button variant="outline" className="h-20 flex-col" onClick={exportReport}>
               <Calendar className="h-6 w-6 mb-2" />
-              <span>Reporte Mensual</span>
+              <span>Exportar Reporte</span>
             </Button>
             
-            <Button variant="outline" className="h-20 flex-col">
+            <Button variant="outline" className="h-20 flex-col" onClick={loadReportData}>
               <Users className="h-6 w-6 mb-2" />
-              <span>Análisis de Miembros</span>
+              <span>Actualizar Datos</span>
             </Button>
             
             <Button variant="outline" className="h-20 flex-col">
               <DollarSign className="h-6 w-6 mb-2" />
-              <span>Reporte Financiero</span>
+              <span>Análisis Financiero</span>
             </Button>
           </div>
         </CardContent>

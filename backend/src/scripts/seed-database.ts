@@ -72,159 +72,154 @@ async function seedDatabase() {
       }
     });
     
+    // Crear más clientes para tener datos de prueba
+    const clients = [];
+    for (let i = 1; i <= 5; i++) {
+      const newClient = await prisma.user.create({
+        data: {
+          email: `cliente${i}@gym.com`,
+          password: await bcrypt.hash('password123', 10),
+          name: `Cliente ${i}`,
+          role: 'CLIENT',
+          memberOfGymId: gym.id,
+        }
+      });
+      clients.push(newClient);
+    }
+    
     console.log('👥 Usuarios creados');
     
-    // Crear membresía para el cliente
-    const membership = await prisma.membership.create({
-      data: {
-        userId: client.id,
-        type: 'MONTHLY',
-        status: 'ACTIVE',
-        startDate: new Date(),
-        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        monthlyPrice: 50.00,
-        totalPaid: 50.00,
-        autoRenewal: true,
+    // Crear membresías para todos los clientes
+    const allClients = [client, ...clients];
+    for (const clientUser of allClients) {
+      const membership = await prisma.membership.create({
+        data: {
+          userId: clientUser.id,
+          type: 'MONTHLY',
+          status: Math.random() > 0.3 ? 'ACTIVE' : 'EXPIRED', // 70% activos
+          startDate: new Date(Date.now() - Math.random() * 90 * 24 * 60 * 60 * 1000), // Últimos 90 días
+          expiresAt: new Date(Date.now() + (Math.random() > 0.3 ? 30 : -10) * 24 * 60 * 60 * 1000), // Algunos expirados
+          monthlyPrice: Math.random() > 0.5 ? 50.00 : 75.00, // Precios variados
+          totalPaid: Math.random() * 300 + 50,
+          autoRenewal: Math.random() > 0.5,
+        }
+      });
+      
+      // Crear algunos pagos para cada membresía
+      const paymentsCount = Math.floor(Math.random() * 3) + 1;
+      for (let j = 0; j < paymentsCount; j++) {
+        await prisma.payment.create({
+          data: {
+            amount: membership.monthlyPrice,
+            method: ['CASH', 'CARD', 'TRANSFER'][Math.floor(Math.random() * 3)] as any,
+            status: 'COMPLETED',
+            description: `Pago de membresía ${j + 1}`,
+            membershipId: membership.id,
+          }
+        });
       }
-    });
+    }
     
-    // Crear pago para la membresía
-    await prisma.payment.create({
-      data: {
-        amount: 50.00,
-        method: 'CARD',
-        status: 'COMPLETED',
-        description: 'Pago mensual de membresía',
-        membershipId: membership.id,
-      }
-    });
+    console.log('💳 Membresías y pagos creados');
     
-    console.log('💳 Membresía y pago creados');
-    
-    // Crear productos de prueba
-    const products = [
-      {
-        name: 'Proteína Whey',
-        description: 'Proteína en polvo sabor chocolate',
-        price: 45.99,
-        cost: 30.00,
-        stock: 25,
-        minStock: 5,
-        category: 'Suplementos',
-        sku: 'PROT001',
-        gymId: gym.id,
-      },
-      {
-        name: 'Botella de Agua',
-        description: 'Botella deportiva 750ml',
-        price: 12.99,
-        cost: 8.00,
-        stock: 50,
-        minStock: 10,
-        category: 'Accesorios',
-        sku: 'BOT001',
-        gymId: gym.id,
-      },
-      {
-        name: 'Toalla Deportiva',
-        description: 'Toalla de microfibra',
-        price: 18.99,
-        cost: 12.00,
-        stock: 30,
-        minStock: 5,
-        category: 'Accesorios',
-        sku: 'TOW001',
-        gymId: gym.id,
-      },
-      {
-        name: 'Creatina',
-        description: 'Creatina monohidrato 300g',
-        price: 29.99,
-        cost: 20.00,
-        stock: 15,
-        minStock: 3,
-        category: 'Suplementos',
-        sku: 'CREA001',
-        gymId: gym.id,
-      },
+    // Crear productos de prueba con más variedad
+    const productCategories = [
+      { category: 'Suplementos', products: [
+        { name: 'Proteína Whey Chocolate', price: 45.99, cost: 30.00, stock: 25 },
+        { name: 'Proteína Whey Vainilla', price: 45.99, cost: 30.00, stock: 20 },
+        { name: 'Creatina Monohidrato', price: 29.99, cost: 20.00, stock: 15 },
+        { name: 'BCAA Aminoácidos', price: 35.99, cost: 24.00, stock: 18 },
+        { name: 'Pre-Entreno', price: 39.99, cost: 26.00, stock: 12 }
+      ]},
+      { category: 'Accesorios', products: [
+        { name: 'Botella de Agua 750ml', price: 12.99, cost: 8.00, stock: 50 },
+        { name: 'Toalla Deportiva', price: 18.99, cost: 12.00, stock: 30 },
+        { name: 'Guantes de Entrenamiento', price: 24.99, cost: 16.00, stock: 22 },
+        { name: 'Correa de Levantamiento', price: 34.99, cost: 22.00, stock: 15 }
+      ]},
+      { category: 'Ropa', products: [
+        { name: 'Camiseta GymCore', price: 19.99, cost: 12.00, stock: 35 },
+        { name: 'Shorts Deportivos', price: 24.99, cost: 16.00, stock: 28 },
+        { name: 'Sudadera con Capucha', price: 39.99, cost: 25.00, stock: 20 }
+      ]}
     ];
     
-    for (const productData of products) {
-      await prisma.product.create({ data: productData });
+    let productCounter = 1;
+    for (const categoryData of productCategories) {
+      for (const productData of categoryData.products) {
+        await prisma.product.create({
+          data: {
+            ...productData,
+            category: categoryData.category,
+            sku: `PROD${productCounter.toString().padStart(3, '0')}`,
+            minStock: 5,
+            gymId: gym.id,
+          }
+        });
+        productCounter++;
+      }
     }
     
     console.log('📦 Productos creados');
     
-    // Crear venta de prueba
-    const sale = await prisma.sale.create({
-      data: {
-        total: 58.98,
-        subtotal: 58.98,
-        tax: 0,
-        discount: 0,
-        notes: 'Venta de prueba',
-        sellerId: reception.id,
-        gymId: gym.id,
-      }
-    });
-    
-    // Crear items de venta
-    const product1 = await prisma.product.findFirst({ where: { sku: 'PROT001' } });
-    const product2 = await prisma.product.findFirst({ where: { sku: 'BOT001' } });
-    
-    if (product1 && product2) {
-      await prisma.saleItem.createMany({
-        data: [
-          {
-            saleId: sale.id,
-            productId: product1.id,
-            quantity: 1,
-            unitPrice: 45.99,
-            total: 45.99,
-          },
-          {
-            saleId: sale.id,
-            productId: product2.id,
-            quantity: 1,
-            unitPrice: 12.99,
-            total: 12.99,
-          }
-        ]
-      });
+    // Crear ventas de prueba
+    const products = await prisma.product.findMany();
+    for (let i = 0; i < 10; i++) {
+      const randomProducts = products.sort(() => 0.5 - Math.random()).slice(0, Math.floor(Math.random() * 3) + 1);
+      const subtotal = randomProducts.reduce((sum, p) => sum + p.price, 0);
+      const tax = subtotal * 0.19;
+      const total = subtotal + tax;
       
-      // Actualizar stock
-      await prisma.product.update({
-        where: { id: product1.id },
-        data: { stock: { decrement: 1 } }
-      });
-      
-      await prisma.product.update({
-        where: { id: product2.id },
-        data: { stock: { decrement: 1 } }
-      });
-    }
-    
-    console.log('🛒 Venta de prueba creada');
-    
-    // Crear logs de acceso
-    await prisma.accessLog.createMany({
-      data: [
-        {
-          type: 'QR_CODE',
-          status: 'GRANTED',
-          method: 'QR_SCAN',
-          userId: client.id,
-          gymId: gym.id,
-        },
-        {
-          type: 'MANUAL',
-          status: 'GRANTED',
-          method: 'MANUAL_ENTRY',
-          userId: client.id,
+      const sale = await prisma.sale.create({
+        data: {
+          total,
+          subtotal,
+          tax,
+          discount: 0,
+          notes: `Venta de prueba ${i + 1}`,
+          sellerId: Math.random() > 0.5 ? reception.id : manager.id,
           gymId: gym.id,
         }
-      ]
-    });
+      });
+      
+      // Crear items de venta
+      for (const product of randomProducts) {
+        const quantity = Math.floor(Math.random() * 3) + 1;
+        await prisma.saleItem.create({
+          data: {
+            saleId: sale.id,
+            productId: product.id,
+            quantity,
+            unitPrice: product.price,
+            total: product.price * quantity,
+          }
+        });
+        
+        // Actualizar stock
+        await prisma.product.update({
+          where: { id: product.id },
+          data: { stock: { decrement: quantity } }
+        });
+      }
+    }
+    
+    console.log('🛒 Ventas de prueba creadas');
+    
+    // Crear logs de acceso
+    for (const clientUser of allClients) {
+      const accessCount = Math.floor(Math.random() * 10) + 1;
+      for (let j = 0; j < accessCount; j++) {
+        await prisma.accessLog.create({
+          data: {
+            type: Math.random() > 0.8 ? 'MANUAL' : 'QR_CODE',
+            status: Math.random() > 0.05 ? 'GRANTED' : 'DENIED', // 95% exitosos
+            method: Math.random() > 0.8 ? 'MANUAL_ENTRY' : 'QR_SCAN',
+            userId: clientUser.id,
+            gymId: gym.id,
+          }
+        });
+      }
+    }
     
     console.log('📋 Logs de acceso creados');
     
@@ -234,7 +229,13 @@ async function seedDatabase() {
     console.log('📧 Manager: admin@gym.com / password123');
     console.log('📧 Recepción: reception@gym.com / password123');
     console.log('📧 Cliente: client@gym.com / password123');
+    console.log('📧 Clientes adicionales: cliente1@gym.com a cliente5@gym.com / password123');
     console.log('\n🏢 Código de gimnasio: GYM123');
+    console.log(`\n📊 Datos creados:`);
+    console.log(`- ${allClients.length} socios con membresías`);
+    console.log(`- ${products.length} productos en inventario`);
+    console.log(`- 10 ventas de ejemplo`);
+    console.log(`- Múltiples logs de acceso`);
     
   } catch (error) {
     console.error('❌ Error en seed:', error);

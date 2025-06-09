@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useToast } from "@/components/ui/use-toast";
 import { 
   Users, 
   Search, 
@@ -15,19 +16,29 @@ import {
   Calendar,
   Mail,
   Phone,
-  CreditCard
+  CreditCard,
+  Loader2
 } from "lucide-react";
+import { membershipApi } from "@/lib/api";
 
 interface Member {
   id: string;
-  name: string;
-  email: string;
-  phone?: string;
-  membershipType: string;
-  status: 'ACTIVE' | 'EXPIRED' | 'SUSPENDED';
-  joinDate: string;
+  type: string;
+  status: 'ACTIVE' | 'EXPIRED' | 'SUSPENDED' | 'PENDING_PAYMENT';
+  startDate: string;
   expiresAt: string;
-  lastAccess?: string;
+  monthlyPrice: number;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    phone?: string;
+  };
+  payments: Array<{
+    id: string;
+    amount: number;
+    createdAt: string;
+  }>;
 }
 
 export default function MembersPage() {
@@ -35,71 +46,32 @@ export default function MembersPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
+  const { toast } = useToast();
 
-  // Datos simulados para demostración
   useEffect(() => {
     loadMembers();
   }, []);
 
   const loadMembers = async () => {
-    setLoading(true);
-    
-    // Simulamos datos de miembros
-    const mockMembers: Member[] = [
-      {
-        id: "1",
-        name: "Juan Pérez",
-        email: "juan@example.com",
-        phone: "+1 234 567 8901",
-        membershipType: "Premium",
-        status: "ACTIVE",
-        joinDate: "2024-01-15",
-        expiresAt: "2024-12-15",
-        lastAccess: "2024-06-08"
-      },
-      {
-        id: "2",
-        name: "María García",
-        email: "maria@example.com",
-        phone: "+1 234 567 8902",
-        membershipType: "Básica",
-        status: "ACTIVE",
-        joinDate: "2024-02-20",
-        expiresAt: "2024-08-20",
-        lastAccess: "2024-06-07"
-      },
-      {
-        id: "3",
-        name: "Carlos López",
-        email: "carlos@example.com",
-        membershipType: "Premium",
-        status: "EXPIRED",
-        joinDate: "2023-12-01",
-        expiresAt: "2024-06-01",
-        lastAccess: "2024-05-30"
-      },
-      {
-        id: "4",
-        name: "Ana Rodríguez",
-        email: "ana@example.com",
-        phone: "+1 234 567 8904",
-        membershipType: "Básica",
-        status: "SUSPENDED",
-        joinDate: "2024-03-10",
-        expiresAt: "2024-09-10",
-        lastAccess: "2024-05-15"
-      }
-    ];
-    
-    setTimeout(() => {
-      setMembers(mockMembers);
+    try {
+      setLoading(true);
+      const response = await membershipApi.getAllMemberships();
+      setMembers(response.data || []);
+    } catch (error: any) {
+      console.error('Error loading members:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "No se pudieron cargar los socios",
+      });
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   const filteredMembers = members.filter(member => {
-    const matchesSearch = member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         member.email.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = member.user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         member.user.email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = selectedStatus === "all" || member.status === selectedStatus;
     return matchesSearch && matchesStatus;
   });
@@ -109,6 +81,7 @@ export default function MembersPage() {
       case 'ACTIVE': return 'bg-green-500';
       case 'EXPIRED': return 'bg-red-500';
       case 'SUSPENDED': return 'bg-yellow-500';
+      case 'PENDING_PAYMENT': return 'bg-orange-500';
       default: return 'bg-gray-500';
     }
   };
@@ -118,7 +91,31 @@ export default function MembersPage() {
       case 'ACTIVE': return 'Activo';
       case 'EXPIRED': return 'Expirado';
       case 'SUSPENDED': return 'Suspendido';
+      case 'PENDING_PAYMENT': return 'Pago Pendiente';
       default: return status;
+    }
+  };
+
+  const handleRenewMembership = async (memberId: string) => {
+    try {
+      await membershipApi.renew(memberId, {
+        paymentMethod: 'CASH',
+        amount: 50.00,
+        description: 'Renovación de membresía'
+      });
+      
+      toast({
+        title: "Membresía renovada",
+        description: "La membresía se ha renovado correctamente",
+      });
+      
+      await loadMembers();
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Error al renovar la membresía",
+      });
     }
   };
 
@@ -128,18 +125,8 @@ export default function MembersPage() {
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold">Gestión de Socios</h1>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[1, 2, 3].map((i) => (
-            <Card key={i}>
-              <CardContent className="p-6">
-                <div className="animate-pulse space-y-4">
-                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                  <div className="h-8 bg-gray-200 rounded"></div>
-                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin" />
         </div>
       </div>
     );
@@ -242,6 +229,7 @@ export default function MembersPage() {
                 <SelectItem value="ACTIVE">Activos</SelectItem>
                 <SelectItem value="EXPIRED">Expirados</SelectItem>
                 <SelectItem value="SUSPENDED">Suspendidos</SelectItem>
+                <SelectItem value="PENDING_PAYMENT">Pago Pendiente</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -255,8 +243,8 @@ export default function MembersPage() {
             <CardHeader>
               <div className="flex justify-between items-start">
                 <div>
-                  <CardTitle className="text-lg">{member.name}</CardTitle>
-                  <CardDescription>{member.email}</CardDescription>
+                  <CardTitle className="text-lg">{member.user.name || 'Sin nombre'}</CardTitle>
+                  <CardDescription>{member.user.email}</CardDescription>
                 </div>
                 <Badge className={getStatusColor(member.status)}>
                   {getStatusText(member.status)}
@@ -264,16 +252,16 @@ export default function MembersPage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              {member.phone && (
+              {member.user.phone && (
                 <div className="flex items-center gap-2 text-sm">
                   <Phone className="h-4 w-4 text-muted-foreground" />
-                  <span>{member.phone}</span>
+                  <span>{member.user.phone}</span>
                 </div>
               )}
               
               <div className="flex items-center gap-2 text-sm">
                 <CreditCard className="h-4 w-4 text-muted-foreground" />
-                <span>Membresía {member.membershipType}</span>
+                <span>Membresía {member.type} - ${member.monthlyPrice}/mes</span>
               </div>
               
               <div className="flex items-center gap-2 text-sm">
@@ -281,9 +269,9 @@ export default function MembersPage() {
                 <span>Vence: {new Date(member.expiresAt).toLocaleDateString()}</span>
               </div>
               
-              {member.lastAccess && (
+              {member.payments.length > 0 && (
                 <div className="text-sm text-muted-foreground">
-                  Último acceso: {new Date(member.lastAccess).toLocaleDateString()}
+                  Último pago: ${member.payments[0].amount} - {new Date(member.payments[0].createdAt).toLocaleDateString()}
                 </div>
               )}
               
@@ -291,7 +279,13 @@ export default function MembersPage() {
                 <Button variant="outline" size="sm" className="flex-1">
                   Ver Perfil
                 </Button>
-                <Button variant="outline" size="sm" className="flex-1">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex-1"
+                  onClick={() => handleRenewMembership(member.id)}
+                  disabled={member.status === 'ACTIVE'}
+                >
                   Renovar
                 </Button>
               </div>
@@ -305,7 +299,10 @@ export default function MembersPage() {
           <CardContent className="flex flex-col items-center justify-center h-32">
             <Users className="h-8 w-8 text-muted-foreground mb-2" />
             <p className="text-muted-foreground">
-              No se encontraron socios con los filtros aplicados
+              {members.length === 0 
+                ? "No hay socios registrados en el gimnasio"
+                : "No se encontraron socios con los filtros aplicados"
+              }
             </p>
           </CardContent>
         </Card>

@@ -9,10 +9,13 @@ import { DataTable } from '@/components/ui/data-table';
 interface GymDataTableProps {
   data: Gym[];
   onEdit: (gym: Gym) => void;
-  onToggleStatus: (gym: Gym) => void;
+  onToggleStatus?: (gym: Gym) => void;
+  isLoading?: boolean;
+  error?: string | null;
+  onRefresh?: () => void;
 }
 
-export function GymDataTable({ data, onEdit, onToggleStatus }: GymDataTableProps) {
+export function GymDataTable({ data, onEdit, onToggleStatus, isLoading, error, onRefresh }: GymDataTableProps) {
   // Definir columnas para la tabla
   const columns: ColumnDef<Gym, any>[] = [
     {
@@ -51,13 +54,15 @@ export function GymDataTable({ data, onEdit, onToggleStatus }: GymDataTableProps
       header: 'Acciones',
       cell: ({ row }) => (
         <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => onToggleStatus(row.original)}
-          >
-            {row.original.isActive ? 'Desactivar' : 'Activar'}
-          </Button>
+          {onToggleStatus && (
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => onToggleStatus(row.original)}
+            >
+              {row.original.isActive ? 'Desactivar' : 'Activar'}
+            </Button>
+          )}
           <Button 
             variant="outline" 
             size="sm"
@@ -69,6 +74,23 @@ export function GymDataTable({ data, onEdit, onToggleStatus }: GymDataTableProps
       ),
     },
   ];
+
+  if (isLoading) {
+    return <div className="py-10 text-center">Cargando gimnasios...</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="py-10 text-center">
+        <p className="text-red-500 mb-4">{error}</p>
+        {onRefresh && (
+          <Button variant="outline" onClick={onRefresh}>
+            Reintentar
+          </Button>
+        )}
+      </div>
+    );
+  }
 
   return (
     <DataTable

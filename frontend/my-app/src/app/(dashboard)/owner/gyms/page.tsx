@@ -89,7 +89,7 @@ export default function GymsPage() {
             </CardHeader>
             <CardContent>
               <GymDataTable 
-                gyms={gyms || []} 
+                data={gyms || []} 
                 isLoading={isLoading} 
                 error={error ? 'Error al cargar gimnasios' : null}
                 onEdit={handleEditGym}

@@ -3,10 +3,68 @@ import type { NextRequest } from 'next/server';
 
 // Constantes para mejorar mantenibilidad
 const AUTH_PAGES = ['/login', '/register'];
-const PROTECTED_ROUTES = ['/dashboard', '/owner', '/manager', '/reception', '/client', '/settings'];
+const PROTECTED_ROUTES = ['/dashboard', '/owner', '/manager', '/reception', '/client', '/settings', '/join-gym'];
 
-// Función para obtener la ruta base según el rol
+/**
+ * Función para decodificar Base64Url correctamente
+ * Base64Url usa '-' y '_' en lugar de '+' y '/' y no tiene padding '='
+ */
+function base64UrlDecode(base64Url: string): string {
+  // Reemplazar caracteres específicos de Base64Url con caracteres de Base64 estándar
+  let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+  
+  // Agregar padding '=' si es necesario
+  while (base64.length % 4) {
+    base64 += '=';
+  }
+  
+  return base64;
+}
+
+/**
+ * Función mejorada para validar JWT y extraer su payload
+ * @returns Un objeto con éxito/fallo y el payload si es válido
+ */
+function parseJwt(token: string): { valid: boolean; payload?: any } {
+  try {
+    // Verificar formato básico del token
+    const parts = token.split('.');
+    if (parts.length !== 3) return { valid: false };
+    
+    // Extraer payload
+    const [, payloadBase64] = parts;
+    if (!payloadBase64) return { valid: false };
+    
+    // Decodificar correctamente respetando el formato Base64Url
+    const decodedPayload = JSON.parse(
+      Buffer.from(base64UrlDecode(payloadBase64), 'base64').toString('utf-8')
+    );
+    
+    // Verificar campos esenciales
+    if (!decodedPayload || !decodedPayload.sub || !decodedPayload.role) {
+      return { valid: false };
+    }
+    
+    // Verificar expiración si existe
+    if (decodedPayload.exp) {
+      const currentTime = Math.floor(Date.now() / 1000);
+      if (currentTime > decodedPayload.exp) {
+        return { valid: false };
+      }
+    }
+    
+    return { valid: true, payload: decodedPayload };
+  } catch (error) {
+    return { valid: false };
+  }
+}
+
+/**
+ * Obtiene la ruta base correspondiente al rol del usuario
+ */
 function getBaseRouteByRole(role: string): string {
+  if (!role) return '/login';
+  
   // Normalizar el rol a minúsculas para comparación
   const normalizedRole = role.toLowerCase();
   
@@ -18,103 +76,97 @@ function getBaseRouteByRole(role: string): string {
     'client': '/client',
   };
 
-  // Obtener la ruta correspondiente o default a /login
   return roleRoutes[normalizedRole] || '/login';
 }
 
-function isValidJWT(token: string): boolean {
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return false;
-    
-    // Verificar que cada parte sea base64 válido
-    const [header, payload, signature] = parts;
-    if (!header || !payload || !signature) return false;
-    
-    // Intentar decodificar el payload
-    const decodedPayload = JSON.parse(Buffer.from(payload, 'base64').toString());
-    if (!decodedPayload || typeof decodedPayload !== 'object') return false;
-    
-    // Verificar campos requeridos
-    if (!decodedPayload.sub || !decodedPayload.role) return false;
-    
-    return true;
-  } catch {
-    return false;
-  }
+/**
+ * Extrae la ruta base de una URL
+ * Ejemplo: /owner/dashboard -> /owner
+ */
+function extractBaseRoute(pathname: string): string {
+  if (!pathname || pathname === '/') return '/';
+  
+  const segments = pathname.split('/').filter(Boolean);
+  return segments.length > 0 ? `/${segments[0]}` : '/';
 }
 
 export function middleware(request: NextRequest) {
+  // Obtener información de la solicitud
   const { pathname } = request.nextUrl;
   const token = request.cookies.get('auth_token')?.value;
   const isAuthPage = AUTH_PAGES.includes(pathname);
+  const currentBaseRoute = extractBaseRoute(pathname);
+  const referer = request.headers.get('referer') || '';
   
-  // 1. Si el usuario está autenticado
-  if (token && isValidJWT(token)) {
-    try {
-      // Decodificar el token para obtener el rol del usuario
-      const tokenData = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
-      const role = tokenData.role;
-      console.log('Role from token:', role); // Debug log
-      const baseRoute = getBaseRouteByRole(role);
-      console.log('Base route:', baseRoute); // Debug log
-
-      // Si intenta acceder a login/register, raíz o dashboard estando autenticado
-      if (isAuthPage || pathname === '/' || pathname === '/dashboard') {
-        console.log('Redirecting to base route:', baseRoute); // Debug log
-        const response = NextResponse.redirect(new URL(baseRoute, request.url));
-        // Asegurarnos de mantener el token en la redirección
-        if (token) {
-          response.cookies.set('auth_token', token);
-        }
-        return response;
-      }
-      
-      // Si la ruta actual no coincide con su rol (e.g., un CLIENT intentando acceder a /owner)
-      const currentBaseRoute = '/' + pathname.split('/')[1]; // Obtiene /owner de /owner/users
-      if (PROTECTED_ROUTES.includes(currentBaseRoute) && currentBaseRoute !== baseRoute) {
-        console.log('Invalid route access, redirecting to:', baseRoute); // Debug log
-        const response = NextResponse.redirect(new URL(baseRoute, request.url));
-        // Asegurarnos de mantener el token en la redirección
-        if (token) {
-          response.cookies.set('auth_token', token);
-        }
-        return response;
-      }
-      
-      return NextResponse.next();
-    } catch {
-      // Si hay un error al decodificar el token, lo tratamos como inválido
-      const response = NextResponse.redirect(new URL('/login', request.url));
-      response.cookies.delete('auth_token');
-      return response;
-    }
-  }
-
-  // 2. Si el usuario NO está autenticado
-  if (!token || !isValidJWT(token)) {
-    // Si ya está en una página de autenticación o la landing page, permitirlo
-    if (isAuthPage || pathname === '/') {
-      return NextResponse.next();
-    }
+  // Comprobar si el usuario está autenticado con un token válido
+  if (token) {
+    const { valid, payload } = parseJwt(token);
     
-    // Si intenta acceder a cualquier ruta protegida sin autenticación
-    if (PROTECTED_ROUTES.some(route => pathname.startsWith(route))) {
-      const loginUrl = new URL('/login', request.url);
-      loginUrl.searchParams.set('callbackUrl', pathname);
+    if (valid && payload) {
+      const baseRoute = getBaseRouteByRole(payload.role);
       
-      const response = NextResponse.redirect(loginUrl);
-      if (token) {
-        response.cookies.delete('auth_token');
+      // CASO 1: Usuario autenticado en página de autenticación o raíz -> Redirigir a su dashboard
+      if (isAuthPage || pathname === '/') {
+        // IMPORTANTE: Verificar si ya estamos en un bucle
+        if (referer && referer.includes(baseRoute)) {
+          return NextResponse.next();
+        }
+        
+        return redirectWithToken(baseRoute, request.url, token);
       }
+      
+      // CASO 2: Usuario autenticado en /dashboard genérico -> Redirigir a su dashboard específico
+      if (pathname === '/dashboard') {
+        return redirectWithToken(baseRoute, request.url, token);
+      }
+      
+      // CASO 3: Usuario autenticado en ruta protegida que no corresponde a su rol
+      if (PROTECTED_ROUTES.includes(currentBaseRoute) && currentBaseRoute !== baseRoute) {
+        return redirectWithToken(baseRoute, request.url, token);
+      }
+      
+      // CASO 4: Usuario autenticado en su ruta correcta -> Permitir acceso
+      return NextResponse.next();
+    } else {
+      // Token inválido o expirado
+      const response = NextResponse.redirect(new URL('/login', request.url));
+      response.cookies.delete('auth_token', { path: '/' });
       return response;
     }
   }
-
+  
+  // Usuario NO autenticado
+  
+  // Si ya está en página de autenticación o landing page, permitir acceso
+  if (isAuthPage || pathname === '/') {
+    return NextResponse.next();
+  }
+  
+  // Si intenta acceder a ruta protegida sin autenticación
+  if (PROTECTED_ROUTES.some(route => pathname.startsWith(route))) {
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('callbackUrl', pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+  
+  // Para cualquier otra ruta no protegida
   return NextResponse.next();
 }
 
-// Configurar qué rutas deben ser protegidas
+// Función auxiliar para redirigir manteniendo el token
+function redirectWithToken(destination: string, baseUrl: string, token: string) {
+  const response = NextResponse.redirect(new URL(destination, baseUrl));
+  response.cookies.set('auth_token', token, {
+    path: '/',
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 7 * 24 * 60 * 60 // 7 días
+  });
+  
+  return response;
+}
+
+// Configurar qué rutas deben ser procesadas por el middleware
 export const config = {
   matcher: [
     /*

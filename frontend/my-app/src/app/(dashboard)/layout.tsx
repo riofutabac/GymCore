@@ -1,25 +1,60 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { redirect } from 'next/navigation';
 import { Sidebar } from '@/components/shared/Sidebar';
 import { useAuthStore } from '@/lib/store';
 import QueryProvider from '@/providers/query-provider';
+import { Loader2 } from 'lucide-react';
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  // Verificar autenticación del lado del cliente
-  const isAuthenticated = useAuthStore.getState().isAuthenticated;
-  const user = useAuthStore.getState().user;
+  const [isVerifying, setIsVerifying] = useState(true);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
-  // Si no está autenticado, redirigir al login
-  if (!isAuthenticated || !user) {
-    redirect('/login');
+  useEffect(() => {
+    // El hook de persistencia de Zustand necesita un momento para rehidratarse desde localStorage
+    // Usamos un efecto para verificar el estado de autenticación después de la carga inicial
+    const checkAuth = () => {
+      const state = useAuthStore.getState();
+      
+      if (!state.isAuthenticated || !state.user) {
+        redirect('/login');
+      } else {
+        setIsVerifying(false);
+      }
+    };
+
+    // Si la tienda ya está hidratada, verificamos de inmediato
+    if (useAuthStore.persist.hasHydrated()) {
+      checkAuth();
+    } else {
+      // Si no, esperamos al evento de rehidratación
+      const unsubscribe = useAuthStore.persist.onHydrate(() => {
+        // Esperar un momento para asegurarse de que la hidratación se completó
+        setTimeout(checkAuth, 50);
+      });
+      
+      return () => {
+        if (unsubscribe) unsubscribe();
+      };
+    }
+  }, []);
+
+  // Muestra un loader mientras se verifica la sesión
+  if (isVerifying) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-2">Verificando sesión...</p>
+      </div>
+    );
   }
 
+  // Una vez verificado, muestra el layout normal
   return (
     <QueryProvider>
       <div className="flex h-screen">

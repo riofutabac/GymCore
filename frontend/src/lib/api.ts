@@ -1,7 +1,7 @@
 import axios from 'axios';
 import type { User, Gym, Member, Product, Sale, AccessLog, ApiResponse, PaginatedResponse } from './types';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://0.0.0.0:5000/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -39,20 +39,106 @@ api.interceptors.response.use(
 // Auth API
 export const authAPI = {
   login: async (email: string, password: string): Promise<{ user: User; token: string }> => {
-    const response = await api.post<ApiResponse<{ user: User; token: string }>>('/auth/login', {
+    const response = await api.post<any>('/auth/login', {
       email,
       password,
     });
-    return response.data.data;
+    
+    console.log("Respuesta login completa:", response);
+    
+    // Manejar diferentes estructuras de respuesta posibles
+    if (response.status >= 200 && response.status < 300) {
+      // Si la respuesta es exitosa, intentamos extraer datos de diferentes maneras posibles
+      const data = response.data;
+      
+      // Caso 1: Respuesta directa con user y token
+      if (data.user && data.token) {
+        // Asegurarse de que user.role exista y sea una cadena
+        if (!data.user.role) {
+          data.user.role = 'CLIENT'; // Valor predeterminado
+        }
+        return { user: data.user, token: data.token };
+      }
+      
+      // Caso 2: Respuesta anidada en data.data
+      if (data.data && data.data.user && data.data.token) {
+        // Asegurarse de que user.role exista y sea una cadena
+        if (!data.data.user.role) {
+          data.data.user.role = 'CLIENT'; // Valor predeterminado
+        }
+        return { user: data.data.user, token: data.data.token };
+      }
+      
+      // Caso 3: Respuesta usando otros nombres de campo
+      if (data.userData && data.accessToken) {
+        // Asegurarse de que userData.role exista y sea una cadena
+        if (!data.userData.role) {
+          data.userData.role = 'CLIENT'; // Valor predeterminado
+        }
+        return { user: data.userData, token: data.accessToken };
+      }
+      
+      // Caso fallback: Si ninguna estructura conocida coincide pero hay datos
+      if (data) {
+        console.warn('Estructura de respuesta desconocida, intentando adaptar:', data);
+        
+        // Intentamos encontrar campos que parecen ser el usuario y el token
+        const possibleUser = data.user || data.userData || data.userInfo || data;
+        const possibleToken = data.token || data.accessToken || data.jwt || '';
+        
+        if (typeof possibleUser === 'object' && possibleToken) {
+          // Asegurarse de que possibleUser.role exista y sea una cadena
+          if (!possibleUser.role) {
+            possibleUser.role = 'CLIENT'; // Valor predeterminado
+          }
+          
+          console.log('Usando estructura adaptada:', { user: possibleUser, token: possibleToken });
+          return { user: possibleUser, token: possibleToken };
+        }
+      }
+
+      console.error('No se pudo extraer user y token de la respuesta:', data);
+    }
+    
+    throw new Error('Respuesta inválida del servidor');
   },
 
   register: async (email: string, password: string, name: string): Promise<{ user: User; token: string }> => {
-    const response = await api.post<ApiResponse<{ user: User; token: string }>>('/auth/register', {
+    const response = await api.post<any>('/auth/register', {
       email,
       password,
       name,
     });
-    return response.data.data;
+    
+    console.log("Respuesta registro completa:", response);
+    
+    // Manejar diferentes estructuras de respuesta posibles (similar a login)
+    if (response.status >= 200 && response.status < 300) {
+      const data = response.data;
+      
+      if (data.user && data.token) {
+        return { user: data.user, token: data.token };
+      }
+      
+      if (data.data && data.data.user && data.data.token) {
+        return { user: data.data.user, token: data.data.token };
+      }
+      
+      if (data.userData && data.accessToken) {
+        return { user: data.userData, token: data.accessToken };
+      }
+      
+      if (data) {
+        const possibleUser = data.user || data.userData || data.userInfo || data;
+        const possibleToken = data.token || data.accessToken || data.jwt || '';
+        
+        if (typeof possibleUser === 'object' && possibleToken) {
+          return { user: possibleUser, token: possibleToken };
+        }
+      }
+    }
+    
+    throw new Error('Respuesta inválida del servidor');
   },
 
   logout: async (): Promise<void> => {

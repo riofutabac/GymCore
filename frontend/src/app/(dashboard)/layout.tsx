@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { DashboardHeader } from '@/components/layout/DashboardHeader';
 import { DashboardSidebar } from '@/components/layout/DashboardSidebar';
 import { getCurrentUser } from '@/lib/auth';
 
@@ -14,13 +15,14 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50/50">
+    <div className="flex h-screen bg-gray-50">
       <DashboardSidebar user={user} />
-      <main className="lg:pl-64 transition-all duration-300">
-        <div className="p-6">
+      <div className="flex-1 overflow-auto">
+        <DashboardHeader user={user} />
+        <main className="p-4 md:p-6 max-w-[1600px] mx-auto">
           {children}
-        </div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }

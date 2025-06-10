@@ -1,5 +1,8 @@
+'use client';
+
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import Cookies from 'js-cookie';
 import { User } from './types';
 import api from './api';
 
@@ -13,33 +16,35 @@ interface AuthState {
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
   clearError: () => void;
+  currentGymId: number | null;
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       token: null,
       isAuthenticated: false,
       isLoading: false,
       error: null,
+      currentGymId: null,
       
       login: async (email, password) => {
         set({ isLoading: true, error: null });
         try {
           const response = await api.auth.login({ email, password });
-          set({
-            user: response.user,
-            token: response.token,
-            isAuthenticated: true,
-            isLoading: false,
-          });
-        } catch (error) {
-          set({
-            isLoading: false,
-            error: error instanceof Error ? error.message : 'Error al iniciar sesión',
-          });
-          throw error;
+          const { token, user } = response;
+          
+          Cookies.set('auth_token', token, { expires: 7, secure: true });
+          set({ user, token, isAuthenticated: true, error: null });
+
+          if (user.gyms && user.gyms.length > 0) {
+            set({ currentGymId: user.gyms[0].id });
+          }
+        } catch (error: any) {
+          const errorMessage = error.response?.data?.message || 'Error en el inicio de sesión';
+          set({ error: errorMessage });
+          throw new Error(errorMessage);
         }
       },
       
@@ -63,12 +68,17 @@ export const useAuthStore = create<AuthState>()(
       },
       
       logout: () => {
-        api.auth.logout();
+        Cookies.remove('auth_token');
         set({
           user: null,
           token: null,
           isAuthenticated: false,
+          currentGymId: null,
+          error: null,
         });
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login';
+        }
       },
       
       clearError: () => set({ error: null }),

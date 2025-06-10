@@ -6,16 +6,18 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 
+// Este componente simplemente redirige a los usuarios a su dashboard específico según su rol
 export default function DashboardPage() {
   const { user, isLoading, isAuthenticated } = useCurrentUser();
 
+  // Si no está autenticado, redirigir al login
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       redirect('/login');
     }
   }, [isLoading, isAuthenticated]);
 
-  // Redirigir según el rol del usuario
+  // Redirigir según el rol del usuario a las rutas sin /dashboard
   useEffect(() => {
     if (!isLoading && user) {
       switch (user.role) {

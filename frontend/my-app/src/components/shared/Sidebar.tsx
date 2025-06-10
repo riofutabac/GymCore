@@ -42,31 +42,31 @@ export function Sidebar() {
       case UserRole.OWNER:
         return (
           <>
-            <SidebarLink href="/dashboard/owner">Dashboard</SidebarLink>
-            <SidebarLink href="/dashboard/owner/gyms">Gimnasios</SidebarLink>
-            <SidebarLink href="/dashboard/owner/users">Usuarios</SidebarLink>
+            <SidebarLink href="/owner">Dashboard</SidebarLink>
+            <SidebarLink href="/owner/gyms">Gimnasios</SidebarLink>
+            <SidebarLink href="/owner/users">Usuarios</SidebarLink>
           </>
         );
       case UserRole.MANAGER:
         return (
           <>
-            <SidebarLink href="/dashboard/manager">Dashboard</SidebarLink>
-            <SidebarLink href="/dashboard/manager/members">Miembros</SidebarLink>
-            <SidebarLink href="/dashboard/manager/staff">Personal</SidebarLink>
-            <SidebarLink href="/dashboard/manager/inventory">Inventario</SidebarLink>
+            <SidebarLink href="/manager">Dashboard</SidebarLink>
+            <SidebarLink href="/manager/members">Miembros</SidebarLink>
+            <SidebarLink href="/manager/staff">Personal</SidebarLink>
+            <SidebarLink href="/manager/inventory">Inventario</SidebarLink>
           </>
         );
       case UserRole.RECEPTION:
         return (
           <>
-            <SidebarLink href="/dashboard/reception">Check-in</SidebarLink>
-            <SidebarLink href="/dashboard/reception/pos">Punto de Venta</SidebarLink>
+            <SidebarLink href="/reception">Check-in</SidebarLink>
+            <SidebarLink href="/reception/pos">Punto de Venta</SidebarLink>
           </>
         );
       case UserRole.CLIENT:
         return (
           <>
-            <SidebarLink href="/dashboard/client">Mi Membresía</SidebarLink>
+            <SidebarLink href="/client">Mi Membresía</SidebarLink>
           </>
         );
       default:
@@ -84,7 +84,7 @@ export function Sidebar() {
       <div className="flex-1 overflow-auto py-4">
         <nav className="grid gap-1 px-2">
           {renderLinks()}
-          <SidebarLink href="/dashboard/settings">Configuración</SidebarLink>
+          <SidebarLink href="/settings">Configuración</SidebarLink>
         </nav>
       </div>
       <div className="border-t p-4">

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { MetricCard } from '@/components/shared/MetricCard';
 import { useGymStore } from '@/lib/store';
@@ -15,101 +16,37 @@ interface DashboardMetrics {
 }
 
 export default function OwnerDashboard() {
-  const [metrics, setMetrics] = useState<DashboardMetrics>({
-    totalGyms: 0,
-    totalUsers: 0,
-    totalRevenue: 0,
-    activeGyms: 0,
-  });
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchDashboardData = async () => {
+  const { data: metrics, isLoading, error } = useQuery<DashboardMetrics>({
+    queryKey: ['owner-dashboard'],
+    queryFn: async () => {
       try {
-        setIsLoading(true);
-        const dashboardData = await api.gyms.getDashboardMetrics();
-        setMetrics(dashboardData);
-      } catch (error) {
-        setError(error instanceof Error ? error.message : 'Error al cargar las métricas');
-      } finally {
-        setIsLoading(false);
+        const data = await api.gyms.getDashboardMetrics();
+        return data;
+      } catch (err) {
+        console.error('Error al cargar datos del dashboard:', err);
+        throw new Error('No se pudieron cargar los datos del dashboard');
       }
-    };
-
-    fetchDashboardData();
-  }, []);
+    },
+    initialData: {
+      totalGyms: 0,
+      totalUsers: 0,
+      totalRevenue: 0,
+      activeGyms: 0,
+    },
+  });
 
   return (
     <div className="container mx-auto py-10 space-y-8">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Dashboard de Propietario</h1>
         <p className="text-muted-foreground">
-          Vista general de tus gimnasios y métricas importantes
+          Bienvenido al panel de administración de GymCore
         </p>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          title="Total de Gimnasios"
-          value={metrics.totalGyms}
-          description="Gimnasios en la red"
-          icon={<Building2 className="h-4 w-4" />}
-          loading={isLoading}
-          error={error}
-        />
-        <MetricCard
-          title="Usuarios Activos"
-          value={metrics.totalUsers}
-          description="Miembros registrados"
-          icon={<Users className="h-4 w-4" />}
-          loading={isLoading}
-          error={error}
-        />
-        <MetricCard
-          title="Ingresos Totales"
-          value={`$${metrics.totalRevenue.toLocaleString()}`}
-          description="Ingresos acumulados"
-          icon={<DollarSign className="h-4 w-4" />}
-          loading={isLoading}
-          error={error}
-        />
-        <MetricCard
-          title="Gimnasios Activos"
-          value={metrics.activeGyms}
-          description="Gimnasios operando"
-          icon={<BarChart3 className="h-4 w-4" />}
-          loading={isLoading}
-          error={error}
-        />
-      </div>
-    </div>
-        setError(null);
-        
-        // Obtener métricas del dashboard para el owner
-        const dashboardData = await api.owner.getDashboardMetrics();
-        setMetrics(dashboardData);
-      } catch (err) {
-        console.error('Error al cargar datos del dashboard:', err);
-        setError('No se pudieron cargar los datos del dashboard');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchDashboardData();
-  }, []);
-
-  return (
-    <div className="container mx-auto py-10 space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard de Propietario</h1>
-        <p className="text-muted-foreground">Bienvenido al panel de administración de GymCore</p>
       </div>
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-800 rounded-md p-4">
-          {error}
+          {error.message}
         </div>
       )}
 

@@ -1,63 +1,59 @@
-import React from 'react';
+'use client';
+
+import { Button } from "@/components/ui/button";
+import { useAuthStore } from "@/lib/store";
+import { CircleUser, LogOut } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import Link from 'next/link';
-import { useAuthStore } from '@/lib/store';
-import { Button } from '@/components/ui/button';
-import { UserRole } from '@/lib/types';
 
 export function Header() {
-  const { user, isAuthenticated, logout } = useAuthStore();
+  const { user, logout } = useAuthStore();
 
-  // Función para obtener la ruta del dashboard según el rol del usuario
-  const getDashboardPath = () => {
-    if (!user) return '/';
-    
-    switch (user.role) {
-      case UserRole.OWNER:
-        return '/dashboard/owner';
-      case UserRole.MANAGER:
-        return '/dashboard/manager';
-      case UserRole.RECEPTION:
-        return '/dashboard/reception';
-      case UserRole.CLIENT:
-        return '/dashboard/client';
-      default:
-        return '/';
-    }
+  const handleLogout = () => {
+    logout();
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b bg-background">
-      <div className="container flex h-16 items-center justify-between py-4">
-        <div className="flex items-center gap-2">
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="container flex h-14 items-center justify-between">
+        <div className="flex items-center space-x-4">
           <Link href="/" className="flex items-center space-x-2">
-            <span className="text-xl font-bold">GymCore</span>
+            <span className="font-bold">GymCore</span>
           </Link>
         </div>
-        
-        <nav className="flex items-center gap-4">
-          {isAuthenticated ? (
-            <>
-              <Link href={getDashboardPath()}>
-                <Button variant="ghost">Dashboard</Button>
-              </Link>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">{user?.name}</span>
-                <Button variant="outline" size="sm" onClick={logout}>
-                  Cerrar Sesión
+
+        {user ? (
+          <div className="flex items-center space-x-4">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="relative h-8 w-8 rounded-full">
+                  <CircleUser className="h-5 w-5" />
+                  <span className="sr-only">Menú de usuario</span>
                 </Button>
-              </div>
-            </>
-          ) : (
-            <>
-              <Link href="/login">
-                <Button variant="ghost">Iniciar Sesión</Button>
-              </Link>
-              <Link href="/register">
-                <Button>Registrarse</Button>
-              </Link>
-            </>
-          )}
-        </nav>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>
+                  {user.name}
+                  <p className="text-xs text-muted-foreground">{user.role}</p>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout} className="text-red-500">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Cerrar Sesión
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        ) : (
+          <div className="flex items-center space-x-4">
+            <Link href="/login">
+              <Button variant="ghost">Iniciar Sesión</Button>
+            </Link>
+            <Link href="/register">
+              <Button>Registrarse</Button>
+            </Link>
+          </div>
+        )}
       </div>
     </header>
   );

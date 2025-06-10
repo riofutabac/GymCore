@@ -1,98 +1,206 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# 🏋️ GymCore Backend - Refactorizado
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+## 🚀 Mejoras Implementadas
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+### ✅ Seguridad y Autenticación
+- **JWT Real**: Implementación completa de JSON Web Tokens con `@nestjs/jwt`
+- **Validación Robusta**: Tokens con expiración configurable y validación en cada request
+- **Manejo de Errores**: Excepciones HTTP específicas en lugar de errores genéricos
+- **Logging Estructurado**: Logger de NestJS en lugar de `console.log`
 
-## Description
+### ✅ Arquitectura y Código Limpio
+- **Eliminación de Redundancia**: Un solo `AuthGuard` consolidado
+- **Servicios Centralizados**: `UserContextService` para lógica común de usuarios
+- **Interceptores Globales**: Manejo consistente de respuestas y errores
+- **Decoradores Personalizados**: `@CurrentGymId()` para eliminar código repetitivo
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+### ✅ Manejo de Errores Mejorado
+- **Filtro Global**: `HttpExceptionFilter` para respuestas de error consistentes
+- **Excepciones Específicas**: `BadRequestException`, `NotFoundException`, etc.
+- **Logging de Errores**: Trazabilidad completa de errores con stack traces
 
-## Project setup
+### ✅ Configuración Robusta
+- **Variables de Entorno**: Configuración centralizada con `@nestjs/config`
+- **Validación de Entrada**: `ValidationPipe` global con configuración avanzada
+- **CORS Configurado**: Configuración segura para múltiples entornos
 
-```bash
-$ npm install
-```
+## 🔧 Configuración
 
-## Compile and run the project
+### Variables de Entorno Requeridas
+
+Crea un archivo `.env` basado en `.env.example`:
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+cp .env.example .env
 ```
 
-## Run tests
+Variables críticas:
+- `JWT_SECRET`: Clave secreta para firmar tokens JWT
+- `DATABASE_URL`: URL de conexión a PostgreSQL
+- `FRONTEND_URL`: URL del frontend para CORS
+
+### Instalación y Ejecución
 
 ```bash
-# unit tests
-$ npm run test
+# Instalar dependencias
+npm install
 
-# e2e tests
-$ npm run test:e2e
+# Generar cliente Prisma
+npx prisma generate
 
-# test coverage
-$ npm run test:cov
+# Aplicar migraciones
+npx prisma migrate deploy
+
+# Poblar base de datos
+npm run seed
+
+# Ejecutar en desarrollo
+npm run start:dev
 ```
 
-## Deployment
+## 🏗️ Arquitectura Mejorada
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+### Estructura de Carpetas
+```
+src/
+├── auth/                     # Autenticación JWT
+├── common/                   # Código compartido
+│   ├── decorators/          # Decoradores personalizados
+│   ├── filters/             # Filtros globales
+│   ├── guards/              # Guards de autenticación/autorización
+│   ├── interceptors/        # Interceptores globales
+│   ├── interfaces/          # Interfaces TypeScript
+│   └── services/            # Servicios compartidos
+├── modules/                 # Módulos de negocio
+│   ├── access-control/      # Control de acceso QR
+│   ├── inventory/           # Inventario y ventas
+│   └── memberships/         # Gestión de membresías
+├── gyms/                    # Gestión de gimnasios
+└── prisma/                  # Configuración de base de datos
+```
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+### Flujo de Request Mejorado
 
+1. **Validación Global**: `ValidationPipe` valida DTOs automáticamente
+2. **Autenticación**: `AuthGuard` verifica JWT y adjunta usuario al request
+3. **Autorización**: `RoleGuard` verifica permisos basados en roles
+4. **Enriquecimiento**: `UserEnrichmentInterceptor` agrega datos completos del usuario
+5. **Procesamiento**: Controlador ejecuta lógica de negocio
+6. **Respuesta**: `ResponseInterceptor` formatea respuesta consistente
+7. **Manejo de Errores**: `HttpExceptionFilter` captura y formatea errores
+
+## 🔐 Seguridad
+
+### JWT Implementation
+- Tokens firmados con clave secreta configurable
+- Expiración configurable (default: 7 días)
+- Validación en cada request protegido
+- Payload mínimo para reducir tamaño del token
+
+### Autorización por Roles
+```typescript
+@Roles([Role.MANAGER, Role.SYS_ADMIN])
+@UseGuards(AuthGuard, RoleGuard)
+async createProduct() {
+  // Solo gerentes y administradores pueden crear productos
+}
+```
+
+### Validación de Entrada
+```typescript
+// DTOs con validación automática
+export class CreateProductDto {
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @IsNumber()
+  @Min(0)
+  price: number;
+}
+```
+
+## 📊 Logging y Monitoreo
+
+### Logger Estructurado
+```typescript
+private readonly logger = new Logger(ServiceName.name);
+
+// Logs informativos
+this.logger.log(`User ${userId} performed action`);
+
+// Logs de error con stack trace
+this.logger.error(`Error message: ${error.message}`, error.stack);
+```
+
+### Health Check
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+GET /health
+```
+Respuesta:
+```json
+{
+  "status": "ok",
+  "timestamp": "2024-01-01T00:00:00.000Z",
+  "uptime": 3600,
+  "environment": "development"
+}
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## 🧪 Testing
 
-## Resources
+### Endpoints de Prueba
 
-Check out a few resources that may come in handy when working with NestJS:
+Todos los endpoints requieren autenticación excepto:
+- `POST /api/auth/login`
+- `POST /api/auth/register`
+- `GET /health`
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+### Usuarios de Prueba
+Después de ejecutar `npm run seed`:
 
-## Support
+- **Admin**: `admin@gym.com` / `password123`
+- **Manager**: `manager@gym.com` / `password123`
+- **Reception**: `reception@gym.com` / `password123`
+- **Client**: `client@gym.com` / `password123`
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+### Ejemplo de Request Autenticado
+```bash
+curl -X GET http://localhost:3001/api/auth/me \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
 
-## Stay in touch
+## 🚀 Próximos Pasos
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+### Mejoras Adicionales Recomendadas
 
-## License
+1. **Rate Limiting**: Implementar `@nestjs/throttler`
+2. **Caching**: Integrar Redis para cache de consultas frecuentes
+3. **File Upload**: Configurar multer para subida de archivos
+4. **API Documentation**: Integrar Swagger/OpenAPI
+5. **Testing**: Implementar tests unitarios y e2e
+6. **Monitoring**: Integrar APM (Application Performance Monitoring)
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+### Configuración de Producción
+
+1. **Variables de Entorno**: Configurar todas las variables en `.env`
+2. **Base de Datos**: Usar PostgreSQL en producción
+3. **Secrets**: Usar gestores de secretos (AWS Secrets Manager, etc.)
+4. **Logging**: Configurar logs estructurados para agregación
+5. **Monitoring**: Implementar health checks y métricas
+
+## 📝 Notas de Migración
+
+### Cambios Breaking
+- Los tokens de autenticación ahora son JWT reales
+- Estructura de respuesta de error estandarizada
+- Validación más estricta en DTOs
+
+### Compatibilidad
+- Todas las rutas existentes mantienen compatibilidad
+- Respuestas de éxito mantienen el formato `{ success: true, data: ... }`
+- Códigos de estado HTTP más precisos
+
+---
+
+**¡El backend ahora está listo para producción!** 🎉

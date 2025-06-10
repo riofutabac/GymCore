@@ -1,4 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { 
+  Injectable, 
+  NotFoundException, 
+  UnprocessableEntityException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateGymDto } from './dto/create-gym.dto';
 
@@ -14,10 +20,16 @@ const generateJoinCode = (length = 6) => {
 
 @Injectable()
 export class GymsService {
+  private readonly logger = new Logger(GymsService.name);
+
   constructor(private prisma: PrismaService) {}
 
   async joinByCode(code: string) {
     try {
+      if (!code || code.trim().length === 0) {
+        throw new BadRequestException('Join code is required');
+      }
+
       const gym = await this.prisma.gym.findUnique({
         where: { joinCode: code.toUpperCase() },
         include: {
@@ -31,12 +43,18 @@ export class GymsService {
       });
 
       if (!gym) {
-        throw new NotFoundException('Código de gimnasio inválido');
+        throw new NotFoundException(`Gym with code "${code}" not found`);
       }
+
+      if (!gym.isActive) {
+        throw new BadRequestException('This gym is currently inactive');
+      }
+
+      this.logger.log(`User successfully joined gym: ${gym.name}`);
 
       return {
         success: true,
-        message: 'Te has unido al gimnasio exitosamente',
+        message: 'Successfully joined the gym',
         gym: {
           id: gym.id,
           name: gym.name,
@@ -44,8 +62,12 @@ export class GymsService {
         }
       };
     } catch (error) {
-      console.error('Error joining gym by code:', error);
-      throw error;
+      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+        throw error;
+      }
+      
+      this.logger.error(`Error joining gym by code: ${error.message}`, error.stack);
+      throw new UnprocessableEntityException('Failed to join gym');
     }
   }
 
@@ -59,7 +81,8 @@ export class GymsService {
               staff: true,
             }
           }
-        }
+        },
+        orderBy: { createdAt: 'desc' },
       });
 
       return {
@@ -67,8 +90,8 @@ export class GymsService {
         data: gyms
       };
     } catch (error) {
-      console.error('Error getting all gyms:', error);
-      throw error;
+      this.logger.error(`Error getting all gyms: ${error.message}`, error.stack);
+      throw new UnprocessableEntityException('Failed to retrieve gyms');
     }
   }
 
@@ -84,13 +107,13 @@ export class GymsService {
       });
 
       if (!user) {
-        throw new NotFoundException('Usuario no encontrado');
+        throw new NotFoundException('User not found');
       }
 
       const gym = user.ownedGym || user.staffOfGym || user.memberOfGym;
 
       if (!gym) {
-        throw new NotFoundException('No estás asociado a ningún gimnasio');
+        throw new NotFoundException('You are not associated with any gym');
       }
 
       return {
@@ -98,8 +121,12 @@ export class GymsService {
         data: gym
       };
     } catch (error) {
-      console.error('Error getting my gym:', error);
-      throw error;
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      
+      this.logger.error(`Error getting user's gym: ${error.message}`, error.stack);
+      throw new UnprocessableEntityException('Failed to retrieve gym information');
     }
   }
 
@@ -118,7 +145,7 @@ export class GymsService {
       });
 
       if (!gym) {
-        throw new NotFoundException('Gimnasio no encontrado');
+        throw new NotFoundException(`Gym with ID "${id}" not found`);
       }
 
       return {
@@ -126,24 +153,37 @@ export class GymsService {
         data: gym
       };
     } catch (error) {
-      console.error('Error getting gym by id:', error);
-      throw error;
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      
+      this.logger.error(`Error getting gym by id: ${error.message}`, error.stack);
+      throw new UnprocessableEntityException('Failed to retrieve gym');
     }
   }
 
   async create(gymData: CreateGymDto, userId: string) {
     try {
+      // Verificar que el usuario no sea ya propietario de otro gimnasio
+      const existingGym = await this.prisma.gym.findUnique({
+        where: { ownerId: userId }
+      });
+
+      if (existingGym) {
+        throw new BadRequestException('User already owns a gym');
+      }
+
       // Generar joinCode único
       let joinCode = generateJoinCode();
       
       // Verificar que el código sea único
-      let existingGym = await this.prisma.gym.findUnique({
+      let existingGymWithCode = await this.prisma.gym.findUnique({
         where: { joinCode }
       });
       
-      while (existingGym) {
+      while (existingGymWithCode) {
         joinCode = generateJoinCode();
-        existingGym = await this.prisma.gym.findUnique({
+        existingGymWithCode = await this.prisma.gym.findUnique({
           where: { joinCode }
         });
       }
@@ -156,38 +196,66 @@ export class GymsService {
         }
       });
 
+      this.logger.log(`Gym created successfully: ${gym.name} (${gym.id})`);
+
       return {
         success: true,
-        message: 'Gimnasio creado exitosamente',
+        message: 'Gym created successfully',
         data: gym
       };
     } catch (error) {
-      console.error('Error creating gym:', error);
-      throw new Error('Error al crear el gimnasio');
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      
+      this.logger.error(`Error creating gym: ${error.message}`, error.stack);
+      throw new UnprocessableEntityException('Failed to create gym');
     }
   }
 
   async update(id: string, gymData: Partial<CreateGymDto>) {
     try {
+      const existingGym = await this.prisma.gym.findUnique({
+        where: { id }
+      });
+
+      if (!existingGym) {
+        throw new NotFoundException(`Gym with ID "${id}" not found`);
+      }
+
       const gym = await this.prisma.gym.update({
         where: { id },
         data: gymData,
       });
 
+      this.logger.log(`Gym updated successfully: ${gym.name} (${gym.id})`);
+
       return {
         success: true,
-        message: 'Gimnasio actualizado exitosamente',
+        message: 'Gym updated successfully',
         data: gym
       };
     } catch (error) {
-      console.error('Error updating gym:', error);
-      throw new Error('Error al actualizar el gimnasio');
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      
+      this.logger.error(`Error updating gym: ${error.message}`, error.stack);
+      throw new UnprocessableEntityException('Failed to update gym');
     }
   }
 
   async delete(id: string) {
     try {
-      // Eliminar registros relacionados primero
+      const existingGym = await this.prisma.gym.findUnique({
+        where: { id }
+      });
+
+      if (!existingGym) {
+        throw new NotFoundException(`Gym with ID "${id}" not found`);
+      }
+
+      // Eliminar registros relacionados en una transacción
       await this.prisma.$transaction(async (tx) => {
         // Eliminar logs de acceso
         await tx.accessLog.deleteMany({
@@ -233,13 +301,19 @@ export class GymsService {
         });
       });
 
+      this.logger.log(`Gym deleted successfully: ${existingGym.name} (${id})`);
+
       return {
         success: true,
-        message: 'Gimnasio eliminado exitosamente'
+        message: 'Gym deleted successfully'
       };
     } catch (error) {
-      console.error('Error deleting gym:', error);
-      throw new Error('Error al eliminar el gimnasio');
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      
+      this.logger.error(`Error deleting gym: ${error.message}`, error.stack);
+      throw new UnprocessableEntityException('Failed to delete gym');
     }
   }
 }

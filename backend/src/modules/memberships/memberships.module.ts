@@ -2,12 +2,12 @@ import { Module } from '@nestjs/common';
 import { MembershipsService } from './memberships.service';
 import { MembershipsController } from './memberships.controller';
 import { PrismaModule } from '../../prisma/prisma.module';
-import { AuthModule } from '../../auth/auth.module';
+import { UserContextService } from '../../common/services/user-context.service';
 
 @Module({
-  imports: [PrismaModule, AuthModule], // Import AuthModule to make AuthService available
+  imports: [PrismaModule],
   controllers: [MembershipsController],
-  providers: [MembershipsService],
+  providers: [MembershipsService, UserContextService],
   exports: [MembershipsService],
 })
 export class MembershipsModule {}

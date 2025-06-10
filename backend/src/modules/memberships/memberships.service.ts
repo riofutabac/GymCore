@@ -1,15 +1,27 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { 
+  Injectable, 
+  NotFoundException, 
+  BadRequestException,
+  UnprocessableEntityException,
+  Logger,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { UserContextService } from '../../common/services/user-context.service';
 import { RenewMembershipDto } from './dto/renew-membership.dto';
 import { MembershipStatus } from '@prisma/client';
 
 @Injectable()
 export class MembershipsService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(MembershipsService.name);
+
+  constructor(
+    private prisma: PrismaService,
+    private userContextService: UserContextService,
+  ) {}
 
   async getMyMembership(userId: string) {
     try {
-      console.log('🎫 [MEMBERSHIP] Getting membership for user:', userId);
+      this.logger.log(`Getting membership for user: ${userId}`);
       
       let membership = await this.prisma.membership.findUnique({
         where: { userId: userId },
@@ -22,7 +34,7 @@ export class MembershipsService {
       });
 
       if (!membership) {
-        console.log('🎫 [MEMBERSHIP] No membership found, creating default one');
+        this.logger.log(`No membership found for user ${userId}, creating default one`);
         
         // Crear membresía por defecto si no existe
         membership = await this.prisma.membership.create({
@@ -41,7 +53,7 @@ export class MembershipsService {
           },
         });
         
-        console.log('🎫 [MEMBERSHIP] Created default membership:', membership);
+        this.logger.log(`Created default membership for user: ${userId}`);
       }
       
       return {
@@ -49,8 +61,8 @@ export class MembershipsService {
         data: membership,
       };
     } catch (error) {
-      console.error('Error getting membership:', error);
-      throw new Error('Error al obtener la membresía');
+      this.logger.error(`Error getting membership for user ${userId}: ${error.message}`, error.stack);
+      throw new UnprocessableEntityException('Failed to retrieve membership');
     }
   }
 
@@ -61,41 +73,51 @@ export class MembershipsService {
       });
 
       if (!membership) {
-        throw new NotFoundException(`Membresía para usuario con ID "${userId}" no encontrada.`);
+        throw new NotFoundException(`Membership for user "${userId}" not found`);
       }
 
       const newExpirationDate = new Date();
       newExpirationDate.setMonth(newExpirationDate.getMonth() + 1);
 
-      // Crear registro de pago
-      await this.prisma.payment.create({
-        data: {
-          amount: renewMembershipDto.amount,
-          method: renewMembershipDto.paymentMethod as any,
-          status: 'COMPLETED',
-          description: renewMembershipDto.description,
-          membershipId: membership.id,
-        },
+      const result = await this.prisma.$transaction(async (tx) => {
+        // Crear registro de pago
+        await tx.payment.create({
+          data: {
+            amount: renewMembershipDto.amount,
+            method: renewMembershipDto.paymentMethod as any,
+            status: 'COMPLETED',
+            description: renewMembershipDto.description || 'Membership renewal',
+            membershipId: membership.id,
+          },
+        });
+
+        // Actualizar membresía
+        const updatedMembership = await tx.membership.update({
+          where: { id: membership.id },
+          data: {
+            status: MembershipStatus.ACTIVE,
+            expiresAt: newExpirationDate,
+            lastPayment: new Date(),
+            totalPaid: membership.totalPaid + renewMembershipDto.amount,
+          },
+        });
+
+        return updatedMembership;
       });
 
-      const updatedMembership = await this.prisma.membership.update({
-        where: { id: membership.id },
-        data: {
-          status: MembershipStatus.ACTIVE,
-          expiresAt: newExpirationDate,
-          lastPayment: new Date(),
-          totalPaid: membership.totalPaid + renewMembershipDto.amount,
-        },
-      });
-
+      this.logger.log(`Membership renewed successfully for user: ${userId}`);
       return {
         success: true,
-        message: 'Membresía renovada exitosamente',
-        data: updatedMembership
+        message: 'Membership renewed successfully',
+        data: result
       };
     } catch (error) {
-      console.error('Error renewing membership:', error);
-      throw error;
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      
+      this.logger.error(`Error renewing membership for user ${userId}: ${error.message}`, error.stack);
+      throw new UnprocessableEntityException('Failed to renew membership');
     }
   }
 
@@ -106,7 +128,7 @@ export class MembershipsService {
       });
 
       if (!membership) {
-        throw new NotFoundException(`Membresía con ID "${membershipId}" no encontrada.`);
+        throw new NotFoundException(`Membership "${membershipId}" not found`);
       }
 
       const updatedMembership = await this.prisma.membership.update({
@@ -116,34 +138,35 @@ export class MembershipsService {
         },
       });
 
+      this.logger.log(`Membership suspended successfully: ${membershipId}`);
       return {
         success: true,
-        message: 'Membresía suspendida exitosamente',
+        message: 'Membership suspended successfully',
         data: updatedMembership
       };
     } catch (error) {
-      console.error('Error suspending membership:', error);
-      throw error;
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      
+      this.logger.error(`Error suspending membership ${membershipId}: ${error.message}`, error.stack);
+      throw new UnprocessableEntityException('Failed to suspend membership');
     }
   }
 
-  async getAllMemberships(gymId?: string) {
+  async getAllMemberships(userId: string) {
     try {
-      let whereClause = {};
-      
-      if (gymId) {
-        whereClause = {
+      const gymId = await this.userContextService.getUserGymId(userId);
+
+      const memberships = await this.prisma.membership.findMany({
+        where: {
           user: {
             OR: [
               { memberOfGymId: gymId },
               { staffOfGymId: gymId }
             ]
           }
-        };
-      }
-
-      const memberships = await this.prisma.membership.findMany({
-        where: whereClause,
+        },
         include: {
           user: {
             select: {
@@ -166,8 +189,12 @@ export class MembershipsService {
         data: memberships,
       };
     } catch (error) {
-      console.error('Error getting all memberships:', error);
-      throw new Error('Error al obtener las membresías');
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      
+      this.logger.error(`Error getting all memberships for user ${userId}: ${error.message}`, error.stack);
+      throw new UnprocessableEntityException('Failed to retrieve memberships');
     }
   }
 }

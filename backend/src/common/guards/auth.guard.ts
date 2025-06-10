@@ -1,40 +1,53 @@
-import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from '@nestjs/common';
-import { Observable } from 'rxjs';
-import { AuthService } from '../../auth/auth.service';
+import { 
+  Injectable, 
+  CanActivate, 
+  ExecutionContext, 
+  UnauthorizedException,
+  Logger,
+} from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { Request } from 'express';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
-  constructor(private authService: AuthService) {}
+  private readonly logger = new Logger(AuthGuard.name);
 
-  canActivate(
-    context: ExecutionContext,
-  ): boolean | Promise<boolean> | Observable<boolean> {
-    const request = context.switchToHttp().getRequest();
+  constructor(
+    private jwtService: JwtService,
+    private configService: ConfigService,
+  ) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request = context.switchToHttp().getRequest<Request>();
+    const token = this.extractTokenFromHeader(request);
+    
+    if (!token) {
+      throw new UnauthorizedException('Access token is required');
+    }
+
+    try {
+      const payload = await this.jwtService.verifyAsync(token, {
+        secret: this.configService.get<string>('JWT_SECRET'),
+      });
+      
+      // Adjuntar el payload al request para uso posterior
+      (request as any).user = payload;
+      
+      return true;
+    } catch (error) {
+      this.logger.warn(`Token validation failed: ${error.message}`);
+      throw new UnauthorizedException('Invalid or expired token');
+    }
+  }
+
+  private extractTokenFromHeader(request: Request): string | undefined {
     const authHeader = request.headers.authorization;
-
     if (!authHeader) {
-      throw new UnauthorizedException('Authorization header missing');
+      return undefined;
     }
 
     const [type, token] = authHeader.split(' ');
-
-    if (type !== 'Bearer' || !token) {
-      throw new UnauthorizedException('Invalid authorization format');
-    }
-
-    return this.validateToken(token, request);
-  }
-
-  private async validateToken(token: string, request: any): Promise<boolean> {
-    try {
-      const user = await this.authService.validateToken(token);
-      if (!user) {
-        throw new UnauthorizedException('Invalid token');
-      }
-      request.user = user;
-      return true;
-    } catch (error) {
-      throw new UnauthorizedException('Invalid token');
-    }
+    return type === 'Bearer' ? token : undefined;
   }
 }

@@ -19,6 +19,7 @@ import {
   Camera,
   Shield
 } from "lucide-react";
+import { getStoredUser } from "@/lib/auth";
 
 interface UserProfile {
   id: string;
@@ -49,19 +50,19 @@ export default function ProfilePage() {
 
   const loadProfile = async () => {
     try {
-      // Obtener datos del usuario desde localStorage
-      const userData = localStorage.getItem("user");
-      if (userData) {
-        const user = JSON.parse(userData);
+      // Obtener datos del usuario actual desde el sistema de autenticación
+      const currentUser = getStoredUser();
+      
+      if (currentUser) {
         const mockProfile: UserProfile = {
-          id: user.id,
-          email: user.email,
-          name: user.name || "",
-          phone: "+1 234 567 8900", // Datos simulados
-          role: user.role,
+          id: currentUser.id,
+          email: currentUser.email,
+          name: currentUser.name || "",
+          phone: currentUser.phone || "+1 234 567 8900", // Datos simulados si no existe
+          role: currentUser.role,
           isActive: true,
           emailVerified: true,
-          createdAt: new Date().toISOString(),
+          createdAt: currentUser.createdAt || new Date().toISOString(),
         };
         
         setProfile(mockProfile);
@@ -70,12 +71,16 @@ export default function ProfilePage() {
           phone: mockProfile.phone || "",
           email: mockProfile.email
         });
+      } else {
+        // Si no hay usuario autenticado, redirigir al login
+        window.location.href = '/login';
       }
     } catch (error: any) {
+      console.error('Error al cargar perfil:', error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: "No se pudo cargar el perfil",
+        description: "No se pudo cargar el perfil del usuario",
       });
     } finally {
       setLoading(false);
@@ -95,13 +100,16 @@ export default function ProfilePage() {
         
         setProfile(updatedProfile);
         
-        // Actualizar también en localStorage
-        const userData = localStorage.getItem("user");
-        if (userData) {
-          const user = JSON.parse(userData);
-          user.name = formData.name;
-          user.email = formData.email;
-          localStorage.setItem("user", JSON.stringify(user));
+        // Actualizar también en localStorage usando la función correcta
+        const currentUser = getStoredUser();
+        if (currentUser) {
+          const updatedUser = {
+            ...currentUser,
+            name: formData.name,
+            email: formData.email,
+            phone: formData.phone
+          };
+          localStorage.setItem("gymcore_user", JSON.stringify(updatedUser));
         }
       }
       
@@ -112,6 +120,7 @@ export default function ProfilePage() {
         description: "Los cambios se han guardado correctamente",
       });
     } catch (error: any) {
+      console.error('Error al guardar perfil:', error);
       toast({
         variant: "destructive",
         title: "Error",

@@ -54,8 +54,6 @@ export function RegisterForm() {
       redirectByRole(response.user);
       
     } catch (error: any) {
-      console.error('Error de registro:', error);
-      
       const errorMessage = error.response?.data?.message || 
         error.message || 
         'Error al registrar la cuenta. Inténtalo de nuevo.';

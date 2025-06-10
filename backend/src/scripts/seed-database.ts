@@ -303,11 +303,11 @@ async function seedDatabase() {
 
     console.log('\n✅ Seed completado exitosamente!');
     console.log('\n👤 Usuarios de prueba:');
-    console.log('📧 Propietario: owner@gym.com / password123');
-    console.log('📧 Manager: admin@gym.com / password123');
-    console.log('📧 Recepción: reception@gym.com / password123');
-    console.log('📧 Cliente: client@gym.com / password123');
-    console.log('📧 Clientes adicionales: cliente1@gym.com a cliente5@gym.com / password123');
+    console.log('📧 Propietario (SYS_ADMIN): owner@gym.com / password123');
+    console.log('📧 Manager (MANAGER): admin@gym.com / password123');
+    console.log('📧 Recepción (RECEPTION): reception@gym.com / password123');
+    console.log('📧 Cliente (CLIENT): client@gym.com / password123');
+    console.log('📧 Clientes adicionales (CLIENT): cliente1@gym.com a cliente5@gym.com / password123');
     console.log('\n🏢 Código de gimnasio: GYM123');
     console.log('\n📊 ¡Todos los datos insertados correctamente con relaciones válidas!');
     

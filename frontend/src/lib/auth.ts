@@ -36,28 +36,45 @@ export const isAuthenticated = (): boolean => {
 // Redirigir según el rol del usuario
 export const redirectByRole = (user: any, customRedirect?: string): void => {
   if (typeof window !== 'undefined') {
+    console.log('🔄 redirectByRole llamado con:', { 
+      userRole: user?.role, 
+      userName: user?.name,
+      customRedirect 
+    });
+    
     // Si hay un redirect personalizado, lo usa primero
     if (customRedirect) {
+      console.log('➡️ Redirigiendo a URL personalizada:', customRedirect);
       window.location.href = customRedirect;
       return;
     }
 
     // Redirecciona según el rol del usuario
+    console.log('🎭 Verificando rol del usuario:', user.role);
+    
     switch (user.role) {
-      case 'ADMIN':
+      case 'SYS_ADMIN':
+        console.log('👑 Rol SYS_ADMIN detectado, redirigiendo a /admin');
         window.location.href = '/admin';
         break;
       case 'MANAGER':
+        console.log('👔 Rol MANAGER detectado, redirigiendo a /manager');
         window.location.href = '/manager';
         break;
       case 'RECEPTION':
+        console.log('🏪 Rol RECEPTION detectado, redirigiendo a /reception');
         window.location.href = '/reception';
         break;
+      case 'CLIENT':
+        console.log('👤 Rol CLIENT detectado, redirigiendo a /member');
+        window.location.href = '/member';
+        break;
       case 'MEMBER':
+        console.log('👤 Rol MEMBER detectado, redirigiendo a /member');
         window.location.href = '/member';
         break;
       default:
-        // Ruta por defecto si no coincide ningún rol
+        console.log('❓ Rol desconocido:', user.role, 'redirigiendo a /');
         window.location.href = '/';
         break;
     }
@@ -84,49 +101,35 @@ export const clearAuth = (): void => {
 // Obtener el usuario actual (solo en el cliente)
 export const getCurrentUser = async (): Promise<User | null> => {
   try {
-    console.log('🔄 getCurrentUser - Verificando contexto...');
-    
     // Esta función solo funciona en el cliente
     if (typeof window === 'undefined') {
-      console.log('⚠️ getCurrentUser llamado en el servidor - retornando null');
       return null;
     }
-    
-    console.log('🌐 Ejecutando en cliente');
     
     // Si no hay token, no hay usuario autenticado
     const token = getAuthToken();
     if (!token) {
-      console.log('❌ No hay token en localStorage');
       return null;
     }
     
-    console.log('🔑 Token encontrado en localStorage');
-    
     // Primero intentar obtener del almacenamiento local
     const storedUser = getStoredUser();
-    console.log('👤 Usuario en localStorage:', storedUser ? 'Sí' : 'No');
     
     // Intentar refrescar los datos del usuario desde el servidor
     try {
-      console.log('🔄 Refrescando datos del usuario desde API...');
       const freshUser = await authAPI.me();
       
       if (freshUser) {
-        console.log('✅ Usuario actualizado desde API:', freshUser.email || freshUser.name);
         storeUserInfo(freshUser, token);
         return freshUser;
       }
     } catch (apiError) {
-      console.error('🚨 Error al refrescar datos del usuario:', apiError);
       // Si hay un error de API, seguimos usando el usuario almacenado
     }
     
-    console.log('📦 Usando usuario almacenado localmente');
     return storedUser;
     
   } catch (error) {
-    console.error('💥 Error general en getCurrentUser:', error);
     // Si ocurre un error, limpiar la autenticación por seguridad
     clearAuth();
     return null;

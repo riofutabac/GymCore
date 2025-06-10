@@ -36,7 +36,6 @@ export function LoginForm() {
     try {
       // 1. Llamada a la API para autenticar al usuario
       const response = await authAPI.login(email, password);
-      console.log('Respuesta login procesada:', response);
       
       // 2. Guarda datos del usuario y token en localStorage Y cookies
       storeUserInfo(response.user, response.token);
@@ -50,13 +49,10 @@ export function LoginForm() {
       
       // 4. IMPORTANTE: Esta función redirige según el rol del usuario
       setTimeout(() => {
-        console.log('Redireccionando al usuario con rol:', response.user.role);
         redirectByRole(response.user, redirect ? `/${redirect}` : undefined);
       }, 500);
       
     } catch (error: any) {
-      console.error('Error de inicio de sesión detallado:', error);
-      
       const errorMessage = error.response?.data?.message || 
         error.message || 
         'Credenciales inválidas. Inténtalo de nuevo.';

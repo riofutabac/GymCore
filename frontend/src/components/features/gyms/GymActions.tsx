@@ -21,6 +21,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { MoreVertical, Edit, Trash2, Copy } from 'lucide-react';
+import { EditGymDialog } from './EditGymDialog';
 import { Gym } from '@/lib/types';
 import { gymsAPI } from '@/lib/api';
 import { useToast } from '@/components/ui/use-toast';
@@ -61,11 +62,11 @@ export function GymActions({ gym }: GymActionsProps) {
         description: `${gym.name} ha sido eliminado exitosamente`,
       });
       router.refresh();
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: error.response?.data?.message || 'Error al eliminar el gimnasio',
+        description: error instanceof Error ? error.message : 'Error al eliminar el gimnasio',
       });
     } finally {
       setLoading(false);
@@ -86,9 +87,16 @@ export function GymActions({ gym }: GymActionsProps) {
             <Copy className="mr-2 h-4 w-4" />
             Copiar código
           </DropdownMenuItem>
-          <DropdownMenuItem>
-            <Edit className="mr-2 h-4 w-4" />
-            Editar
+          <DropdownMenuItem asChild>
+            <EditGymDialog
+              gym={gym}
+              trigger={
+                <button className="w-full flex items-center px-2 py-1.5 text-sm">
+                  <Edit className="mr-2 h-4 w-4" />
+                  Editar
+                </button>
+              }
+            />
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => setDeleteDialogOpen(true)}
@@ -106,7 +114,7 @@ export function GymActions({ gym }: GymActionsProps) {
             <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
             <AlertDialogDescription>
               Esta acción no se puede deshacer. Esto eliminará permanentemente el gimnasio
-              "{gym.name}" y todos sus datos asociados.
+              &ldquo;{gym.name}&rdquo; y todos sus datos asociados.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

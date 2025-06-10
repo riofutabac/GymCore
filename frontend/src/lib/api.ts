@@ -1,4 +1,4 @@
-import axios, { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosResponse, InternalAxiosRequestConfig, AxiosError } from 'axios';
 import type { User, Gym, Member, Product, Sale, PaginatedResponse } from './types';
 
 // Definición de interfaces utilizadas en la API
@@ -201,9 +201,32 @@ export const gymsAPI = {
     return handleResponse(response);
   },
 
-  create: async (gymData: Omit<Gym, 'id' | 'createdAt' | 'updatedAt' | 'joinCode'>): Promise<Gym> => {
-    const response = await api.post('/gyms', gymData);
-    return handleResponse(response);
+  create: async (data: Omit<Gym, 'id' | 'createdAt' | 'updatedAt' | 'joinCode'> & { managerId?: string }) => {
+    console.log('gymsAPI.create - Datos enviados:', JSON.stringify(data));
+    console.log('gymsAPI.create - Token presente:', !!localStorage.getItem('gymcore_token'));
+    
+    try {
+      const response = await api.post('/gyms', data);
+      console.log('gymsAPI.create - Respuesta exitosa:', response.data);
+      return handleResponse<Gym>(response);
+    } catch (error) {
+      // Manejo de errores tipado
+      const axiosError = error as AxiosError<Record<string, unknown>>;
+      
+      console.error('gymsAPI.create - Error detallado:', {
+        message: axiosError.message,
+        responseData: axiosError.response?.data,
+        status: axiosError.response?.status,
+        headers: axiosError.response?.headers,
+        requestConfig: {
+          url: axiosError.config?.url,
+          method: axiosError.config?.method,
+          headers: axiosError.config?.headers,
+          data: axiosError.config?.data
+        }
+      });
+      throw error;
+    }
   },
 
   update: async (id: string, gymData: Partial<Gym>): Promise<Gym> => {
@@ -259,6 +282,16 @@ export const usersAPI = {
   getAll: async (page = 1, limit = 50): Promise<{ users: User[]; total: number }> => {
     const response = await api.get(`/users?page=${page}&limit=${limit}`);
     return handleResponse(response);
+  },
+  
+  getByRole: async (role: string): Promise<User[]> => {
+    try {
+      const response = await api.get(`/users/role/${role}`);
+      return handleResponse<User[]>(response);
+    } catch (error) {
+      console.error(`Error al obtener usuarios con rol ${role}:`, error);
+      throw error;
+    }
   },
 
   getById: async (id: string): Promise<User> => {

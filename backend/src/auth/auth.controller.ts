@@ -6,6 +6,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Param,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto, RegisterDto } from './dto/auth.dto';
@@ -55,5 +56,11 @@ export class AuthController {
   @HttpCode(HttpStatus.CREATED)
   async createUser(@Body() userData: RegisterDto) {
     return this.authService.register(userData);
+  }
+
+  @Get('users/role/:role')
+  @UseGuards(AuthGuard)
+  async getUsersByRole(@Param('role') role: string) {
+    return this.authService.getUsersByRole(role);
   }
 }

@@ -13,6 +13,10 @@ export interface Gym {
   id: string;
   name: string;
   address: string;
+  description?: string;
+  phone?: string;
+  email?: string;
+  isActive?: boolean;
   joinCode: string;
   ownerId: string;
   createdAt: string;

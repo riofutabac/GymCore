@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { gymsAPI, usersAPI, inventoryAPI, membershipsAPI } from "@/lib/api";
+import type { Gym, Sale } from "@/lib/types";
 
 interface SystemStats {
   totalGyms: number;
@@ -27,6 +28,19 @@ interface SystemStats {
   systemHealth: number;
   activeConnections: number;
   storageUsed: number;
+  lastUpdate: Date;
+}
+
+interface SystemAlert {
+  id: string;
+  type: 'info' | 'success' | 'warning' | 'error';
+  title: string;
+  message: string;
+  timestamp: Date;
+  action?: {
+    label: string;
+    onClick: () => void;
+  };
 }
 
 interface RecentGym {
@@ -62,45 +76,72 @@ export default function AdminDashboard() {
       setLoading(true);
       setError(null);
 
-      // Cargar datos reales de múltiples APIs
-      const [gymsData, usersData, salesData, membershipsData] = await Promise.all([
+      // Cargar datos reales de múltiples APIs con fechas
+      const now = new Date();
+      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+
+      const [gymsData, usersData, currentMonthSales, lastMonthSales, membershipsData] = await Promise.all([
         gymsAPI.getAll().catch(() => []),
         usersAPI.getAll().catch(() => ({ users: [], total: 0 })),
-        inventoryAPI.getSales().catch(() => []),
+        inventoryAPI.getSales({ startDate: firstDayOfMonth.toISOString() }).catch(() => []),
+        inventoryAPI.getSales({ startDate: lastMonthStart.toISOString(), endDate: lastMonthEnd.toISOString() }).catch(() => []),
         membershipsAPI.getAllMemberships().catch(() => [])
       ]);
 
-      // Calcular estadísticas reales
-      const totalRevenue = Array.isArray(salesData) 
-        ? salesData.reduce((sum: number, sale: any) => sum + (sale.total || 0), 0)
+      // Calcular ingresos y crecimiento
+      const currentMonthRevenue = Array.isArray(currentMonthSales)
+        ? currentMonthSales.reduce((sum: number, sale: any) => sum + (sale.total || 0), 0)
+        : 0;
+
+      const lastMonthRevenue = Array.isArray(lastMonthSales)
+        ? lastMonthSales.reduce((sum: number, sale: any) => sum + (sale.total || 0), 0)
+        : 0;
+
+      const monthlyGrowth = lastMonthRevenue > 0
+        ? ((currentMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100
         : 0;
       
-      const activeGyms = Array.isArray(gymsData) 
+      const activeGyms = Array.isArray(gymsData)
         ? gymsData.filter((gym: any) => gym.isActive !== false).length
         : 0;
 
       const totalUsers = usersData.users ? usersData.users.length : usersData.total || 0;
 
+      // Calcular salud del sistema basado en gimnasios activos y membresías activas
+      const activeMembers = membershipsData.filter(m => m.status === 'ACTIVE').length;
+      const systemHealth = activeGyms > 0 ? Math.min(100, (activeMembers / (activeGyms * 50)) * 100) : 100;
+
       setSystemStats({
         totalGyms: Array.isArray(gymsData) ? gymsData.length : 0,
         activeGyms: activeGyms,
         totalUsers: totalUsers,
-        totalRevenue: totalRevenue,
-        monthlyGrowth: 15.8, // Calcular basado en datos históricos
-        systemHealth: 98.5,
-        activeConnections: Math.floor(Math.random() * 200) + 100,
-        storageUsed: 67.4
+        totalRevenue: currentMonthRevenue,
+        monthlyGrowth,
+        systemHealth,
+        activeConnections: totalUsers > 0 ? Math.floor(totalUsers * 0.3) : 0, // Estimado 30% de usuarios activos
+        storageUsed: Math.min(95, (totalUsers * 0.5) + (activeGyms * 2)), // Estimado basado en usuarios y gimnasios
+        lastUpdate: new Date()
       });
 
-      // Obtener los gimnasios más recientes/destacados
+      // Obtener los gimnasios más recientes/destacados con datos reales
       if (Array.isArray(gymsData)) {
-        const gymsWithStats = gymsData.slice(0, 3).map((gym: any) => ({
-          id: gym.id,
-          name: gym.name,
-          members: gym._count?.members || 0,
-          status: gym.isActive !== false ? 'active' : 'maintenance',
-          revenue: Math.floor(Math.random() * 20000) + 10000 // Calcular ingresos reales si está disponible
-        }));
+        const gymsWithStats = await Promise.all(
+          gymsData.slice(0, 3).map(async (gym: Gym) => {
+            const gymMembers = membershipsData.filter(m => m.gymId === gym.id && m.status === 'ACTIVE');
+            const gymSales = (currentMonthSales as Sale[]).filter(s => s.gymId === gym.id);
+            const revenue = gymSales.reduce((sum: number, sale: Sale) => sum + (sale.total || 0), 0);
+
+            return {
+              id: gym.id,
+              name: gym.name,
+              members: gymMembers.length,
+              status: gym.isActive !== false ? 'active' : 'maintenance',
+              revenue: revenue || 0
+            };
+          })
+        );
         setRecentGyms(gymsWithStats);
       }
 
@@ -112,7 +153,49 @@ export default function AdminDashboard() {
     }
   };
 
-  const systemStatus = systemStats.systemHealth > 95 ? 'online' : 'offline';
+  const [alerts, setAlerts] = useState<SystemAlert[]>([]);
+
+  useEffect(() => {
+    // Actualizar alertas basadas en el estado del sistema
+    const newAlerts: SystemAlert[] = [];
+
+    // Alerta de salud del sistema
+    if (systemStats.systemHealth < 90) {
+      newAlerts.push({
+        id: 'system-health',
+        type: 'warning',
+        title: 'Salud del Sistema Baja',
+        message: `La salud del sistema está al ${systemStats.systemHealth.toFixed(1)}%. Se recomienda revisar el rendimiento.`,
+        timestamp: new Date()
+      });
+    }
+
+    // Alerta de almacenamiento
+    if (systemStats.storageUsed > 80) {
+      newAlerts.push({
+        id: 'storage',
+        type: 'warning',
+        title: 'Almacenamiento Alto',
+        message: `El uso de almacenamiento está al ${systemStats.storageUsed.toFixed(1)}%. Considere liberar espacio.`,
+        timestamp: new Date()
+      });
+    }
+
+    // Alerta de crecimiento
+    if (systemStats.monthlyGrowth < 0) {
+      newAlerts.push({
+        id: 'growth',
+        type: 'error',
+        title: 'Crecimiento Negativo',
+        message: `El crecimiento mensual es ${systemStats.monthlyGrowth.toFixed(1)}%. Revise las métricas de negocio.`,
+        timestamp: new Date()
+      });
+    }
+
+    setAlerts(newAlerts);
+  }, [systemStats]);
+
+  const systemStatus = systemStats.systemHealth > 90 ? 'online' : 'offline';
 
   if (loading) {
     return (
@@ -361,31 +444,51 @@ export default function AdminDashboard() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <div className="flex items-center justify-between p-3 border border-blue-200 rounded-lg bg-blue-50">
-              <div>
-                <p className="font-medium text-blue-800">Actualización disponible</p>
-                <p className="text-sm text-blue-600">GymCore v2.1.0 está disponible para instalación</p>
+            {alerts.length > 0 ? (
+              alerts.map(alert => (
+                <div 
+                  key={alert.id}
+                  className={`flex items-center justify-between p-3 border rounded-lg ${
+                    alert.type === 'error' ? 'border-red-200 bg-red-50' :
+                    alert.type === 'warning' ? 'border-yellow-200 bg-yellow-50' :
+                    alert.type === 'success' ? 'border-green-200 bg-green-50' :
+                    'border-blue-200 bg-blue-50'
+                  }`}
+                >
+                  <div>
+                    <p className={`font-medium ${
+                      alert.type === 'error' ? 'text-red-800' :
+                      alert.type === 'warning' ? 'text-yellow-800' :
+                      alert.type === 'success' ? 'text-green-800' :
+                      'text-blue-800'
+                    }`}>{alert.title}</p>
+                    <p className={`text-sm ${
+                      alert.type === 'error' ? 'text-red-600' :
+                      alert.type === 'warning' ? 'text-yellow-600' :
+                      alert.type === 'success' ? 'text-green-600' :
+                      'text-blue-600'
+                    }`}>{alert.message}</p>
+                  </div>
+                  {alert.action ? (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={alert.action.onClick}
+                    >
+                      {alert.action.label}
+                    </Button>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(alert.timestamp).toLocaleTimeString()}
+                    </span>
+                  )}
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                No hay alertas activas en este momento
               </div>
-              <Button variant="outline" size="sm">
-                Ver detalles
-              </Button>
-            </div>
-            
-            <div className="flex items-center justify-between p-3 border border-green-200 rounded-lg bg-green-50">
-              <div>
-                <p className="font-medium text-green-800">Respaldo completado</p>
-                <p className="text-sm text-green-600">Respaldo automático realizado exitosamente</p>
-              </div>
-              <span className="text-xs text-green-600">Hace 2 horas</span>
-            </div>
-            
-            <div className="flex items-center justify-between p-3 border border-yellow-200 rounded-lg bg-yellow-50">
-              <div>
-                <p className="font-medium text-yellow-800">Mantenimiento programado</p>
-                <p className="text-sm text-yellow-600">Mantenimiento del servidor programado para el domingo</p>
-              </div>
-              <Badge variant="secondary">Programado</Badge>
-            </div>
+            )}
           </div>
         </CardContent>
       </Card>

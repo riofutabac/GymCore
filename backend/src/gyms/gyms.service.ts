@@ -164,37 +164,54 @@ export class GymsService {
 
   async create(gymData: CreateGymDto, userId: string) {
     try {
-      // Verificar que el usuario no sea ya propietario de otro gimnasio
-      const existingGym = await this.prisma.gym.findUnique({
-        where: { ownerId: userId }
-      });
-
-      if (existingGym) {
-        throw new BadRequestException('User already owns a gym');
-      }
+      // Validar usuario propietario único
+      const existingGym = await this.prisma.gym.findUnique({ where: { ownerId: userId } });
+      if (existingGym) throw new BadRequestException('User already owns a gym');
 
       // Generar joinCode único
       let joinCode = generateJoinCode();
-      
-      // Verificar que el código sea único
-      let existingGymWithCode = await this.prisma.gym.findUnique({
-        where: { joinCode }
-      });
-      
+      let existingGymWithCode = await this.prisma.gym.findUnique({ where: { joinCode } });
       while (existingGymWithCode) {
         joinCode = generateJoinCode();
-        existingGymWithCode = await this.prisma.gym.findUnique({
-          where: { joinCode }
-        });
+        existingGymWithCode = await this.prisma.gym.findUnique({ where: { joinCode } });
       }
-
+      
+      // Validar gerente si se proporciona
+      if (gymData.managerId) {
+        const manager = await this.prisma.user.findUnique({
+          where: { id: gymData.managerId }
+        });
+        
+        if (!manager) {
+          throw new BadRequestException('Manager not found');
+        }
+        
+        if (manager.role !== 'MANAGER') {
+          throw new BadRequestException('Selected user is not a manager');
+        }
+      }
+      
+      // Extraer managerId antes de crear el gimnasio (no es parte del modelo Gym)
+      const { managerId, ...gymDataWithoutManager } = gymData;
+      
+      // Crear gimnasio
       const gym = await this.prisma.gym.create({
         data: {
-          ...gymData,
+          ...gymDataWithoutManager,
           joinCode,
           ownerId: userId,
-        }
+        },
       });
+      
+      // Si se proporcionó un managerId, actualizar el usuario para asignarlo como staff del gimnasio
+      if (managerId) {
+        await this.prisma.user.update({
+          where: { id: managerId },
+          data: { staffOfGymId: gym.id }
+        });
+        
+        this.logger.log(`Manager ${managerId} assigned to gym ${gym.id}`);
+      }
 
       this.logger.log(`Gym created successfully: ${gym.name} (${gym.id})`);
 

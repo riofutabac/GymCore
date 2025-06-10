@@ -8,6 +8,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { LoginDto, RegisterDto } from './dto/auth.dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { UserRole } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -109,7 +110,9 @@ export class AuthService {
     }
 
     if (password.length < 6) {
-      throw new BadRequestException('Password must be at least 6 characters long');
+      throw new BadRequestException(
+        'Password must be at least 6 characters long',
+      );
     }
     
     try {
@@ -235,5 +238,47 @@ export class AuthService {
     }
 
     return user;
+  }
+
+  async getUsersByRole(role: string) {
+    try {
+      this.logger.log(`Getting users with role: ${role}`);
+      
+      // Validar que el rol proporcionado sea válido y convertirlo al enum UserRole
+      const upperRole = role.toUpperCase();
+
+      // Verificar si el rol es válido utilizando Object.values
+      const validRoles = Object.values(UserRole);
+      if (!validRoles.includes(upperRole as UserRole)) {
+        this.logger.error(`Invalid role provided: ${role}`);
+        throw new BadRequestException(`Invalid role: ${role}`);
+      }
+      
+      // Asignar el rol validado
+      const userRole = upperRole as UserRole;
+      const users = await this.prisma.user.findMany({
+        where: { 
+          role: userRole,
+          isActive: true
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          phone: true,
+          emailVerified: true,
+          createdAt: true,
+        }
+      });
+      
+      return {
+        success: true,
+        data: users
+      };
+    } catch (error) {
+      this.logger.error(`Error getting users with role ${role}:`, error.stack);
+      throw new BadRequestException(`Failed to get users with role ${role}`);
+    }
   }
 }

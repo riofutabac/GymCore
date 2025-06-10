@@ -146,3 +146,6 @@ export const setServerCookies = (user: User, token: string): void => {
     document.cookie = `gymcore_user=${JSON.stringify(user)}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
   }
 };
+
+// Alias de getStoredUser para facilitar la migración de código
+export const getUser = getStoredUser;

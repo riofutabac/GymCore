@@ -1,5 +1,24 @@
-import axios from 'axios';
-import type { User, Gym, Member, Product, Sale, AccessLog, ApiResponse, PaginatedResponse } from './types';
+import axios, { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
+import type { User, Gym, Member, Product, Sale, PaginatedResponse } from './types';
+
+// Definición de interfaces utilizadas en la API
+export interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+  message?: string;
+}
+
+export interface Membership {
+  id: string;
+  userId: string;
+  gymId: string;
+  membershipType: string;
+  startDate: string;
+  endDate: string;
+  status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+  user?: User;
+  gym?: Gym;
+}
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -11,10 +30,10 @@ const api = axios.create({
 });
 
 // Request interceptor para agregar token
-api.interceptors.request.use((config) => {
+api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   if (typeof window !== 'undefined') {
     const token = localStorage.getItem('gymcore_token');
-    if (token) {
+    if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
   }
@@ -23,8 +42,8 @@ api.interceptors.request.use((config) => {
 
 // Response interceptor para manejo de errores
 api.interceptors.response.use(
-  (response) => response,
-  (error) => {
+  (response: AxiosResponse) => response,
+  (error: any) => {
     if (error.response?.status === 401) {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('gymcore_token');
@@ -38,31 +57,45 @@ api.interceptors.response.use(
 );
 
 // Función de utilidad para manejar respuestas
-const handleResponse = <T>(response: any): T => {
+const handleResponse = <T>(response: AxiosResponse): T => {
   if (!response || !response.data) {
     throw new Error('Respuesta vacía del servidor');
   }
   
-  // Si la respuesta ya es del tipo esperado, devolverla
-  if (response.data.data !== undefined) {
+  // Nuevo formato estandarizado: { success: boolean, data: any, message?: string }
+  if (response.data.success !== undefined && response.data.data !== undefined) {
+    if (!response.data.success) {
+      throw new Error(response.data.message || 'Error en la operación');
+    }
     return response.data.data;
   }
   
-  // Si la respuesta es directamente lo que necesitamos
+  // Formato anterior por compatibilidad
   return response.data;
 };
 
 // Auth API
 export const authAPI = {
   login: async (email: string, password: string): Promise<{ user: User; token: string }> => {
-    const response = await api.post<any>('/auth/login', {
-      email,
-      password,
-    });
-    
-    console.log("Respuesta login completa:", response);
-    
-    if (response.status >= 200 && response.status < 300) {
+    try {
+      const response = await api.post('/auth/login', {
+        email,
+        password,
+      });
+      
+      // Nuevo formato estandarizado
+      if (response.data.success && response.data.data) {
+        const authData = response.data.data;
+        
+        if (authData.user && authData.token) {
+          if (!authData.user.role) {
+            authData.user.role = 'CLIENT';
+          }
+          return { user: authData.user, token: authData.token };
+        }
+      }
+      
+      // Formatos anteriores por compatibilidad
       const data = response.data;
       
       if (data.user && data.token) {
@@ -86,38 +119,35 @@ export const authAPI = {
         return { user: data.userData, token: data.accessToken };
       }
       
-      if (data) {
-        console.warn('Estructura de respuesta desconocida, intentando adaptar:', data);
-        
-        const possibleUser = data.user || data.userData || data.userInfo || data;
-        const possibleToken = data.token || data.accessToken || data.jwt || '';
-        
-        if (typeof possibleUser === 'object' && possibleToken) {
-          if (!possibleUser.role) {
-            possibleUser.role = 'CLIENT';
-          }
-          
-          console.log('Usando estructura adaptada:', { user: possibleUser, token: possibleToken });
-          return { user: possibleUser, token: possibleToken };
-        }
-      }
-
       console.error('No se pudo extraer user y token de la respuesta:', data);
+      throw new Error('Formato de respuesta no reconocido');
+    } catch (error) {
+      console.error('Error en login:', error);
+      throw error;
     }
-    
-    throw new Error('Respuesta inválida del servidor');
   },
 
   register: async (email: string, password: string, name: string): Promise<{ user: User; token: string }> => {
-    const response = await api.post<any>('/auth/register', {
-      email,
-      password,
-      name,
-    });
-    
-    console.log("Respuesta registro completa:", response);
-    
-    if (response.status >= 200 && response.status < 300) {
+    try {
+      const response = await api.post('/auth/register', {
+        email,
+        password,
+        name,
+      });
+      
+      // Nuevo formato estandarizado
+      if (response.data.success && response.data.data) {
+        const authData = response.data.data;
+        
+        if (authData.user && authData.token) {
+          if (!authData.user.role) {
+            authData.user.role = 'CLIENT';
+          }
+          return { user: authData.user, token: authData.token };
+        }
+      }
+      
+      // Formatos anteriores por compatibilidad
       const data = response.data;
       
       if (data.user && data.token) {
@@ -132,17 +162,12 @@ export const authAPI = {
         return { user: data.userData, token: data.accessToken };
       }
       
-      if (data) {
-        const possibleUser = data.user || data.userData || data.userInfo || data;
-        const possibleToken = data.token || data.accessToken || data.jwt || '';
-        
-        if (typeof possibleUser === 'object' && possibleToken) {
-          return { user: possibleUser, token: possibleToken };
-        }
-      }
+      console.error('No se pudo extraer user y token de la respuesta:', data);
+      throw new Error('Formato de respuesta no reconocido');
+    } catch (error) {
+      console.error('Error en registro:', error);
+      throw error;
     }
-    
-    throw new Error('Respuesta inválida del servidor');
   },
 
   logout: async (): Promise<void> => {
@@ -223,7 +248,7 @@ export const membersAPI = {
     await api.delete(`/members/${memberId}`);
   },
 
-  getMyQR: async (): Promise<{ qrCode: string; qrData: string; expiresIn: number; user: any }> => {
+  getMyQR: async (): Promise<{ qrCode: string; qrData: string; expiresIn: number; user: User }> => {
     const response = await api.get('/access-control/my-qr');
     return handleResponse(response);
   },
@@ -263,69 +288,129 @@ export const usersAPI = {
 
 // Memberships API
 export const membershipsAPI = {
-  getMyMembership: async (): Promise<any> => {
-    const response = await api.get('/memberships/my');
-    return handleResponse(response);
+  getMyMembership: async (): Promise<Membership> => {
+    try {
+      const response = await api.get('/memberships/my');
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error al obtener membresía:', error);
+      throw error;
+    }
   },
 
-  getAllMemberships: async (): Promise<any[]> => {
-    const response = await api.get('/memberships/all');
-    return handleResponse(response);
+  getAllMemberships: async (): Promise<Membership[]> => {
+    try {
+      const response = await api.get('/memberships/all');
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error al obtener todas las membresías:', error);
+      throw error;
+    }
   },
 
-  renew: async (membershipId: string, renewData: any): Promise<any> => {
-    const response = await api.post(`/memberships/${membershipId}/renew`, renewData);
-    return handleResponse(response);
+  renew: async (membershipId: string, renewData: { endDate: string; paymentMethod: string; amount: number }): Promise<Membership> => {
+    try {
+      const response = await api.post(`/memberships/${membershipId}/renew`, renewData);
+      return handleResponse(response);
+    } catch (error) {
+      console.error(`Error al renovar membresía ${membershipId}:`, error);
+      throw error;
+    }
   },
 
-  suspend: async (membershipId: string): Promise<any> => {
-    const response = await api.post(`/memberships/${membershipId}/suspend`);
-    return handleResponse(response);
+  suspend: async (membershipId: string): Promise<Membership> => {
+    try {
+      const response = await api.post(`/memberships/${membershipId}/suspend`);
+      return handleResponse(response);
+    } catch (error) {
+      console.error(`Error al suspender membresía ${membershipId}:`, error);
+      throw error;
+    }
   }
 };
 
 // Inventory API
 export const inventoryAPI = {
   getProducts: async (): Promise<Product[]> => {
-    const response = await api.get('/inventory/products');
-    return handleResponse(response);
+    try {
+      const response = await api.get('/inventory/products');
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error al obtener productos:', error);
+      throw error;
+    }
   },
 
   createProduct: async (productData: Omit<Product, 'id'>): Promise<Product> => {
-    const response = await api.post('/inventory/products', productData);
-    return handleResponse(response);
+    try {
+      const response = await api.post('/inventory/products', productData);
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error al crear producto:', error);
+      throw error;
+    }
   },
 
   updateProduct: async (id: string, productData: Partial<Product>): Promise<Product> => {
-    const response = await api.put(`/inventory/products/${id}`, productData);
-    return handleResponse(response);
+    try {
+      const response = await api.put(`/inventory/products/${id}`, productData);
+      return handleResponse(response);
+    } catch (error) {
+      console.error(`Error al actualizar producto ${id}:`, error);
+      throw error;
+    }
   },
 
   deleteProduct: async (id: string): Promise<void> => {
-    await api.delete(`/inventory/products/${id}`);
+    try {
+      await api.delete(`/inventory/products/${id}`);
+    } catch (error) {
+      console.error(`Error al eliminar producto ${id}:`, error);
+      throw error;
+    }
   },
 
-  getSales: async (): Promise<Sale[]> => {
-    const response = await api.get('/inventory/sales');
-    return handleResponse(response);
+  getSales: async (filters?: { startDate?: string; endDate?: string; productId?: string }): Promise<Sale[]> => {
+    try {
+      const response = await api.get('/inventory/sales', { params: filters });
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error al obtener ventas:', error);
+      throw error;
+    }
   },
 
-  recordSale: async (saleData: any): Promise<Sale> => {
-    const response = await api.post('/inventory/sales', saleData);
-    return handleResponse(response);
+  recordSale: async (saleData: { productId: string; quantity: number; amount: number; paymentMethod: string }): Promise<Sale> => {
+    try {
+      const response = await api.post('/inventory/sales', saleData);
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error al registrar venta:', error);
+      throw error;
+    }
   }
 };
 
 // Access Control API
 export const accessControlAPI = {
-  getMyQR: async (): Promise<{ qrCode: string; qrData: string; expiresIn: number; user: any }> => {
-    const response = await api.get('/access-control/my-qr');
-    return handleResponse(response);
+  getMyQR: async (): Promise<{ qrCode: string; qrData: string; expiresIn: number; user: User }> => {
+    try {
+      const response = await api.get('/access-control/my-qr');
+      return handleResponse<{ qrCode: string; qrData: string; expiresIn: number; user: User }>(response);
+    } catch (error) {
+      console.error('Error al obtener código QR:', error);
+      throw error;
+    }
   },
 
-  validateQR: async (qrData: string): Promise<{ access: 'GRANTED' | 'DENIED'; reason?: string; user: any }> => {
-    const response = await api.post('/access-control/validate-qr', { qrData });
-    return handleResponse(response);
+  validateQR: async (qrData: string): Promise<{ access: 'GRANTED' | 'DENIED'; reason?: string; user: User }> => {
+    try {
+      const response = await api.post('/access-control/validate-qr', { qrData });
+      return handleResponse<{ access: 'GRANTED' | 'DENIED'; reason?: string; user: User }>(response);
+    } catch (error) {
+      console.error('Error al validar código QR:', error);
+      throw error;
+    }
   }
 };
 
@@ -333,5 +418,7 @@ export const accessControlAPI = {
 export const membershipApi = membershipsAPI;
 export const inventoryApi = inventoryAPI;
 export const accessControlApi = accessControlAPI;
+
+// Exportar tipos adicionales para uso en componentes
 
 export default api;

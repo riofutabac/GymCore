@@ -1,6 +1,8 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
+import { ResponseInterceptor } from './common/interceptors/response.interceptor';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -22,8 +24,22 @@ async function bootstrap() {
     }),
   );
 
+  // Global response interceptor
+  app.useGlobalInterceptors(new ResponseInterceptor());
+
   // Global prefix for all routes
   app.setGlobalPrefix('api');
+
+  // Swagger documentation setup
+  const config = new DocumentBuilder()
+    .setTitle('GymCore API')
+    .setDescription('API para gestión de gimnasios')
+    .setVersion('1.0')
+    .addBearerAuth()
+    .build();
+  
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api/docs', app, document);
 
   // Puerto del backend
   const port = process.env.PORT || 3001;

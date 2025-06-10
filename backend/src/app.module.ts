@@ -6,12 +6,16 @@ import { GymsModule } from './gyms/gyms.module';
 import { MembershipsModule } from './modules/memberships/memberships.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { AccessControlModule } from './modules/access-control/access-control.module';
+import { LoggerModule } from './common/logger/logger.module';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    LoggerModule,
     PrismaModule,
     AuthModule,
     GymsModule,
@@ -19,5 +23,7 @@ import { AccessControlModule } from './modules/access-control/access-control.mod
     InventoryModule,
     AccessControlModule,
   ],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule {}

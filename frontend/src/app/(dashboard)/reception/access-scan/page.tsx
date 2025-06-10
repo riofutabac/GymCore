@@ -16,9 +16,10 @@ import {
   CheckCircle, 
   XCircle, 
   Clock,
-  AlertTriangle
+  AlertTriangle,
+  Loader2
 } from "lucide-react";
-import { accessControlApi } from "@/lib/api";
+import { accessControlAPI } from "@/lib/api";
 
 interface ValidationResult {
   access: 'GRANTED' | 'DENIED';
@@ -50,8 +51,7 @@ export default function AccessScanPage() {
     setLoading(true);
 
     try {
-      const response = await accessControlApi.validateQR(qrData.trim());
-      const result = response.data as ValidationResult;
+      const result = await accessControlAPI.validateQR(qrData.trim());
       
       setLastValidation(result);
       
@@ -67,10 +67,15 @@ export default function AccessScanPage() {
       setQrData("");
 
     } catch (error: any) {
+      console.error('Error validating QR:', error);
+      const errorMessage = error.response?.data?.message || 
+                          error.message || 
+                          "Error al validar código QR";
+      
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.response?.data?.message || "Error al validar código QR",
+        description: errorMessage,
       });
     } finally {
       setLoading(false);
@@ -83,7 +88,7 @@ export default function AccessScanPage() {
     }
   };
 
-  // FIX: Función para simular escaneo de QR
+  // Función para simular escaneo de QR (para testing)
   const simulateScan = () => {
     // Simula un código QR válido del cliente de prueba
     const mockUserId = 'client-demo-id';
@@ -129,6 +134,7 @@ export default function AccessScanPage() {
                 onKeyPress={handleKeyPress}
                 className="font-mono"
                 autoFocus
+                disabled={loading}
               />
               <p className="text-sm text-muted-foreground">
                 El lector QR escribirá automáticamente aquí, o puedes ingresar manualmente
@@ -143,7 +149,7 @@ export default function AccessScanPage() {
             >
               {loading ? (
                 <>
-                  <Scan className="h-4 w-4 mr-2 animate-pulse" />
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Validando...
                 </>
               ) : (
@@ -154,11 +160,12 @@ export default function AccessScanPage() {
               )}
             </Button>
 
-            {/* FIX: Botón para simular escaneo */}
+            {/* Botón para simular escaneo (solo para testing) */}
             <Button 
               onClick={simulateScan} 
               variant="outline" 
               className="w-full"
+              disabled={loading}
             >
               <QrCode className="h-4 w-4 mr-2" />
               Simular Escaneo de Cliente de Prueba

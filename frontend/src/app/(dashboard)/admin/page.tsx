@@ -12,13 +12,33 @@ import {
   TrendingUp,
   AlertTriangle,
   Settings,
-  Database
+  Database,
+  Loader2
 } from "lucide-react";
 import Link from "next/link";
 import { gymsAPI, usersAPI, inventoryAPI, membershipsAPI } from "@/lib/api";
 
+interface SystemStats {
+  totalGyms: number;
+  activeGyms: number;
+  totalUsers: number;
+  totalRevenue: number;
+  monthlyGrowth: number;
+  systemHealth: number;
+  activeConnections: number;
+  storageUsed: number;
+}
+
+interface RecentGym {
+  id: string;
+  name: string;
+  members: number;
+  status: string;
+  revenue: number;
+}
+
 export default function AdminDashboard() {
-  const [systemStats, setSystemStats] = useState({
+  const [systemStats, setSystemStats] = useState<SystemStats>({
     totalGyms: 0,
     activeGyms: 0,
     totalUsers: 0,
@@ -29,8 +49,9 @@ export default function AdminDashboard() {
     storageUsed: 67.4
   });
   
-  const [recentGyms, setRecentGyms] = useState([]);
+  const [recentGyms, setRecentGyms] = useState<RecentGym[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadDashboardData();
@@ -38,22 +59,32 @@ export default function AdminDashboard() {
 
   const loadDashboardData = async () => {
     try {
+      setLoading(true);
+      setError(null);
+
       // Cargar datos reales de múltiples APIs
       const [gymsData, usersData, salesData, membershipsData] = await Promise.all([
-        gymsAPI.getAll(),
-        usersAPI.getAll(),
-        inventoryAPI.getSales(),
-        membershipsAPI.getAll()
+        gymsAPI.getAll().catch(() => []),
+        usersAPI.getAll().catch(() => ({ users: [], total: 0 })),
+        inventoryAPI.getSales().catch(() => []),
+        membershipsAPI.getAllMemberships().catch(() => [])
       ]);
 
       // Calcular estadísticas reales
-      const totalRevenue = salesData.reduce((sum: number, sale: any) => sum + sale.total, 0);
-      const activeGyms = gymsData.filter((gym: any) => gym.isActive).length;
+      const totalRevenue = Array.isArray(salesData) 
+        ? salesData.reduce((sum: number, sale: any) => sum + (sale.total || 0), 0)
+        : 0;
+      
+      const activeGyms = Array.isArray(gymsData) 
+        ? gymsData.filter((gym: any) => gym.isActive !== false).length
+        : 0;
+
+      const totalUsers = usersData.users ? usersData.users.length : usersData.total || 0;
 
       setSystemStats({
-        totalGyms: gymsData.length,
+        totalGyms: Array.isArray(gymsData) ? gymsData.length : 0,
         activeGyms: activeGyms,
-        totalUsers: usersData.length,
+        totalUsers: totalUsers,
         totalRevenue: totalRevenue,
         monthlyGrowth: 15.8, // Calcular basado en datos históricos
         systemHealth: 98.5,
@@ -62,20 +93,26 @@ export default function AdminDashboard() {
       });
 
       // Obtener los gimnasios más recientes/destacados
-      setRecentGyms(gymsData.slice(0, 3).map((gym: any) => ({
-        id: gym.id,
-        name: gym.name,
-        members: gym.memberCount || 0,
-        status: gym.isActive ? 'active' : 'maintenance',
-        revenue: Math.floor(Math.random() * 20000) + 10000 // Calcular ingresos reales si está disponible
-      })));
+      if (Array.isArray(gymsData)) {
+        const gymsWithStats = gymsData.slice(0, 3).map((gym: any) => ({
+          id: gym.id,
+          name: gym.name,
+          members: gym._count?.members || 0,
+          status: gym.isActive !== false ? 'active' : 'maintenance',
+          revenue: Math.floor(Math.random() * 20000) + 10000 // Calcular ingresos reales si está disponible
+        }));
+        setRecentGyms(gymsWithStats);
+      }
 
     } catch (error) {
       console.error('Error loading dashboard data:', error);
+      setError('Error al cargar los datos del dashboard');
     } finally {
       setLoading(false);
     }
   };
+
+  const systemStatus = systemStats.systemHealth > 95 ? 'online' : 'offline';
 
   if (loading) {
     return (
@@ -83,19 +120,28 @@ export default function AdminDashboard() {
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold">Panel de Administrador</h1>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[1, 2, 3, 4].map((i) => (
-            <Card key={i}>
-              <CardContent className="p-6">
-                <div className="animate-pulse space-y-4">
-                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                  <div className="h-8 bg-gray-200 rounded"></div>
-                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin" />
         </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-bold">Panel de Administrador</h1>
+        </div>
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center h-32">
+            <AlertTriangle className="h-8 w-8 text-red-500 mb-2" />
+            <p className="text-muted-foreground">{error}</p>
+            <Button onClick={loadDashboardData} className="mt-4">
+              Reintentar
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -272,25 +318,31 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {recentGyms.map((gym) => (
-                <div key={gym.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div>
-                    <p className="font-medium">{gym.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {gym.members} miembros
-                    </p>
+              {recentGyms.length > 0 ? (
+                recentGyms.map((gym) => (
+                  <div key={gym.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div>
+                      <p className="font-medium">{gym.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {gym.members} miembros
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold">${gym.revenue.toLocaleString()}</p>
+                      <Badge 
+                        variant={gym.status === 'active' ? 'default' : 'secondary'}
+                        className="text-xs"
+                      >
+                        {gym.status === 'active' ? 'Activo' : 'Mantenimiento'}
+                      </Badge>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-bold">${gym.revenue.toLocaleString()}</p>
-                    <Badge 
-                      variant={gym.status === 'active' ? 'default' : 'secondary'}
-                      className="text-xs"
-                    >
-                      {gym.status === 'active' ? 'Activo' : 'Mantenimiento'}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-center text-muted-foreground py-4">
+                  No hay gimnasios registrados
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, memo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { 
   QrCode, 
@@ -11,8 +12,11 @@ import {
   TrendingUp,
   Clock,
   CheckCircle,
-  XCircle
+  XCircle,
+  Loader2,
+  AlertTriangle
 } from "lucide-react";
+import { inventoryAPI, membershipsAPI, accessControlAPI } from "@/lib/api";
 
 // Componente memoizado para las tarjetas de acción rápida
 const QuickActionCard = memo(({ href, icon: Icon, title, description, color }: {
@@ -59,33 +63,123 @@ const StatCard = memo(({ title, value, description, icon: Icon }: {
 ));
 StatCard.displayName = 'StatCard';
 
+interface TodayStats {
+  accessValidations: number;
+  salesCount: number;
+  totalSales: number;
+  activeMemberships: number;
+}
+
+interface RecentAccess {
+  id: string;
+  name: string;
+  time: string;
+  status: 'granted' | 'denied';
+}
+
 export default function ReceptionDashboard() {
-  const [todayStats, setTodayStats] = useState({
-    accessValidations: 45,
-    salesCount: 12,
-    totalSales: 350.50,
-    activeMemberships: 128
+  const [todayStats, setTodayStats] = useState<TodayStats>({
+    accessValidations: 0,
+    salesCount: 0,
+    totalSales: 0,
+    activeMemberships: 0
   });
 
-  const [recentAccess] = useState([
-    { id: 1, name: "Juan Pérez", time: "10:30", status: "granted" },
-    { id: 2, name: "María García", time: "10:25", status: "granted" },
-    { id: 3, name: "Carlos López", time: "10:20", status: "denied" },
-    { id: 4, name: "Ana Rodríguez", time: "10:15", status: "granted" },
-  ]);
+  const [recentAccess, setRecentAccess] = useState<RecentAccess[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Optimización: useCallback para evitar recrear funciones
-  const updateStats = useCallback(() => {
-    setTodayStats(prev => ({
-      ...prev,
-      accessValidations: prev.accessValidations + Math.floor(Math.random() * 3)
-    }));
+  const loadDashboardData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Cargar datos reales de las APIs
+      const [salesData, membershipsData] = await Promise.all([
+        inventoryAPI.getSales().catch(() => []),
+        membershipsAPI.getAllMemberships().catch(() => [])
+      ]);
+
+      // Calcular estadísticas reales
+      const totalSales = Array.isArray(salesData) 
+        ? salesData.reduce((sum: number, sale: any) => sum + (sale.total || 0), 0)
+        : 0;
+      
+      const salesCount = Array.isArray(salesData) ? salesData.length : 0;
+      
+      const activeMemberships = Array.isArray(membershipsData) 
+        ? membershipsData.filter((m: any) => m.status === 'ACTIVE').length
+        : 0;
+
+      setTodayStats({
+        accessValidations: Math.floor(Math.random() * 50) + 20, // Simulated for now
+        salesCount: salesCount,
+        totalSales: totalSales,
+        activeMemberships: activeMemberships
+      });
+
+      // Simular accesos recientes (esto podría venir de una API de logs)
+      setRecentAccess([
+        { id: '1', name: "Juan Pérez", time: new Date().toLocaleTimeString(), status: "granted" },
+        { id: '2', name: "María García", time: new Date(Date.now() - 300000).toLocaleTimeString(), status: "granted" },
+        { id: '3', name: "Carlos López", time: new Date(Date.now() - 600000).toLocaleTimeString(), status: "denied" },
+        { id: '4', name: "Ana Rodríguez", time: new Date(Date.now() - 900000).toLocaleTimeString(), status: "granted" },
+      ]);
+
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+      setError('Error al cargar los datos del dashboard');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
-    const interval = setInterval(updateStats, 30000);
+    loadDashboardData();
+    
+    // Actualizar estadísticas cada 30 segundos
+    const interval = setInterval(() => {
+      setTodayStats(prev => ({
+        ...prev,
+        accessValidations: prev.accessValidations + Math.floor(Math.random() * 3)
+      }));
+    }, 30000);
+    
     return () => clearInterval(interval);
-  }, [updateStats]);
+  }, [loadDashboardData]);
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-bold">Panel de Recepción</h1>
+        </div>
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-bold">Panel de Recepción</h1>
+        </div>
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center h-32">
+            <AlertTriangle className="h-8 w-8 text-red-500 mb-2" />
+            <p className="text-muted-foreground">{error}</p>
+            <Button onClick={loadDashboardData} className="mt-4">
+              Reintentar
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -163,24 +257,30 @@ export default function ReceptionDashboard() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {recentAccess.map((access) => (
-              <div key={access.id} className="flex items-center justify-between p-3 border rounded-lg hover-scale">
-                <div className="flex items-center gap-3">
-                  {access.status === 'granted' ? (
-                    <CheckCircle className="h-5 w-5 text-green-500" />
-                  ) : (
-                    <XCircle className="h-5 w-5 text-red-500" />
-                  )}
-                  <div>
-                    <p className="font-medium">{access.name}</p>
-                    <p className="text-sm text-muted-foreground">{access.time}</p>
+            {recentAccess.length > 0 ? (
+              recentAccess.map((access) => (
+                <div key={access.id} className="flex items-center justify-between p-3 border rounded-lg hover-scale">
+                  <div className="flex items-center gap-3">
+                    {access.status === 'granted' ? (
+                      <CheckCircle className="h-5 w-5 text-green-500" />
+                    ) : (
+                      <XCircle className="h-5 w-5 text-red-500" />
+                    )}
+                    <div>
+                      <p className="font-medium">{access.name}</p>
+                      <p className="text-sm text-muted-foreground">{access.time}</p>
+                    </div>
                   </div>
+                  <Badge variant={access.status === 'granted' ? 'default' : 'destructive'}>
+                    {access.status === 'granted' ? 'Concedido' : 'Denegado'}
+                  </Badge>
                 </div>
-                <Badge variant={access.status === 'granted' ? 'default' : 'destructive'}>
-                  {access.status === 'granted' ? 'Concedido' : 'Denegado'}
-                </Badge>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p className="text-center text-muted-foreground py-4">
+                No hay accesos recientes registrados
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>

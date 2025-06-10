@@ -13,7 +13,8 @@ import {
   AlertTriangle, 
   CheckCircle,
   QrCode,
-  User
+  User,
+  Loader2
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import Link from "next/link";
@@ -30,7 +31,7 @@ const QRGenerator = dynamic(() => import("@/components/features/qr/QRGenerator")
 // Componente memoizado para las tarjetas de métricas
 const MetricCard = memo(({ title, value, description, icon: Icon, color = "" }: {
   title: string;
-  value: string | number;
+  value: string | number | React.ReactNode;
   description: string;
   icon: any;
   color?: string;
@@ -42,9 +43,9 @@ const MetricCard = memo(({ title, value, description, icon: Icon, color = "" }: 
     </CardHeader>
     <CardContent>
       <div className={`text-2xl font-bold ${color}`}>
-        {typeof value === 'string' ? value : (
+        {typeof value === 'string' || typeof value === 'number' ? (
           typeof value === 'number' && title.includes('Precio') ? `$${value.toFixed(2)}` : value
-        )}
+        ) : value}
       </div>
       <p className="text-xs text-muted-foreground">{description}</p>
     </CardContent>
@@ -53,8 +54,8 @@ const MetricCard = memo(({ title, value, description, icon: Icon, color = "" }: 
 MetricCard.displayName = 'MetricCard';
 
 export default function MemberDashboard() {
-  const [membershipData, setMembershipData] = useState(null);
-  const [gymData, setGymData] = useState(null);
+  const [membershipData, setMembershipData] = useState<any>(null);
+  const [gymData, setGymData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
@@ -65,20 +66,39 @@ export default function MemberDashboard() {
 
   const loadMembershipData = async () => {
     try {
+      setLoading(true);
+      setError(null);
+      
       const user = getStoredUser();
       if (!user) {
         setError("Usuario no encontrado");
         return;
       }
 
-      // Obtener datos reales de la membresía
+      // Obtener datos reales de la membresía y gimnasio
       const [membership, gym] = await Promise.all([
-        membershipsAPI.getMyMembership(),
-        gymsAPI.getMyGym()
+        membershipsAPI.getMyMembership().catch((err) => {
+          console.error('Error loading membership:', err);
+          return null;
+        }),
+        gymsAPI.getMyGym().catch((err) => {
+          console.error('Error loading gym:', err);
+          return null;
+        })
       ]);
 
-      setMembershipData(membership);
-      setGymData(gym);
+      if (membership) {
+        setMembershipData(membership);
+      } else {
+        // Si no hay membresía, mostrar mensaje apropiado
+        setError("No tienes una membresía activa");
+      }
+
+      if (gym) {
+        setGymData(gym);
+      } else {
+        setError("No estás asociado a ningún gimnasio");
+      }
       
     } catch (error: any) {
       console.error('Error loading membership data:', error);
@@ -92,27 +112,6 @@ export default function MemberDashboard() {
       setLoading(false);
     }
   };
-
-  // Datos optimizados con useMemo
-  const defaultMembershipData = useMemo(() => ({
-    id: "demo-1",
-    type: "PREMIUM",
-    status: "ACTIVE",
-    startDate: new Date().toISOString(),
-    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-    lastPayment: new Date().toISOString(),
-    monthlyPrice: 50.00,
-    totalPaid: 150.00,
-    autoRenewal: true
-  }), []);
-
-  const defaultGymData = useMemo(() => ({
-    id: "demo-gym",
-    name: "GymCore Demo",
-    address: "Calle Principal 123, Ciudad",
-    phone: "+1 234 567 8900",
-    email: "info@gymcore.demo"
-  }), []);
 
   // Funciones optimizadas
   const getStatusColor = (status: string) => {
@@ -142,38 +141,70 @@ export default function MemberDashboard() {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
-  useEffect(() => {
-    // Simular carga rápida
-    const timer = setTimeout(() => setLoading(false), 500);
-    return () => clearTimeout(timer);
-  }, []);
+  const calculateProgress = (startDate: string, expiresAt: string) => {
+    const start = new Date(startDate).getTime();
+    const end = new Date(expiresAt).getTime();
+    const now = new Date().getTime();
+    const total = end - start;
+    const elapsed = now - start;
+    return Math.max(0, Math.min(100, (elapsed / total) * 100));
+  };
 
   if (loading) {
     return (
       <div className="space-y-6 animate-fade-in">
-        <div className="skeleton h-8 w-64 rounded"></div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="skeleton h-32 rounded-lg"></div>
-          ))}
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin" />
         </div>
       </div>
     );
   }
 
-  if (error || !membershipData || !gymData) {
+  if (error) {
     return (
-      <Card>
-        <CardContent className="flex flex-col items-center justify-center h-48">
-          <AlertTriangle className="h-8 w-8 text-muted-foreground mb-2" />
+      <div className="space-y-6">
+        <div className="animate-fade-in">
+          <h1 className="text-3xl font-bold tracking-tight">Mi Dashboard</h1>
           <p className="text-muted-foreground">
-            {error || "No se pudieron cargar los datos de membresía"}
+            Estado de tu membresía y acceso al gimnasio
           </p>
-          <Button onClick={loadMembershipData} variant="outline" className="mt-4">
-            Reintentar
-          </Button>
-        </CardContent>
-      </Card>
+        </div>
+        
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center h-48">
+            <AlertTriangle className="h-8 w-8 text-muted-foreground mb-2" />
+            <p className="text-muted-foreground text-center mb-4">{error}</p>
+            <Button onClick={loadMembershipData} variant="outline">
+              Reintentar
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!membershipData || !gymData) {
+    return (
+      <div className="space-y-6">
+        <div className="animate-fade-in">
+          <h1 className="text-3xl font-bold tracking-tight">Mi Dashboard</h1>
+          <p className="text-muted-foreground">
+            Estado de tu membresía y acceso al gimnasio
+          </p>
+        </div>
+        
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center h-48">
+            <AlertTriangle className="h-8 w-8 text-muted-foreground mb-2" />
+            <p className="text-muted-foreground text-center mb-4">
+              No se encontraron datos de membresía o gimnasio
+            </p>
+            <Button onClick={loadMembershipData} variant="outline">
+              Reintentar
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
@@ -200,9 +231,9 @@ export default function MemberDashboard() {
         <CardContent>
           <div className="space-y-2">
             <h3 className="font-semibold text-lg">{gymData.name}</h3>
-            <p className="text-muted-foreground">{gymData.address}</p>
-            <p className="text-sm">📞 {gymData.phone}</p>
-            <p className="text-sm">✉️ {gymData.email}</p>
+            {gymData.address && <p className="text-muted-foreground">{gymData.address}</p>}
+            {gymData.phone && <p className="text-sm">📞 {gymData.phone}</p>}
+            {gymData.email && <p className="text-sm">✉️ {gymData.email}</p>}
           </div>
         </CardContent>
       </Card>
@@ -223,7 +254,7 @@ export default function MemberDashboard() {
         />
         <MetricCard
           title="Precio Mensual"
-          value={membershipData.monthlyPrice}
+          value={membershipData.monthlyPrice || 0}
           description={`Total pagado: $${membershipData.totalPaid?.toFixed(2) || '0.00'}`}
           icon={CreditCard}
         />
@@ -287,14 +318,4 @@ export default function MemberDashboard() {
       </div>
     </div>
   );
-
-  // Función para calcular el progreso
-  function calculateProgress(startDate: string, expiresAt: string) {
-    const start = new Date(startDate).getTime();
-    const end = new Date(expiresAt).getTime();
-    const now = new Date().getTime();
-    const total = end - start;
-    const elapsed = now - start;
-    return Math.max(0, Math.min(100, (elapsed / total) * 100));
-  }
 }

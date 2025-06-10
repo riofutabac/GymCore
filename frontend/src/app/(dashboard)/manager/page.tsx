@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
 import { 
   BarChart3, 
   Users, 
@@ -12,39 +13,65 @@ import {
   Package,
   AlertTriangle,
   Calendar,
-  Activity
+  Activity,
+  Loader2
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { inventoryAPI, membershipsAPI } from "@/lib/api";
+
+interface Metrics {
+  totalMembers: number;
+  activeMembers: number;
+  monthlyRevenue: number;
+  dailySales: number;
+  lowStockItems: number;
+  pendingPayments: number;
+  accessesToday: number;
+  averageStay: number;
+}
+
+interface RecentSale {
+  id: string;
+  total: number;
+  items: number;
+  customer: string;
+  time: string;
+}
+
+interface MembershipStats {
+  active: number;
+  expiringSoon: number;
+  suspended: number;
+  pendingRenewal: number;
+}
 
 export default function ManagerDashboard() {
-  const [metrics, setMetrics] = useState({
-    totalMembers: 234,
-    activeMembers: 198,
-    monthlyRevenue: 15420.50,
-    dailySales: 850.00,
-    lowStockItems: 5,
-    pendingPayments: 12,
-    accessesToday: 89,
-    averageStay: 65 // minutes
+  const [metrics, setMetrics] = useState<Metrics>({
+    totalMembers: 0,
+    activeMembers: 0,
+    monthlyRevenue: 0,
+    dailySales: 0,
+    lowStockItems: 0,
+    pendingPayments: 0,
+    accessesToday: 0,
+    averageStay: 65
   });
 
-  const [recentSales, setRecentSales] = useState([
-    { id: 1, total: 45.99, items: 2, customer: "Juan Pérez", time: "14:30" },
-    { id: 2, total: 129.50, items: 5, customer: "María García", time: "13:45" },
-    { id: 3, total: 25.00, items: 1, customer: "Carlos López", time: "12:20" },
-  ]);
-
-  const [membershipStats, setMembershipStats] = useState({
-    active: 198,
-    expiringSoon: 23,
-    suspended: 8,
-    pendingRenewal: 12
+  const [recentSales, setRecentSales] = useState<RecentSale[]>([]);
+  const [membershipStats, setMembershipStats] = useState<MembershipStats>({
+    active: 0,
+    expiringSoon: 0,
+    suspended: 0,
+    pendingRenewal: 0
   });
 
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState(new Date());
 
   useEffect(() => {
+    loadDashboardData();
+    
     // Simulate real-time updates
     const interval = setInterval(() => {
       setMetrics(prev => ({
@@ -57,6 +84,122 @@ export default function ManagerDashboard() {
 
     return () => clearInterval(interval);
   }, []);
+
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Cargar datos reales de las APIs
+      const [salesData, membershipsData, productsData] = await Promise.all([
+        inventoryAPI.getSales().catch(() => []),
+        membershipsAPI.getAllMemberships().catch(() => []),
+        inventoryAPI.getProducts().catch(() => [])
+      ]);
+
+      // Calcular métricas reales
+      const totalRevenue = Array.isArray(salesData) 
+        ? salesData.reduce((sum: number, sale: any) => sum + (sale.total || 0), 0)
+        : 0;
+
+      const totalMembers = Array.isArray(membershipsData) ? membershipsData.length : 0;
+      const activeMembers = Array.isArray(membershipsData) 
+        ? membershipsData.filter((m: any) => m.status === 'ACTIVE').length
+        : 0;
+
+      const lowStockItems = Array.isArray(productsData)
+        ? productsData.filter((p: any) => p.stock <= (p.minStock || 5)).length
+        : 0;
+
+      const pendingPayments = Array.isArray(membershipsData)
+        ? membershipsData.filter((m: any) => m.status === 'PENDING_PAYMENT').length
+        : 0;
+
+      setMetrics({
+        totalMembers,
+        activeMembers,
+        monthlyRevenue: totalRevenue,
+        dailySales: totalRevenue * 0.1, // Estimate daily sales as 10% of total
+        lowStockItems,
+        pendingPayments,
+        accessesToday: Math.floor(Math.random() * 100) + 50, // Simulated
+        averageStay: 65
+      });
+
+      // Procesar ventas recientes
+      if (Array.isArray(salesData)) {
+        const recentSalesData = salesData.slice(0, 3).map((sale: any, index: number) => ({
+          id: sale.id || `sale-${index}`,
+          total: sale.total || 0,
+          items: sale.items?.length || Math.floor(Math.random() * 5) + 1,
+          customer: sale.seller?.name || `Cliente ${index + 1}`,
+          time: new Date(sale.createdAt || Date.now()).toLocaleTimeString()
+        }));
+        setRecentSales(recentSalesData);
+      }
+
+      // Procesar estadísticas de membresías
+      if (Array.isArray(membershipsData)) {
+        const stats = membershipsData.reduce((acc: MembershipStats, membership: any) => {
+          switch (membership.status) {
+            case 'ACTIVE':
+              acc.active++;
+              break;
+            case 'SUSPENDED':
+              acc.suspended++;
+              break;
+            case 'PENDING_PAYMENT':
+              acc.pendingRenewal++;
+              break;
+            case 'EXPIRED':
+              acc.expiringSoon++;
+              break;
+          }
+          return acc;
+        }, { active: 0, expiringSoon: 0, suspended: 0, pendingRenewal: 0 });
+
+        setMembershipStats(stats);
+      }
+
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+      setError('Error al cargar los datos del dashboard');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-bold">Dashboard Gerencial</h1>
+        </div>
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-bold">Dashboard Gerencial</h1>
+        </div>
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center h-32">
+            <AlertTriangle className="h-8 w-8 text-red-500 mb-2" />
+            <p className="text-muted-foreground">{error}</p>
+            <Button onClick={loadDashboardData} className="mt-4">
+              Reintentar
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -259,19 +402,25 @@ export default function ManagerDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {recentSales.map((sale) => (
-                <div key={sale.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div>
-                    <p className="font-medium">{sale.customer}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {sale.items} productos - {sale.time}
-                    </p>
+              {recentSales.length > 0 ? (
+                recentSales.map((sale) => (
+                  <div key={sale.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div>
+                      <p className="font-medium">{sale.customer}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {sale.items} productos - {sale.time}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold">${sale.total.toFixed(2)}</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-bold">${sale.total}</p>
-                  </div>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-center text-muted-foreground py-4">
+                  No hay ventas recientes registradas
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>

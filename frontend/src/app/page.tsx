@@ -1,5 +1,9 @@
+'use client';
+
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { useEffect } from 'react';
+import { getCurrentUser, redirectByRole } from '@/lib/auth';
 import {
   Card,
   CardContent,
@@ -16,16 +20,7 @@ import {
   Zap,
   Package,
 } from "lucide-react";
-import type { Metadata } from 'next';
 import { memo } from 'react';
-
-export const metadata: Metadata = {
-  title: 'GymCore - Gestión Integral de Gimnasios',
-  description: 'La plataforma todo en uno para gestionar tu gimnasio. Simplifica la gestión de socios, automatiza el control de acceso con QR y optimiza tus ventas.',
-  icons: {
-    icon: '/favicon.ico',
-  },
-};
 
 // Memoizar componente para evitar re-renders innecesarios
 const FeatureCard = memo(({
@@ -87,6 +82,15 @@ const features = [
 ] as const;
 
 export default function Home() {
+  useEffect(() => {
+    const checkAuth = async () => {
+      const user = await getCurrentUser();
+      if (user) {
+        redirectByRole(user);
+      }
+    };
+    checkAuth();
+  }, []);
   return (
     <div className="flex flex-col min-h-screen bg-background">
       {/* Header */}

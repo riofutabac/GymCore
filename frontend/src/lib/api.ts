@@ -206,6 +206,9 @@ export const gymsAPI = {
     const response = await api.post<ApiResponse<Gym>>('/gyms/join', { joinCode });
     return response.data.data;
   },
+
+  // Agregar APIs faltantes si no existen
+  getMyGym: () => api.get('/gyms/my'),
 };
 
 // Members API
@@ -334,6 +337,10 @@ export const usersAPI = {
   delete: async (id: string): Promise<void> => {
     await api.delete(`/users/${id}`);
   },
+
+  // Agregar APIs faltantes si no existen
+  create: (userData: any) => api.post('/users', userData),
+  toggleStatus: (id: string) => api.patch(`/users/${id}/toggle-status`),
 };
 
 // Memberships API (nuevo)

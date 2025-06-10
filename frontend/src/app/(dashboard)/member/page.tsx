@@ -18,6 +18,8 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import { membershipsAPI, gymsAPI } from "@/lib/api";
+import { getStoredUser } from "@/lib/auth";
 
 // Lazy loading del componente QR
 const QRGenerator = dynamic(() => import("@/components/features/qr/QRGenerator"), {
@@ -51,12 +53,48 @@ const MetricCard = memo(({ title, value, description, icon: Icon, color = "" }: 
 MetricCard.displayName = 'MetricCard';
 
 export default function MemberDashboard() {
+  const [membershipData, setMembershipData] = useState(null);
+  const [gymData, setGymData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
+  useEffect(() => {
+    loadMembershipData();
+  }, []);
+
+  const loadMembershipData = async () => {
+    try {
+      const user = getStoredUser();
+      if (!user) {
+        setError("Usuario no encontrado");
+        return;
+      }
+
+      // Obtener datos reales de la membresía
+      const [membership, gym] = await Promise.all([
+        membershipsAPI.getMyMembership(),
+        gymsAPI.getMyGym()
+      ]);
+
+      setMembershipData(membership);
+      setGymData(gym);
+      
+    } catch (error: any) {
+      console.error('Error loading membership data:', error);
+      setError("Error al cargar los datos de membresía");
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "No se pudieron cargar los datos de membresía",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Datos optimizados con useMemo
-  const membershipData = useMemo(() => ({
+  const defaultMembershipData = useMemo(() => ({
     id: "demo-1",
     type: "PREMIUM",
     status: "ACTIVE",
@@ -68,7 +106,7 @@ export default function MemberDashboard() {
     autoRenewal: true
   }), []);
 
-  const gymData = useMemo(() => ({
+  const defaultGymData = useMemo(() => ({
     id: "demo-gym",
     name: "GymCore Demo",
     address: "Calle Principal 123, Ciudad",
@@ -123,11 +161,27 @@ export default function MemberDashboard() {
     );
   }
 
+  if (error || !membershipData || !gymData) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center h-48">
+          <AlertTriangle className="h-8 w-8 text-muted-foreground mb-2" />
+          <p className="text-muted-foreground">
+            {error || "No se pudieron cargar los datos de membresía"}
+          </p>
+          <Button onClick={loadMembershipData} variant="outline" className="mt-4">
+            Reintentar
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   const daysRemaining = getDaysRemaining(membershipData.expiresAt);
 
   return (
     <div className="space-y-6">
-      {/* Header optimizado */}
+      {/* Header */}
       <div className="animate-fade-in">
         <h1 className="text-3xl font-bold tracking-tight">Mi Dashboard</h1>
         <p className="text-muted-foreground">
@@ -135,7 +189,7 @@ export default function MemberDashboard() {
         </p>
       </div>
 
-      {/* Información del Gimnasio */}
+      {/* Información del Gimnasio con datos reales */}
       <Card className="animate-fade-in">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -153,7 +207,7 @@ export default function MemberDashboard() {
         </CardContent>
       </Card>
 
-      {/* Status Cards optimizadas */}
+      {/* Status Cards con datos reales */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <MetricCard
           title="Estado"
@@ -170,18 +224,18 @@ export default function MemberDashboard() {
         <MetricCard
           title="Precio Mensual"
           value={membershipData.monthlyPrice}
-          description={`Total pagado: $${membershipData.totalPaid.toFixed(2)}`}
+          description={`Total pagado: $${membershipData.totalPaid?.toFixed(2) || '0.00'}`}
           icon={CreditCard}
         />
         <MetricCard
           title="Último Pago"
-          value={new Date(membershipData.lastPayment).toLocaleDateString()}
+          value={membershipData.lastPayment ? new Date(membershipData.lastPayment).toLocaleDateString() : 'N/A'}
           description={`Renovación ${membershipData.autoRenewal ? "automática" : "manual"}`}
           icon={Clock}
         />
       </div>
 
-      {/* Progress Bar optimizada */}
+      {/* Progress Bar con datos reales */}
       <Card className="animate-fade-in">
         <CardHeader>
           <CardTitle>Progreso de Membresía</CardTitle>
@@ -195,7 +249,7 @@ export default function MemberDashboard() {
               <span>Inicio: {new Date(membershipData.startDate).toLocaleDateString()}</span>
               <span>Vence: {new Date(membershipData.expiresAt).toLocaleDateString()}</span>
             </div>
-            <Progress value={75} className="w-full h-2" />
+            <Progress value={calculateProgress(membershipData.startDate, membershipData.expiresAt)} className="w-full h-2" />
             <p className="text-xs text-muted-foreground text-center">
               Te quedan {daysRemaining} días
             </p>
@@ -233,4 +287,14 @@ export default function MemberDashboard() {
       </div>
     </div>
   );
+
+  // Función para calcular el progreso
+  function calculateProgress(startDate: string, expiresAt: string) {
+    const start = new Date(startDate).getTime();
+    const end = new Date(expiresAt).getTime();
+    const now = new Date().getTime();
+    const total = end - start;
+    const elapsed = now - start;
+    return Math.max(0, Math.min(100, (elapsed / total) * 100));
+  }
 }

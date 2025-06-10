@@ -1,5 +1,5 @@
 import { Suspense } from 'react';
-import { gymsAPI } from '@/lib/api';
+import { gymsAPI, membersAPI } from '@/lib/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { CreateGymDialog } from '@/components/features/gyms/CreateGymDialog';
 import { GymActions } from '@/components/features/gyms/GymActions';
 
 export default async function GymsManagementPage() {
+  // Obtener datos reales de la API
   const gyms = await gymsAPI.getAll();
 
   return (
@@ -79,6 +80,7 @@ export default async function GymsManagementPage() {
 
 async function GymMemberCount({ gymId }: { gymId: string }) {
   try {
+    // Llamada real a la API para obtener el conteo de miembros
     const { total } = await membersAPI.getAll(gymId, 1, 1);
     return (
       <div className="flex items-center text-sm text-muted-foreground">

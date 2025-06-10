@@ -28,7 +28,7 @@ import {
   Crown,
   Shield
 } from "lucide-react";
-import { authAPI } from "@/lib/api";
+import { authAPI, usersAPI } from "@/lib/api";
 
 interface User {
   id: string;
@@ -69,51 +69,11 @@ export default function UsersManagementPage() {
 
   const loadUsers = async () => {
     try {
-      // Simulamos datos de usuarios
-      const mockUsers: User[] = [
-        {
-          id: "1",
-          email: "owner@gym.com",
-          name: "Propietario Gym",
-          role: "SYS_ADMIN",
-          isActive: true,
-          emailVerified: true,
-          createdAt: new Date().toISOString(),
-        },
-        {
-          id: "2",
-          email: "admin@gym.com",
-          name: "Manager Demo",
-          role: "MANAGER",
-          isActive: true,
-          emailVerified: true,
-          createdAt: new Date().toISOString(),
-          staffOfGym: { name: "GymCore Demo" }
-        },
-        {
-          id: "3",
-          email: "reception@gym.com",
-          name: "Recepcionista Demo",
-          role: "RECEPTION",
-          isActive: true,
-          emailVerified: true,
-          createdAt: new Date().toISOString(),
-          staffOfGym: { name: "GymCore Demo" }
-        },
-        {
-          id: "4",
-          email: "client@gym.com",
-          name: "Cliente Demo",
-          role: "CLIENT",
-          isActive: true,
-          emailVerified: true,
-          createdAt: new Date().toISOString(),
-          memberOfGym: { name: "GymCore Demo" }
-        }
-      ];
-      
-      setUsers(mockUsers);
+      // Obtener usuarios reales de la API
+      const response = await usersAPI.getAll();
+      setUsers(response.users || response);
     } catch (error: any) {
+      console.error('Error loading users:', error);
       toast({
         variant: "destructive",
         title: "Error",
@@ -126,23 +86,15 @@ export default function UsersManagementPage() {
 
   const createUser = async () => {
     try {
-      // FIX: Llamar a la API para crear el usuario
+      // Crear usuario real en la API
       const response = await authAPI.register(newUser.email, newUser.password, newUser.name);
       
-      // Agregar el nuevo usuario a la lista local
-      const newUserData = {
-        ...newUser,
-        id: response.user.id,
-        isActive: true,
-        emailVerified: false,
-        createdAt: new Date().toISOString(),
-      };
-      
-      setUsers([...users, newUserData as User]);
+      // Recargar la lista de usuarios
+      await loadUsers();
       
       toast({
         title: "Usuario creado",
-        description: "El usuario se ha creado correctamente en la base de datos",
+        description: "El usuario se ha creado correctamente",
       });
       
       setIsCreateDialogOpen(false);
@@ -157,13 +109,17 @@ export default function UsersManagementPage() {
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message || "Error al crear usuario",
+        description: error.response?.data?.message || "Error al crear usuario",
       });
     }
   };
 
   const toggleUserStatus = async (userId: string) => {
     try {
+      // Llamar a la API para cambiar el estado del usuario
+      await usersAPI.toggleStatus(userId);
+      
+      // Actualizar la lista local
       setUsers(users.map(user => 
         user.id === userId 
           ? { ...user, isActive: !user.isActive }

@@ -20,7 +20,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 
 // Lazy loading del componente QR
-const QRGenerator = dynamic(() => import("@/components/QRGenerator"), {
+const QRGenerator = dynamic(() => import("@/components/features/qr/QRGenerator"), {
   loading: () => <div className="h-48 bg-gray-200 rounded-lg skeleton"></div>,
   ssr: false
 });
@@ -206,7 +206,7 @@ export default function MemberDashboard() {
       {/* QR Code Section con lazy loading */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <QRGenerator />
-        
+
         <Card className="animate-fade-in">
           <CardHeader>
             <CardTitle>Acciones Rápidas</CardTitle>
@@ -221,7 +221,7 @@ export default function MemberDashboard() {
                 Ver Código QR Completo
               </Button>
             </Link>
-            
+
             <Link href="/member/profile">
               <Button className="w-full hover-scale" variant="outline">
                 <User className="h-4 w-4 mr-2" />

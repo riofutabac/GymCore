@@ -1,137 +1,186 @@
-"use client";
 
-import { useState, useCallback, memo } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/components/ui/use-toast";
-import { Dumbbell, Loader2, Users } from "lucide-react";
-import { gymsAPI } from "@/lib/api";
+'use client';
 
-// Componente memoizado para códigos de prueba
-const TestCodes = memo(() => (
-  <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-    <h4 className="text-sm font-medium text-blue-900 mb-2">
-      ℹ️ Códigos de prueba:
-    </h4>
-    <ul className="text-xs text-blue-800 space-y-1">
-      <li>• <strong>GYM123</strong> - GymCore Demo</li>
-      <li>• <strong>FIT456</strong> - FitnessWorld</li>
-      <li>• <strong>HEALTH789</strong> - HealthClub</li>
-    </ul>
-  </div>
-));
-
-TestCodes.displayName = 'TestCodes';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Loader2, AlertCircle, Users, ArrowLeft } from 'lucide-react';
+import { authAPI } from '@/lib/api';
+import { useToast } from '@/components/ui/use-toast';
+import { getStoredUser } from '@/lib/auth';
 
 export default function GymJoinPage() {
-  const [joinCode, setJoinCode] = useState("");
+  const [joinCode, setJoinCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
   const router = useRouter();
   const { toast } = useToast();
+  
+  // Verificar si el usuario está autenticado
+  const user = getStoredUser();
 
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setJoinCode(e.target.value.toUpperCase());
-  }, []);
+  // Cargar código pendiente si existe
+  useState(() => {
+    const pendingCode = localStorage.getItem('pending_gym_code');
+    if (pendingCode) {
+      setJoinCode(pendingCode);
+    }
+  });
 
-  const handleSubmit = useCallback(async (e: React.FormEvent) => {
+  const handleJoinGym = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    if (!user) {
+      // Si no está autenticado, guardar el código y redirigir a login
+      if (joinCode.trim()) {
+        localStorage.setItem('pending_gym_code', joinCode);
+        router.push('/login?redirect=gym-join');
+        return;
+      }
+    }
+
     if (!joinCode.trim()) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Por favor ingresa un código válido",
-      });
+      setError('Por favor ingresa un código de gimnasio');
       return;
     }
 
     setIsLoading(true);
+    setError('');
 
     try {
-      const response = await gymsAPI.joinByCode(joinCode);
-      
+      // Llamar API para unirse al gimnasio
+      const response = await authAPI.joinGym(joinCode);
+
       toast({
-        title: "¡Te has unido al gimnasio!",
-        description: `Bienvenido a ${response.gym?.name || 'tu nuevo gimnasio'}`,
+        title: "¡Bienvenido!",
+        description: `Te has unido exitosamente al gimnasio: ${response.gym.name}`,
       });
 
-      // Optimizar navegación
-      router.replace("/member");
+      // Limpiar código pendiente si existe
+      localStorage.removeItem('pending_gym_code');
+
+      // Redirigir al dashboard de miembro
+      router.push('/member');
+
     } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Código inválido o gimnasio no encontrado';
+      setError(errorMessage);
+
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message || "Código de gimnasio inválido",
+        description: errorMessage,
       });
     } finally {
       setIsLoading(false);
     }
-  }, [joinCode, router, toast]);
+  };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <div className="flex items-center justify-center mb-4">
-            <Users className="h-8 w-8 text-blue-600" />
-            <span className="ml-2 text-2xl font-bold">GymCore</span>
-          </div>
-          <CardTitle className="text-center">Únete a un Gimnasio</CardTitle>
-          <CardDescription className="text-center">
-            Ingresa el código que te proporcionó tu gimnasio
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="joinCode">Código del Gimnasio</Label>
-              <Input
-                id="joinCode"
-                type="text"
-                placeholder="Ej: GYM123"
-                value={joinCode}
-                onChange={handleInputChange}
-                className="text-center text-lg font-mono"
-                maxLength={6}
-                required
-              />
-              <p className="text-sm text-muted-foreground">
-                El código suele tener 6 caracteres (letras y números)
-              </p>
-            </div>
-            
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={isLoading || !joinCode.trim()}
+    <div className="min-h-screen bg-gray-50">
+      {/* Header con botón de regresar */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-md mx-auto px-4 py-4">
+          <div className="flex items-center">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => router.back()}
+              className="mr-2"
             >
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Unirse al Gimnasio
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Regresar
             </Button>
-          </form>
-          
-          <div className="mt-6 space-y-2">
-            <div className="text-center text-sm">
-              ¿No tienes un código?{" "}
-              <Link href="/register" className="text-blue-600 hover:underline">
-                Contacta a tu gimnasio
-              </Link>
-            </div>
-            <div className="text-center text-sm">
-              ¿Ya tienes cuenta?{" "}
-              <Link href="/login" className="text-blue-600 hover:underline">
-                Inicia sesión
-              </Link>
+            <div className="flex items-center ml-auto">
+              <Users className="h-6 w-6 text-blue-600" />
+              <span className="ml-2 text-xl font-bold">GymCore</span>
             </div>
           </div>
+        </div>
+      </div>
 
-          <TestCodes />
-        </CardContent>
-      </Card>
+      <div className="flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full space-y-8">
+          <Card className="w-full">
+            <CardHeader className="space-y-1">
+              <CardTitle className="text-2xl font-bold text-center">
+                Únete a un Gimnasio
+              </CardTitle>
+              <CardDescription className="text-center">
+                Ingresa el código que te proporcionó tu gimnasio para unirte
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <form onSubmit={handleJoinGym} className="space-y-4">
+                {error && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+
+                <div className="space-y-2">
+                  <Label htmlFor="joinCode">Código del Gimnasio</Label>
+                  <Input
+                    id="joinCode"
+                    type="text"
+                    placeholder="Ej: GYM123456"
+                    value={joinCode}
+                    onChange={(e) => setJoinCode(e.target.value)}
+                    required
+                    disabled={isLoading}
+                    className="text-center text-lg tracking-wider"
+                  />
+                </div>
+
+                <Button 
+                  type="submit" 
+                  className="w-full" 
+                  disabled={isLoading}
+                >
+                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isLoading ? 'Procesando...' : (user ? 'Unirse al Gimnasio' : 'Continuar')}
+                </Button>
+              </form>
+
+              {/* Enlaces de autenticación */}
+              <div className="pt-4 border-t">
+                {user ? (
+                  <p className="text-sm text-center text-gray-600">
+                    Conectado como <span className="font-medium">{user.name}</span>
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-sm text-center text-gray-600">
+                      ¿Ya tienes cuenta?{' '}
+                      <Link
+                        href="/login"
+                        className="font-medium text-primary hover:text-primary/80"
+                      >
+                        Inicia sesión aquí
+                      </Link>
+                    </p>
+                    <p className="text-sm text-center text-gray-600">
+                      ¿No tienes cuenta?{' '}
+                      <Link
+                        href="/register"
+                        className="font-medium text-primary hover:text-primary/80"
+                      >
+                        Regístrate aquí
+                      </Link>
+                    </p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }

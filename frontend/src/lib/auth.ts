@@ -34,43 +34,32 @@ export const isAuthenticated = (): boolean => {
 };
 
 // Redirigir según el rol del usuario
-export const redirectByRole = (user: User, redirect?: string): void => {
+export const redirectByRole = (user: any, customRedirect?: string): void => {
   if (typeof window !== 'undefined') {
-    try {
-      console.log('redirectByRole - Usuario:', user);
-      console.log('redirectByRole - Rol detectado:', user.role);
-      
-      // Si hay una redirección específica, usarla primero
-      if (redirect) {
-        console.log('redirectByRole - Redirección específica a:', redirect);
-        window.location.href = redirect;
-        return;
-      }
-      
-      // Extraer el rol de manera segura, asegurando que sea una cadena
-      const role = typeof user.role === 'string' ? user.role.toUpperCase() : 'CLIENT';
-      
-      console.log('redirectByRole - Redirigiendo usuario con rol:', role);
-      
-      // Usar un enfoque más directo para la redirección
-      let targetUrl = '/member'; // Valor predeterminado
-      
-      if (role === 'SYS_ADMIN') targetUrl = '/admin';
-      else if (role === 'MANAGER') targetUrl = '/manager'; 
-      else if (role === 'RECEPTION') targetUrl = '/reception';
-      else if (role === 'CLIENT') targetUrl = '/member';
-      
-      console.log('redirectByRole - URL destino:', targetUrl);
-      
-      // Usar una redirección forzada
-      setTimeout(() => {
-        window.location.href = targetUrl;
-        console.log('redirectByRole - Redirección ejecutada a:', targetUrl);
-      }, 100);
-    } catch (error) {
-      console.error('Error al redireccionar:', error);
-      // En caso de error, redirigir a una ruta segura
-      window.location.href = '/member';
+    // Si hay un redirect personalizado, lo usa primero
+    if (customRedirect) {
+      window.location.href = customRedirect;
+      return;
+    }
+
+    // Redirecciona según el rol del usuario
+    switch (user.role) {
+      case 'ADMIN':
+        window.location.href = '/admin';
+        break;
+      case 'MANAGER':
+        window.location.href = '/manager';
+        break;
+      case 'RECEPTION':
+        window.location.href = '/reception';
+        break;
+      case 'MEMBER':
+        window.location.href = '/member';
+        break;
+      default:
+        // Ruta por defecto si no coincide ningún rol
+        window.location.href = '/';
+        break;
     }
   }
 };

@@ -21,6 +21,7 @@ export function LoginForm() {
   const searchParams = useSearchParams();
   const redirect = searchParams.get('redirect');
   
+  // Este es el flujo principal cuando el usuario hace login
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -33,38 +34,20 @@ export function LoginForm() {
     setError('');
     
     try {
-      console.log('Intentando iniciar sesión con:', { email });
-      
-      // Llamar a la API de autenticación
+      // 1. Llamada a la API para autenticar al usuario
       const response = await authAPI.login(email, password);
       console.log('Respuesta login procesada:', response);
       
-      // Verificar la respuesta de manera más flexible
-      if (!response) {
-        throw new Error('No se recibió respuesta del servidor');
-      }
-      
-      if (!response.user) {
-        console.error('Respuesta sin datos de usuario:', response);
-        throw new Error('Datos de usuario no disponibles');
-      }
-      
-      if (!response.token) {
-        console.error('Respuesta sin token de autenticación:', response);
-        throw new Error('Token de autenticación no disponible');
-      }
-      
-      // Almacenar datos de usuario y token
+      // 2. Guarda datos del usuario y token en el sistema
       storeUserInfo(response.user, response.token);
       
-      console.log('Usuario autenticado con rol:', response.user.role);
-      
+      // 3. Muestra mensaje de éxito
       toast({
         title: "¡Inicio de sesión exitoso!",
         description: `Bienvenido, ${response.user.name || response.user.email || 'Usuario'}`,
       });
       
-      // Redireccionar según el rol del usuario (con un pequeño retraso para que el toast se muestre)
+      // 4. IMPORTANTE: Esta función redirige según el rol del usuario
       setTimeout(() => {
         console.log('Redireccionando al usuario con rol:', response.user.role);
         redirectByRole(response.user, redirect ? `/${redirect}` : undefined);

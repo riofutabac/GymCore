@@ -37,23 +37,19 @@ export function RegisterForm() {
     setError('');
     
     try {
-      // Llamar a la API de registro
+      // 1. Llama a la API para registrar al usuario
       const response = await authAPI.register(email, password, name);
       
-      // Verificar si la respuesta tiene la estructura esperada
-      if (!response || !response.user) {
-        throw new Error('Respuesta de registro inválida');
-      }
-      
-      // Almacenar datos de usuario y token
+      // 2. Guarda datos del usuario y token
       storeUserInfo(response.user, response.token);
       
+      // 3. Muestra mensaje de éxito
       toast({
         title: "¡Registro exitoso!",
         description: `Bienvenido a GymCore, ${response.user.name}`,
       });
       
-      // Redireccionar según el rol del usuario
+      // 4. IMPORTANTE: Redirige según el rol asignado al nuevo usuario
       redirectByRole(response.user);
       
     } catch (error: any) {

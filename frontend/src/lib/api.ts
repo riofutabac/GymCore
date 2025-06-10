@@ -32,9 +32,25 @@ api.interceptors.response.use(
         window.location.href = '/login';
       }
     }
+    console.error('API Error:', error.response?.data || error.message);
     return Promise.reject(error);
   }
 );
+
+// Función de utilidad para manejar respuestas
+const handleResponse = <T>(response: any): T => {
+  if (!response || !response.data) {
+    throw new Error('Respuesta vacía del servidor');
+  }
+  
+  // Si la respuesta ya es del tipo esperado, devolverla
+  if (response.data.data !== undefined) {
+    return response.data.data;
+  }
+  
+  // Si la respuesta es directamente lo que necesitamos
+  return response.data;
+};
 
 // Auth API
 export const authAPI = {
@@ -318,6 +334,118 @@ export const usersAPI = {
   delete: async (id: string): Promise<void> => {
     await api.delete(`/users/${id}`);
   },
+};
+
+// Memberships API (nuevo)
+export const membershipsAPI = {
+  getMy: async (): Promise<any> => {
+    try {
+      const response = await api.get<ApiResponse<any>>('/memberships/my');
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error al obtener membresía:', error);
+      throw error;
+    }
+  },
+
+  getAll: async (): Promise<any[]> => {
+    try {
+      const response = await api.get<ApiResponse<any[]>>('/memberships/all');
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error al obtener todas las membresías:', error);
+      throw error;
+    }
+  },
+
+  renew: async (membershipId: string, renewData: any): Promise<any> => {
+    try {
+      const response = await api.post<ApiResponse<any>>(`/memberships/${membershipId}/renew`, renewData);
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error al renovar membresía:', error);
+      throw error;
+    }
+  },
+
+  suspend: async (membershipId: string): Promise<any> => {
+    try {
+      const response = await api.post<ApiResponse<any>>(`/memberships/${membershipId}/suspend`, {});
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error al suspender membresía:', error);
+      throw error;
+    }
+  }
+};
+
+// Inventory API (nuevo)
+export const inventoryAPI = {
+  getProducts: async (): Promise<Product[]> => {
+    try {
+      const response = await api.get<ApiResponse<Product[]>>('/inventory/products');
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error al obtener productos:', error);
+      throw error;
+    }
+  },
+
+  createProduct: async (productData: Omit<Product, 'id'>): Promise<Product> => {
+    try {
+      const response = await api.post<ApiResponse<Product>>('/inventory/products', productData);
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error al crear producto:', error);
+      throw error;
+    }
+  },
+
+  getSales: async (): Promise<Sale[]> => {
+    try {
+      const response = await api.get<ApiResponse<Sale[]>>('/inventory/sales');
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error al obtener ventas:', error);
+      throw error;
+    }
+  },
+
+  recordSale: async (saleData: Omit<Sale, 'id' | 'createdAt'>): Promise<Sale> => {
+    try {
+      const response = await api.post<ApiResponse<Sale>>('/inventory/sales', saleData);
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error al registrar venta:', error);
+      throw error;
+    }
+  }
+};
+
+// Access Control API (actualizado)
+export const accessControlAPI = {
+  getMyQR: async (): Promise<{ qrCode: string }> => {
+    try {
+      const response = await api.get<ApiResponse<{ qrCode: string }>>('/access-control/my-qr');
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error al obtener código QR:', error);
+      throw error;
+    }
+  },
+
+  validateQR: async (qrCode: string): Promise<{ success: boolean; member?: Member; message: string }> => {
+    try {
+      const response = await api.post<ApiResponse<{ success: boolean; member?: Member; message: string }>>(
+        '/access-control/validate-qr', 
+        { qrCode }
+      );
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error al validar código QR:', error);
+      throw error;
+    }
+  }
 };
 
 export default api;

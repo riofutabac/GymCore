@@ -1,164 +1,239 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import { 
+  Injectable, 
+  UnauthorizedException, 
+  ConflictException,
+  Logger,
+  BadRequestException,
+} from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { LoginDto, RegisterDto } from './dto/auth.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class AuthService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(AuthService.name);
+
+  constructor(
+    private prisma: PrismaService,
+    private jwtService: JwtService,
+  ) {}
 
   async login({ email, password }: LoginDto) {
-    console.log('🔐 [AUTH SERVICE] Login attempt for:', email);
-    console.log('🔐 [AUTH SERVICE] Password provided:', password);
-    console.log('🔐 [AUTH SERVICE] Password length:', password.length);
-    console.log('🔐 [AUTH SERVICE] Password starts with $2b?:', password.startsWith('$2b$'));
+    this.logger.log(`Login attempt for: ${email}`);
     
-    // DETECTAR SI ALGUIEN ESTÁ ENVIANDO UN HASH EN LUGAR DE PASSWORD
+    // Validación de entrada
+    if (!email || !password) {
+      throw new BadRequestException('Email and password are required');
+    }
+
+    // Detectar si alguien está enviando un hash en lugar de password
     if (password.startsWith('$2b$') || password.startsWith('$2a$')) {
-      console.log('🚨 [AUTH SERVICE] ERROR: Hash sent as password instead of plain text!');
-      throw new UnauthorizedException('Invalid credentials - malformed password');
+      this.logger.warn(`Hash sent as password for user: ${email}`);
+      throw new UnauthorizedException('Invalid credentials format');
     }
     
     try {
-      // Buscar usuario en la base de datos incluyendo password
+      // Buscar usuario en la base de datos
       const user = await this.prisma.user.findUnique({
-        where: { email },
+        where: { email: email.toLowerCase() },
         select: {
           id: true,
           email: true,
           name: true,
           role: true,
-          password: true, // Incluir password para comparación
+          password: true,
+          isActive: true,
+          emailVerified: true,
         }
       });
       
-      console.log('👤 [AUTH SERVICE] User found:', user ? 'YES' : 'NO');
-      
       if (!user) {
-        console.log('❌ [AUTH SERVICE] User not found');
+        this.logger.warn(`Login failed: User not found for email: ${email}`);
         throw new UnauthorizedException('Invalid credentials');
+      }
+
+      if (!user.isActive) {
+        this.logger.warn(`Login failed: User account is inactive: ${email}`);
+        throw new UnauthorizedException('Account is inactive');
       }
 
       // Verificar contraseña
-      console.log('🔒 [AUTH SERVICE] Comparing password...');
-      console.log('🔒 [AUTH SERVICE] Password from DB (first 20 chars):', user.password.substring(0, 20) + '...');
-      console.log('🔒 [AUTH SERVICE] Password provided (plain text):', password);
-      
       const isPasswordValid = await bcrypt.compare(password, user.password);
-      console.log('🔒 [AUTH SERVICE] Password valid:', isPasswordValid);
       
       if (!isPasswordValid) {
-        console.log('❌ [AUTH SERVICE] Invalid password');
+        this.logger.warn(`Login failed: Invalid password for user: ${email}`);
         throw new UnauthorizedException('Invalid credentials');
       }
 
-      // Retornar respuesta sin password
+      // Generar JWT token
+      const payload = { 
+        sub: user.id, 
+        username: user.email, 
+        role: user.role 
+      };
+      const accessToken = await this.jwtService.signAsync(payload);
+
+      // Respuesta exitosa (sin password)
       const response = {
         success: true,
         user: { 
           id: user.id, 
           email: user.email, 
           name: user.name,
-          role: user.role 
+          role: user.role,
+          emailVerified: user.emailVerified,
         },
-        token: `jwt-token-${user.id}-${Date.now()}`,
+        token: accessToken,
       };
       
-      console.log('✅ [AUTH SERVICE] Login successful for:', email);
+      this.logger.log(`Login successful for user: ${email}`);
       return response;
+      
     } catch (error) {
-      console.error('💥 [AUTH SERVICE] Login error:', error);
-      throw error;
+      if (error instanceof UnauthorizedException || error instanceof BadRequestException) {
+        throw error;
+      }
+      
+      this.logger.error(`Login error for user ${email}:`, error.stack);
+      throw new UnauthorizedException('Authentication failed');
     }
   }
 
   async register({ email, password, name }: RegisterDto) {
-    console.log('📝 [AUTH SERVICE] Register attempt for:', email);
+    this.logger.log(`Registration attempt for: ${email}`);
+    
+    // Validación de entrada
+    if (!email || !password) {
+      throw new BadRequestException('Email and password are required');
+    }
+
+    if (password.length < 6) {
+      throw new BadRequestException('Password must be at least 6 characters long');
+    }
     
     try {
       // Verificar si el usuario ya existe
       const existingUser = await this.prisma.user.findUnique({
-        where: { email }
+        where: { email: email.toLowerCase() }
       });
       
       if (existingUser) {
-        console.log('❌ [AUTH SERVICE] User already exists:', email);
-        throw new ConflictException('User already exists');
+        this.logger.warn(`Registration failed: User already exists: ${email}`);
+        throw new ConflictException('User with this email already exists');
       }
 
       // Hash de la contraseña
-      console.log('🔒 [AUTH SERVICE] Hashing password...');
-      const hashedPassword = await bcrypt.hash(password, 10);
+      const saltRounds = 12; // Aumentamos la seguridad
+      const hashedPassword = await bcrypt.hash(password, saltRounds);
 
       // Crear usuario en la base de datos
-      console.log('💾 [AUTH SERVICE] Creating user...');
       const newUser = await this.prisma.user.create({
         data: {
-          email,
+          email: email.toLowerCase(),
           password: hashedPassword,
-          name,
-          role: 'CLIENT',
+          name: name?.trim() || null,
+          role: 'CLIENT', // Rol por defecto
         },
         select: {
           id: true,
           email: true,
           name: true,
           role: true,
+          emailVerified: true,
         }
       });
 
+      // Generar JWT token
+      const payload = { 
+        sub: newUser.id, 
+        username: newUser.email, 
+        role: newUser.role 
+      };
+      const accessToken = await this.jwtService.signAsync(payload);
+
       const response = {
         success: true,
-        user: { 
-          id: newUser.id, 
-          email: newUser.email, 
-          name: newUser.name,
-          role: newUser.role 
-        },
-        token: `jwt-token-${newUser.id}-${Date.now()}`,
+        user: newUser,
+        token: accessToken,
       };
       
-      console.log('✅ [AUTH SERVICE] Register successful for:', email);
+      this.logger.log(`Registration successful for user: ${email}`);
       return response;
+      
     } catch (error) {
-      console.error('💥 [AUTH SERVICE] Register error:', error);
-      throw error;
+      if (error instanceof ConflictException || error instanceof BadRequestException) {
+        throw error;
+      }
+      
+      this.logger.error(`Registration error for user ${email}:`, error.stack);
+      throw new BadRequestException('Registration failed');
     }
   }
 
   async validateToken(token: string) {
     try {
-      // Extraer ID del token mock
-      const parts = token.split('-');
-      if (parts.length < 3 || parts[0] !== 'jwt' || parts[1] !== 'token') {
-        return null;
-      }
+      const payload = await this.jwtService.verifyAsync(token);
       
-      const userId = parts[2];
-      
-      // Buscar usuario en la base de datos
+      // Buscar usuario en la base de datos para asegurar que sigue existiendo y activo
       const user = await this.prisma.user.findUnique({
-        where: { id: userId },
+        where: { id: payload.sub },
         select: {
           id: true,
           email: true,
           name: true,
           role: true,
+          isActive: true,
         }
       });
       
-      if (!user) {
-        return null;
+      if (!user || !user.isActive) {
+        throw new UnauthorizedException('User not found or inactive');
       }
 
-      return { 
-        id: user.id, 
-        email: user.email, 
-        name: user.name,
-        role: user.role 
-      };
+      return user;
     } catch (error) {
-      return null;
+      this.logger.warn(`Token validation failed: ${error.message}`);
+      throw new UnauthorizedException('Invalid or expired token');
     }
+  }
+
+  async getProfile(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        phone: true,
+        emailVerified: true,
+        createdAt: true,
+        memberOfGym: {
+          select: {
+            id: true,
+            name: true,
+          }
+        },
+        staffOfGym: {
+          select: {
+            id: true,
+            name: true,
+          }
+        },
+        ownedGym: {
+          select: {
+            id: true,
+            name: true,
+          }
+        }
+      }
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    return user;
   }
 }

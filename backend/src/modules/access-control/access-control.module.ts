@@ -3,12 +3,12 @@ import { AccessControlService } from './access-control.service';
 import { AccessControlController } from './access-control.controller';
 import { QrGeneratorService } from './qr-generator.service';
 import { PrismaModule } from '../../prisma/prisma.module';
-import { AuthModule } from '../../auth/auth.module';
+import { UserContextService } from '../../common/services/user-context.service';
 
 @Module({
-  imports: [PrismaModule, AuthModule], // Import AuthModule
+  imports: [PrismaModule],
   controllers: [AccessControlController],
-  providers: [AccessControlService, QrGeneratorService],
+  providers: [AccessControlService, QrGeneratorService, UserContextService],
   exports: [AccessControlService, QrGeneratorService],
 })
 export class AccessControlModule {}

@@ -20,13 +20,17 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "create-test-user": "ts-node src/scripts/create-test-user.ts",
     "seed": "ts-node src/scripts/seed-database.ts",
+    "db:migrate": "npx prisma migrate dev",
+    "db:deploy": "npx prisma migrate deploy",
     "db:reset": "npx prisma migrate reset --force && npm run seed",
-    "db:push": "npx prisma db push && npm run seed"
+    "db:studio": "npx prisma studio",
+    "db:generate": "npx prisma generate"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",
+    "@nestjs/jwt": "^10.2.0",
     "@nestjs/platform-express": "^11.0.1",
     "@prisma/client": "^6.9.0",
     "bcrypt": "^6.0.0",

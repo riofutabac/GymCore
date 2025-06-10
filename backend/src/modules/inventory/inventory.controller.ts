@@ -1,106 +1,63 @@
-import { Controller, Get, Post, Body, Param, UseGuards, BadRequestException } from '@nestjs/common';
+import { 
+  Controller, 
+  Get, 
+  Post, 
+  Body, 
+  Param, 
+  UseGuards,
+  Logger,
+} from '@nestjs/common';
 import { InventoryService } from './inventory.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { RecordSaleDto } from './dto/record-sale.dto';
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { RoleGuard } from '../../common/guards/role.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Role } from '../../common/enums/role.enum';
 
 @Controller('inventory')
 @UseGuards(AuthGuard)
 export class InventoryController {
+  private readonly logger = new Logger(InventoryController.name);
+
   constructor(private readonly inventoryService: InventoryService) {}
 
   @Post('products')
+  @Roles([Role.MANAGER, Role.SYS_ADMIN])
+  @UseGuards(RoleGuard)
   async createProduct(
     @Body() createProductDto: CreateProductDto, 
-    @CurrentUser() user: any
+    @CurrentUser('sub') userId: string
   ) {
-    console.log('🏗️ [INVENTORY] Creating product for user:', user);
-    
-    // Obtener gymId correctamente según el rol del usuario
-    let gymId = user.staffOfGymId || user.memberOfGymId;
-    
-    // Si es propietario, buscar su gimnasio
-    if (user.role === 'SYS_ADMIN' && !gymId) {
-      // Para administradores del sistema, necesitamos obtener su gimnasio
-      const userWithGym = await this.inventoryService['prisma'].user.findUnique({
-        where: { id: user.id },
-        include: { ownedGym: true }
-      });
-      gymId = userWithGym?.ownedGym?.id;
-    }
-    
-    if (!gymId) {
-      throw new BadRequestException('El usuario no está asignado a un gimnasio.');
-    }
-    
-    console.log('🏗️ [INVENTORY] Using gymId:', gymId);
-    return this.inventoryService.createProduct(createProductDto, gymId);
+    this.logger.log(`Creating product for user: ${userId}`);
+    return this.inventoryService.createProduct(createProductDto, userId);
   }
 
   @Get('products')
-  async getProducts(@CurrentUser() user: any) {
-    console.log('📦 [INVENTORY] Getting products for user:', user);
-    
-    let gymId = user.staffOfGymId || user.memberOfGymId;
-    
-    // Si es propietario, buscar su gimnasio
-    if (user.role === 'SYS_ADMIN' && !gymId) {
-      const userWithGym = await this.inventoryService['prisma'].user.findUnique({
-        where: { id: user.id },
-        include: { ownedGym: true }
-      });
-      gymId = userWithGym?.ownedGym?.id;
-    }
-    
-    console.log('📦 [INVENTORY] Using gymId for products:', gymId);
-    return this.inventoryService.getProducts(gymId);
+  @Roles([Role.MANAGER, Role.RECEPTION, Role.SYS_ADMIN])
+  @UseGuards(RoleGuard)
+  async getProducts(@CurrentUser('sub') userId: string) {
+    this.logger.log(`Getting products for user: ${userId}`);
+    return this.inventoryService.getProducts(userId);
   }
 
   @Post('sales')
+  @Roles([Role.MANAGER, Role.RECEPTION, Role.SYS_ADMIN])
+  @UseGuards(RoleGuard)
   async recordSale(
     @Body() recordSaleDto: RecordSaleDto, 
-    @CurrentUser() user: any
+    @CurrentUser('sub') userId: string
   ) {
-    console.log('💰 [INVENTORY] Recording sale for user:', user);
-    
-    let gymId = user.staffOfGymId || user.memberOfGymId;
-    
-    if (user.role === 'SYS_ADMIN' && !gymId) {
-      const userWithGym = await this.inventoryService['prisma'].user.findUnique({
-        where: { id: user.id },
-        include: { ownedGym: true }
-      });
-      gymId = userWithGym?.ownedGym?.id;
-    }
-    
-    if (!gymId) {
-      throw new BadRequestException('El usuario no está asignado a un gimnasio.');
-    }
-    
-    console.log('💰 [INVENTORY] Using gymId for sale:', gymId);
-    return this.inventoryService.recordSale(recordSaleDto, user.id, gymId);
+    this.logger.log(`Recording sale for user: ${userId}`);
+    return this.inventoryService.recordSale(recordSaleDto, userId);
   }
 
   @Get('sales')
-  async getSales(@CurrentUser() user: any) {
-    console.log('📊 [INVENTORY] Getting sales for user:', user);
-    
-    let gymId = user.staffOfGymId || user.memberOfGymId;
-    
-    if (user.role === 'SYS_ADMIN' && !gymId) {
-      const userWithGym = await this.inventoryService['prisma'].user.findUnique({
-        where: { id: user.id },
-        include: { ownedGym: true }
-      });
-      gymId = userWithGym?.ownedGym?.id;
-    }
-    
-    if (!gymId) {
-      throw new BadRequestException('El usuario no está asignado a un gimnasio.');
-    }
-    
-    console.log('📊 [INVENTORY] Using gymId for sales:', gymId);
-    return this.inventoryService.getSales(gymId);
+  @Roles([Role.MANAGER, Role.SYS_ADMIN])
+  @UseGuards(RoleGuard)
+  async getSales(@CurrentUser('sub') userId: string) {
+    this.logger.log(`Getting sales for user: ${userId}`);
+    return this.inventoryService.getSales(userId);
   }
 }

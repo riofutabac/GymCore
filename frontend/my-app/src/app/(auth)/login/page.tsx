@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuthStore } from '@/lib/store';
+import AuthHeader from '@/components/shared/AuthHeader';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -68,7 +69,9 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
+    <div className="flex flex-col min-h-screen bg-background">
+      <AuthHeader />
+      <div className="flex flex-1 items-center justify-center px-4 py-12">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-2xl font-bold">GymCore</CardTitle>
@@ -133,6 +136,7 @@ export default function LoginPage() {
           </CardFooter>
         </form>
       </Card>
+      </div>
     </div>
   );
 }

@@ -114,7 +114,7 @@ export const authApi = {
 export const gymsApi = {
   getAll: async (): Promise<Gym[]> => {
     try {
-      const response = await axiosInstance.get<ApiResponse<Gym[]>>('/gyms');
+      const response = await axiosInstance.get<ApiResponse<Gym[]>>('/api/gyms');
       return handleResponse(response);
     } catch (error) {
       console.error('Error al obtener gimnasios:', error);
@@ -257,9 +257,18 @@ export const usersApi = {
 
 // Módulo de miembros
 export const membersApi = {
+  joinGym: async (gymId: string): Promise<User> => {
+    try {
+      const response = await axiosInstance.post<ApiResponse<User>>('/api/members/join-gym', { gymId });
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error al unirse al gimnasio:', error);
+      throw error;
+    }
+  },
   getAll: async (): Promise<Member[]> => {
     try {
-      const response = await axiosInstance.get<ApiResponse<Member[]>>('/members');
+      const response = await axiosInstance.get<ApiResponse<Member[]>>('/api/members');
       return handleResponse(response);
     } catch (error) {
       console.error('Error al obtener miembros:', error);
@@ -269,7 +278,7 @@ export const membersApi = {
   
   getById: async (id: string): Promise<Member> => {
     try {
-      const response = await axiosInstance.get<ApiResponse<Member>>(`/members/${id}`);
+      const response = await axiosInstance.get<ApiResponse<Member>>(`/api/members/${id}`);
       return handleResponse(response);
     } catch (error) {
       console.error(`Error al obtener miembro ${id}:`, error);
@@ -279,7 +288,7 @@ export const membersApi = {
   
   create: async (memberData: CreateMemberRequest): Promise<Member> => {
     try {
-      const response = await axiosInstance.post<ApiResponse<Member>>('/members', memberData);
+      const response = await axiosInstance.post<ApiResponse<Member>>('/api/members', memberData);
       return handleResponse(response);
     } catch (error) {
       console.error('Error al crear miembro:', error);
@@ -289,7 +298,7 @@ export const membersApi = {
   
   updateMembership: async (id: string, membershipData: UpdateMembershipRequest): Promise<Member> => {
     try {
-      const response = await axiosInstance.patch<ApiResponse<Member>>(`/members/${id}/membership`, membershipData);
+      const response = await axiosInstance.patch<ApiResponse<Member>>(`/api/members/${id}/membership`, membershipData);
       return handleResponse(response);
     } catch (error) {
       console.error(`Error al actualizar membresía de miembro ${id}:`, error);
@@ -299,7 +308,7 @@ export const membersApi = {
   
   suspendMembership: async (id: string): Promise<Member> => {
     try {
-      const response = await axiosInstance.patch<ApiResponse<Member>>(`/members/${id}/suspend`);
+      const response = await axiosInstance.patch<ApiResponse<Member>>(`/api/members/${id}/suspend`);
       return handleResponse(response);
     } catch (error) {
       console.error(`Error al suspender membresía de miembro ${id}:`, error);
@@ -309,7 +318,7 @@ export const membersApi = {
   
   validateQR: async (qrToken: string): Promise<{ user: User; membershipStatus: MembershipStatus }> => {
     try {
-      const response = await axiosInstance.post<ApiResponse<{ user: User; membershipStatus: MembershipStatus }>>('/members/validate-qr', { token: qrToken });
+      const response = await axiosInstance.post<ApiResponse<{ user: User; membershipStatus: MembershipStatus }>>('/api/members/validate-qr', { token: qrToken });
       return handleResponse(response);
     } catch (error) {
       console.error('Error al validar QR:', error);
@@ -322,7 +331,7 @@ export const membersApi = {
 export const inventoryApi = {
   getProducts: async (): Promise<Product[]> => {
     try {
-      const response = await axiosInstance.get<ApiResponse<Product[]>>('/inventory/products');
+      const response = await axiosInstance.get<ApiResponse<Product[]>>('/api/inventory/products');
       return handleResponse(response);
     } catch (error) {
       console.error('Error al obtener productos:', error);
@@ -332,7 +341,7 @@ export const inventoryApi = {
   
   getProductById: async (id: string): Promise<Product> => {
     try {
-      const response = await axiosInstance.get<ApiResponse<Product>>(`/inventory/products/${id}`);
+      const response = await axiosInstance.get<ApiResponse<Product>>(`/api/inventory/products/${id}`);
       return handleResponse(response);
     } catch (error) {
       console.error(`Error al obtener producto ${id}:`, error);
@@ -342,7 +351,7 @@ export const inventoryApi = {
   
   createProduct: async (productData: CreateProductRequest): Promise<Product> => {
     try {
-      const response = await axiosInstance.post<ApiResponse<Product>>('/inventory/products', productData);
+      const response = await axiosInstance.post<ApiResponse<Product>>('/api/inventory/products', productData);
       return handleResponse(response);
     } catch (error) {
       console.error('Error al crear producto:', error);

@@ -12,6 +12,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
+import { MembersModule } from './modules/members/members.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
     MembershipsModule,
     InventoryModule,
     AccessControlModule,
+    MembersModule,
   ],
   controllers: [AppController],
   providers: [

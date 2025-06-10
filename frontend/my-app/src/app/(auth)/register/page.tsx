@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuthStore } from '@/lib/store';
+import AuthHeader from '@/components/shared/AuthHeader';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -38,8 +39,21 @@ export default function RegisterPage() {
       return;
     }
 
+    // Validación de contraseña
+    if (formData.password.length < 6) {
+      setError('La contraseña debe tener al menos 6 caracteres');
+      return;
+    }
+
     if (formData.password !== formData.confirmPassword) {
       setError('Las contraseñas no coinciden');
+      return;
+    }
+
+    // Validación de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setError('Por favor ingresa un email válido');
       return;
     }
 
@@ -55,16 +69,23 @@ export default function RegisterPage() {
         // Redirigir a la página de unirse a un gimnasio
         router.push('/join-gym');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error en registro:', err);
-      setError('Error al registrar usuario. El email podría estar en uso.');
+      // Mostrar mensaje de error más específico si está disponible
+      if (err.response?.data?.message) {
+        setError(`Error: ${err.response.data.message}`);
+      } else {
+        setError('Error al registrar usuario. Verifica tus datos e intenta nuevamente.');
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
+    <div className="flex flex-col min-h-screen bg-background">
+      <AuthHeader />
+      <div className="flex flex-1 items-center justify-center px-4 py-12">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-2xl font-bold">Crear Cuenta</CardTitle>
@@ -146,6 +167,7 @@ export default function RegisterPage() {
           </CardFooter>
         </form>
       </Card>
+      </div>
     </div>
   );
 }

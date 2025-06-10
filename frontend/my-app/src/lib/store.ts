@@ -13,7 +13,7 @@ interface AuthState {
   isLoading: boolean;
   error: string | null;
   login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string) => Promise<void>;
+  register: (userData: { name: string, email: string, password: string }) => Promise<boolean>;
   logout: () => void;
   clearError: () => void;
   currentGymId: number | null;
@@ -48,16 +48,21 @@ export const useAuthStore = create<AuthState>()(
         }
       },
       
-      register: async (name, email, password) => {
+      register: async (userData) => {
         set({ isLoading: true, error: null });
         try {
-          const response = await api.auth.register({ name, email, password });
+          const response = await api.auth.register(userData);
+          
+          // Guardar el token en las cookies, igual que en login
+          Cookies.set('auth_token', response.token, { expires: 7, secure: true });
+          
           set({
             user: response.user,
             token: response.token,
             isAuthenticated: true,
             isLoading: false,
           });
+          return true;
         } catch (error) {
           set({
             isLoading: false,

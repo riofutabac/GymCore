@@ -16,13 +16,13 @@ export default function GymsPage() {
   // Consulta para obtener todos los gimnasios
   const { data: gyms, isLoading, error, refetch } = useQuery({
     queryKey: ['gyms'],
-    queryFn: () => api.gyms.getGyms(),
+    queryFn: () => api.gyms.getAll(),
   });
 
   // Consulta para obtener un gimnasio específico cuando se selecciona para editar
   const { data: selectedGym } = useQuery({
     queryKey: ['gym', selectedGymId],
-    queryFn: () => selectedGymId ? api.gyms.getGym(selectedGymId) : null,
+    queryFn: () => selectedGymId ? api.gyms.getById(selectedGymId) : null,
     enabled: !!selectedGymId,
   });
 

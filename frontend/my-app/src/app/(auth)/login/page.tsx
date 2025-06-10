@@ -38,11 +38,26 @@ export default function LoginPage() {
 
     try {
       setIsLoading(true);
-      const success = await login(formData.email, formData.password);
+      await login(formData.email, formData.password);
       
-      if (success) {
+      // Obtener el usuario actual del store
+      const user = useAuthStore.getState().user;
+      
+      if (user) {
         // Redirigir según el rol del usuario
-        router.push('/dashboard');
+        switch (user.role) {
+          case 'OWNER':
+            router.push('/owner');
+            break;
+          case 'MANAGER':
+            router.push('/manager');
+            break;
+          case 'STAFF':
+            router.push('/staff');
+            break;
+          default:
+            router.push('/dashboard');
+        }
       }
     } catch (err) {
       console.error('Error en inicio de sesión:', err);

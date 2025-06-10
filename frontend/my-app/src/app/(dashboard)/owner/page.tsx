@@ -28,6 +28,62 @@ export default function OwnerDashboard() {
     const fetchDashboardData = async () => {
       try {
         setIsLoading(true);
+        const dashboardData = await api.gyms.getDashboardMetrics();
+        setMetrics(dashboardData);
+      } catch (error) {
+        setError(error instanceof Error ? error.message : 'Error al cargar las métricas');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
+
+  return (
+    <div className="container mx-auto py-10 space-y-8">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Dashboard de Propietario</h1>
+        <p className="text-muted-foreground">
+          Vista general de tus gimnasios y métricas importantes
+        </p>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <MetricCard
+          title="Total de Gimnasios"
+          value={metrics.totalGyms}
+          description="Gimnasios en la red"
+          icon={<Building2 className="h-4 w-4" />}
+          loading={isLoading}
+          error={error}
+        />
+        <MetricCard
+          title="Usuarios Activos"
+          value={metrics.totalUsers}
+          description="Miembros registrados"
+          icon={<Users className="h-4 w-4" />}
+          loading={isLoading}
+          error={error}
+        />
+        <MetricCard
+          title="Ingresos Totales"
+          value={`$${metrics.totalRevenue.toLocaleString()}`}
+          description="Ingresos acumulados"
+          icon={<DollarSign className="h-4 w-4" />}
+          loading={isLoading}
+          error={error}
+        />
+        <MetricCard
+          title="Gimnasios Activos"
+          value={metrics.activeGyms}
+          description="Gimnasios operando"
+          icon={<BarChart3 className="h-4 w-4" />}
+          loading={isLoading}
+          error={error}
+        />
+      </div>
+    </div>
         setError(null);
         
         // Obtener métricas del dashboard para el owner

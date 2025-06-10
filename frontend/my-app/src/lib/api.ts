@@ -14,7 +14,7 @@ const axiosInstance: AxiosInstance = axios.create({
 // Interceptor para agregar el token de autenticación
 axiosInstance.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const token = document.cookie.split('; ').find(row => row.startsWith('token='))?.split('=')[1];
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
@@ -32,7 +32,7 @@ axiosInstance.interceptors.response.use(
     // Si el error es 401 (Unauthorized), limpiar el token y redirigir al login
     if (error.response?.status === 401) {
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('token');
+        document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
         localStorage.removeItem('user');
         window.location.href = '/login';
       }
@@ -53,11 +53,11 @@ const handleResponse = <T>(response: AxiosResponse<ApiResponse<T>>): T => {
 export const authApi = {
   login: async (credentials: LoginRequest): Promise<AuthResponse> => {
     try {
-      const response = await axiosInstance.post<ApiResponse<AuthResponse>>('/auth/login', credentials);
+      const response = await axiosInstance.post<ApiResponse<AuthResponse>>('/api/auth/login', credentials);
       const authData = handleResponse(response);
       
-      // Guardar token y datos de usuario en localStorage
-      localStorage.setItem('token', authData.token);
+      // Guardar token en cookie y datos de usuario en localStorage
+      document.cookie = `token=${authData.token}; path=/`;
       localStorage.setItem('user', JSON.stringify(authData.user));
       
       return authData;
@@ -69,7 +69,7 @@ export const authApi = {
   
   register: async (userData: RegisterRequest): Promise<AuthResponse> => {
     try {
-      const response = await axiosInstance.post<ApiResponse<AuthResponse>>('/auth/register', userData);
+      const response = await axiosInstance.post<ApiResponse<AuthResponse>>('/api/auth/register', userData);
       return handleResponse(response);
     } catch (error) {
       console.error('Error en registro:', error);
@@ -78,7 +78,7 @@ export const authApi = {
   },
   
   logout: (): void => {
-    localStorage.removeItem('token');
+    document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
     localStorage.removeItem('user');
     if (typeof window !== 'undefined') {
       window.location.href = '/login';
@@ -101,7 +101,7 @@ export const authApi = {
   
   getMyQR: async (): Promise<QRData> => {
     try {
-      const response = await axiosInstance.get<ApiResponse<QRData>>('/auth/qr');
+      const response = await axiosInstance.get<ApiResponse<QRData>>('/api/auth/qr');
       return handleResponse(response);
     } catch (error) {
       console.error('Error al obtener QR:', error);
@@ -167,6 +167,26 @@ export const gymsApi = {
       return handleResponse(response);
     } catch (error) {
       console.error('Error al obtener mi gimnasio:', error);
+      throw error;
+    }
+  },
+
+  getDashboardMetrics: async (): Promise<{
+    totalGyms: number;
+    totalUsers: number;
+    totalRevenue: number;
+    activeGyms: number;
+  }> => {
+    try {
+      const response = await axiosInstance.get<ApiResponse<{
+        totalGyms: number;
+        totalUsers: number;
+        totalRevenue: number;
+        activeGyms: number;
+      }>>('/api/owner/dashboard/metrics');
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error al obtener métricas del dashboard:', error);
       throw error;
     }
   },

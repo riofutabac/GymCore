@@ -1,7 +1,10 @@
+'use client';
+
 import React from 'react';
 import { redirect } from 'next/navigation';
 import { Sidebar } from '@/components/shared/Sidebar';
 import { useAuthStore } from '@/lib/store';
+import QueryProvider from '@/providers/query-provider';
 
 export default function DashboardLayout({
   children,
@@ -18,11 +21,13 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex h-screen">
-      <Sidebar />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+    <QueryProvider>
+      <div className="flex h-screen">
+        <Sidebar />
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        </div>
       </div>
-    </div>
+    </QueryProvider>
   );
 }

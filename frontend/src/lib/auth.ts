@@ -81,40 +81,65 @@ export const clearAuth = (): void => {
   }
 };
 
-// Obtener el usuario actual, verificando con el servidor si está disponible
+// Obtener el usuario actual (solo en el cliente)
 export const getCurrentUser = async (): Promise<User | null> => {
   try {
-    // Si no hay token, no hay usuario autenticado
-    if (!getAuthToken()) {
+    console.log('🔄 getCurrentUser - Verificando contexto...');
+    
+    // Esta función solo funciona en el cliente
+    if (typeof window === 'undefined') {
+      console.log('⚠️ getCurrentUser llamado en el servidor - retornando null');
       return null;
     }
     
-    // Primero intentar obtener del almacenamiento local
-    const storedUser = getStoredUser();
+    console.log('🌐 Ejecutando en cliente');
     
-    // En el lado del cliente, intentar refrescar los datos del usuario desde el servidor
-    if (typeof window !== 'undefined') {
-      try {
-        // Llamar a la API para obtener los datos actualizados del usuario
-        const freshUser = await authAPI.me();
-        // Actualizar el usuario almacenado con los datos más recientes
-        if (freshUser) {
-          // Mantener el token actual
-          const token = getAuthToken() || '';
-          storeUserInfo(freshUser, token);
-          return freshUser;
-        }
-      } catch (error) {
-        console.error('Error al refrescar datos del usuario:', error);
-        // Si hay un error, seguimos usando el usuario almacenado
-      }
+    // Si no hay token, no hay usuario autenticado
+    const token = getAuthToken();
+    if (!token) {
+      console.log('❌ No hay token en localStorage');
+      return null;
     }
     
+    console.log('🔑 Token encontrado en localStorage');
+    
+    // Primero intentar obtener del almacenamiento local
+    const storedUser = getStoredUser();
+    console.log('👤 Usuario en localStorage:', storedUser ? 'Sí' : 'No');
+    
+    // Intentar refrescar los datos del usuario desde el servidor
+    try {
+      console.log('🔄 Refrescando datos del usuario desde API...');
+      const freshUser = await authAPI.me();
+      
+      if (freshUser) {
+        console.log('✅ Usuario actualizado desde API:', freshUser.email || freshUser.name);
+        storeUserInfo(freshUser, token);
+        return freshUser;
+      }
+    } catch (apiError) {
+      console.error('🚨 Error al refrescar datos del usuario:', apiError);
+      // Si hay un error de API, seguimos usando el usuario almacenado
+    }
+    
+    console.log('📦 Usando usuario almacenado localmente');
     return storedUser;
+    
   } catch (error) {
-    console.error('Error en getCurrentUser:', error);
+    console.error('💥 Error general en getCurrentUser:', error);
     // Si ocurre un error, limpiar la autenticación por seguridad
     clearAuth();
     return null;
+  }
+};
+
+// Nueva función para establecer cookies en el servidor
+export const setServerCookies = (user: User, token: string): void => {
+  // Esta función será llamada desde el lado del cliente después del login
+  // para establecer cookies que el servidor pueda leer
+  if (typeof window !== 'undefined') {
+    // Establecer cookies que el servidor pueda leer
+    document.cookie = `gymcore_token=${token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
+    document.cookie = `gymcore_user=${JSON.stringify(user)}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
   }
 };

@@ -10,7 +10,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { authAPI } from '@/lib/api';
 import { useToast } from '@/components/ui/use-toast';
-import { storeUserInfo, redirectByRole } from '@/lib/auth';
+import { storeUserInfo, redirectByRole, setServerCookies } from '@/lib/auth';
 
 export function LoginForm() {
   const [email, setEmail] = useState('');
@@ -38,8 +38,9 @@ export function LoginForm() {
       const response = await authAPI.login(email, password);
       console.log('Respuesta login procesada:', response);
       
-      // 2. Guarda datos del usuario y token en el sistema
+      // 2. Guarda datos del usuario y token en localStorage Y cookies
       storeUserInfo(response.user, response.token);
+      setServerCookies(response.user, response.token);
       
       // 3. Muestra mensaje de éxito
       toast({

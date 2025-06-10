@@ -1,59 +1,20 @@
 'use client';
 
-import React, { useEffect } from 'react';
-import { redirect } from 'next/navigation';
-import { useCurrentUser } from '@/hooks/useCurrentUser';
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 
-// Este componente simplemente redirige a los usuarios a su dashboard específico según su rol
+// Esta página solo se mostrará momentáneamente mientras el middleware redirige
 export default function DashboardPage() {
-  const { user, isLoading, isAuthenticated } = useCurrentUser();
-
-  // Si no está autenticado, redirigir al login
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      redirect('/login');
-    }
-  }, [isLoading, isAuthenticated]);
-
-  // Redirigir según el rol del usuario a las rutas sin /dashboard
-  useEffect(() => {
-    if (!isLoading && user) {
-      switch (user.role) {
-        case 'OWNER':
-          redirect('/owner');
-          break;
-        case 'MANAGER':
-          redirect('/manager');
-          break;
-        case 'RECEPTION':
-          redirect('/reception');
-          break;
-        case 'CLIENT':
-          redirect('/client');
-          break;
-      }
-    }
-  }, [isLoading, user]);
-
-  if (isLoading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  // Página de fallback si no se redirige
   return (
-    <div className="container mx-auto py-10">
-      <Card>
+    <div className="flex h-full w-full items-center justify-center">
+      <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>Bienvenido a GymCore</CardTitle>
+          <CardTitle>Redirigiendo...</CardTitle>
         </CardHeader>
-        <CardContent>
-          <p>Cargando tu dashboard personalizado...</p>
+        <CardContent className="flex items-center justify-center p-10">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="ml-4 text-muted-foreground">Cargando tu panel...</p>
         </CardContent>
       </Card>
     </div>

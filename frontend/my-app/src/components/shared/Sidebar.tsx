@@ -6,6 +6,8 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/lib/store';
 import { UserRole } from '@/lib/types';
+import { Button } from '@/components/ui/button';
+import { LogOut } from 'lucide-react';
 
 interface SidebarLinkProps {
   href: string;
@@ -32,7 +34,7 @@ function SidebarLink({ href, children }: SidebarLinkProps) {
 }
 
 export function Sidebar() {
-  const { user } = useAuthStore();
+  const { user, logout } = useAuthStore();
 
   if (!user) return null;
 
@@ -99,6 +101,16 @@ export function Sidebar() {
             <p className="text-xs text-muted-foreground">{user.role}</p>
           </div>
         </div>
+        
+        {/* Botón de Cerrar Sesión */}
+        <Button 
+          variant="outline" 
+          className="w-full mt-4 flex items-center justify-center gap-2" 
+          onClick={() => logout()}
+        >
+          <LogOut className="h-4 w-4" />
+          Cerrar Sesión
+        </Button>
       </div>
     </div>
   );

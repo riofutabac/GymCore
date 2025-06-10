@@ -13,4 +13,5 @@ export class Gym implements PrismaGym {
   createdAt: Date;
   updatedAt: Date;
   ownerId: string;
+  managerId: string | null;
 }

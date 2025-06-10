@@ -23,18 +23,26 @@ export class MembershipsService {
     try {
       this.logger.log(`Getting membership for user: ${userId}`);
       
-      let membership = await this.prisma.membership.findUnique({
-        where: { userId: userId },
+      // Buscar membresías activas del usuario
+      const memberships = await this.prisma.membership.findMany({
+        where: { 
+          userId: userId,
+          status: 'ACTIVE'
+        },
         include: {
           payments: {
             orderBy: { createdAt: 'desc' },
             take: 5,
           },
         },
+        orderBy: { createdAt: 'desc' },
+        take: 1,
       });
 
+      let membership = memberships.length > 0 ? memberships[0] : null;
+
       if (!membership) {
-        this.logger.log(`No membership found for user ${userId}, creating default one`);
+        this.logger.log(`No active membership found for user ${userId}, creating default one`);
         
         // Crear membresía por defecto si no existe
         membership = await this.prisma.membership.create({
@@ -68,9 +76,17 @@ export class MembershipsService {
 
   async renew(userId: string, renewMembershipDto: RenewMembershipDto) {
     try {
-      const membership = await this.prisma.membership.findUnique({
-        where: { userId: userId },
+      // Buscar membresías activas del usuario
+      const memberships = await this.prisma.membership.findMany({
+        where: { 
+          userId: userId,
+          status: { in: ['ACTIVE', 'EXPIRED'] }
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 1,
       });
+      
+      const membership = memberships.length > 0 ? memberships[0] : null;
 
       if (!membership) {
         throw new NotFoundException(`Membership for user "${userId}" not found`);
@@ -162,8 +178,8 @@ export class MembershipsService {
         where: {
           user: {
             OR: [
-              { memberOfGymId: gymId },
-              { staffOfGymId: gymId }
+              { memberOfGyms: { some: { id: gymId } } },
+              { workingAtGymId: gymId }
             ]
           }
         },

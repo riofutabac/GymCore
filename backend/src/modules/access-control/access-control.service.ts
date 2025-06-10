@@ -27,7 +27,7 @@ export class AccessControlService {
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
         include: {
-          membership: true,
+          memberships: true,
         },
       });
 
@@ -35,8 +35,13 @@ export class AccessControlService {
         throw new NotFoundException('User not found');
       }
 
-      if (!user.membership) {
-        this.logger.log(`No membership found for user ${userId}, creating default one`);
+      // Obtener la membresía activa del usuario (la primera que encuentre)
+      const activeMembership = user.memberships && user.memberships.length > 0 
+        ? user.memberships.find(m => m.status === 'ACTIVE')
+        : null;
+
+      if (!activeMembership) {
+        this.logger.log(`No active membership found for user ${userId}, creating default one`);
         
         // Crear membresía por defecto
         const newMembership = await this.prisma.membership.create({
@@ -52,15 +57,14 @@ export class AccessControlService {
           },
         });
         
-        user.membership = newMembership;
-      }
-
-      if (user.membership.status !== 'ACTIVE') {
+        // Asignar la nueva membresía como activa
+        const activeMembership = newMembership;
+      } else if (activeMembership.status !== 'ACTIVE') {
         throw new BadRequestException('Membership is not active');
       }
 
       // Verificar si la membresía no ha expirado
-      if (user.membership.expiresAt && new Date() > user.membership.expiresAt) {
+      if (activeMembership && activeMembership.expiresAt && new Date() > activeMembership.expiresAt) {
         throw new BadRequestException('Membership has expired');
       }
 
@@ -79,7 +83,7 @@ export class AccessControlService {
         user: {
           name: user.name,
           email: user.email,
-          membershipStatus: user.membership.status,
+          membershipStatus: activeMembership ? activeMembership.status : 'UNKNOWN',
         }
       };
     } catch (error) {
@@ -113,8 +117,8 @@ export class AccessControlService {
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
         include: {
-          membership: true,
-          memberOfGym: true,
+          memberships: true,
+          memberOfGyms: true,
         },
       });
 
@@ -125,7 +129,12 @@ export class AccessControlService {
       // Obtener gymId del validador para el log de acceso
       const validatorGymId = await this.userContextService.getUserGymId(validatorId);
 
-      if (!user.membership || user.membership.status !== 'ACTIVE') {
+      // Obtener la membresía activa del usuario
+      const activeMembership = user.memberships && user.memberships.length > 0 
+        ? user.memberships.find(m => m.status === 'ACTIVE')
+        : null;
+        
+      if (!activeMembership || activeMembership.status !== 'ACTIVE') {
         await this.prisma.accessLog.create({
           data: {
             type: AccessType.QR_CODE,
@@ -147,7 +156,7 @@ export class AccessControlService {
       }
 
       // Verificar expiración de membresía
-      if (user.membership.expiresAt && new Date() > user.membership.expiresAt) {
+      if (activeMembership.expiresAt && new Date() > activeMembership.expiresAt) {
         await this.prisma.accessLog.create({
           data: {
             type: AccessType.QR_CODE,
@@ -186,8 +195,8 @@ export class AccessControlService {
         user: {
           name: user.name,
           email: user.email,
-          membershipStatus: user.membership.status,
-          expiresAt: user.membership.expiresAt,
+          membershipStatus: activeMembership ? activeMembership.status : 'UNKNOWN',
+          expiresAt: activeMembership ? activeMembership.expiresAt : null,
         },
       };
     } catch (error) {

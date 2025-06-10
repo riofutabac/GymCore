@@ -13,4 +13,5 @@ export class Membership implements PrismaMembership {
   createdAt: Date;
   updatedAt: Date;
   userId: string;
+  legacyUserId: string | null;
 }

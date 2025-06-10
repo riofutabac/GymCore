@@ -100,9 +100,9 @@ export class GymsService {
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
         include: {
-          memberOfGym: true,
-          staffOfGym: true,
-          ownedGym: true,
+          memberOfGyms: true,
+          workingAtGym: true,
+          ownedGyms: true,
         }
       });
 
@@ -110,7 +110,21 @@ export class GymsService {
         throw new NotFoundException('User not found');
       }
 
-      const gym = user.ownedGym || user.staffOfGym || user.memberOfGym;
+      // Determinar el gimnasio del usuario según su rol
+      let gym: any = null;
+      
+      // Si es staff, usar el gimnasio donde trabaja
+      if (user.workingAtGym) {
+        gym = user.workingAtGym;
+      } 
+      // Si es dueño, usar el primer gimnasio que posee (si hay alguno)
+      else if (user.ownedGyms && user.ownedGyms.length > 0) {
+        gym = user.ownedGyms[0];
+      }
+      // Si es miembro, usar el primer gimnasio al que pertenece (si hay alguno)
+      else if (user.memberOfGyms && user.memberOfGyms.length > 0) {
+        gym = user.memberOfGyms[0];
+      }
 
       if (!gym) {
         throw new NotFoundException('You are not associated with any gym');
@@ -164,19 +178,33 @@ export class GymsService {
 
   async create(gymData: CreateGymDto, userId: string) {
     try {
-      // Validar usuario propietario único
-      const existingGym = await this.prisma.gym.findUnique({ where: { ownerId: userId } });
-      if (existingGym) throw new BadRequestException('User already owns a gym');
-
-      // Generar joinCode único
-      let joinCode = generateJoinCode();
-      let existingGymWithCode = await this.prisma.gym.findUnique({ where: { joinCode } });
-      while (existingGymWithCode) {
-        joinCode = generateJoinCode();
-        existingGymWithCode = await this.prisma.gym.findUnique({ where: { joinCode } });
+      // Verificar si el usuario ya tiene un gimnasio
+      const existingGyms = await this.prisma.gym.findMany({ 
+        where: { ownerId: userId } 
+      });
+      
+      if (existingGyms && existingGyms.length > 0) {
+        throw new BadRequestException('You already own a gym');
       }
       
-      // Validar gerente si se proporciona
+      // Generar código de unión único
+      let joinCode = generateJoinCode();
+      let codeExists = true;
+      
+      // Verificar que el código sea único
+      while (codeExists) {
+        const existingCode = await this.prisma.gym.findUnique({
+          where: { joinCode }
+        });
+        
+        if (!existingCode) {
+          codeExists = false;
+        } else {
+          joinCode = generateJoinCode();
+        }
+      }
+      
+      // Verificar manager si se proporciona
       if (gymData.managerId) {
         const manager = await this.prisma.user.findUnique({
           where: { id: gymData.managerId }
@@ -200,6 +228,7 @@ export class GymsService {
           ...gymDataWithoutManager,
           joinCode,
           ownerId: userId,
+          managerId: managerId || null,
         },
       });
       
@@ -207,7 +236,7 @@ export class GymsService {
       if (managerId) {
         await this.prisma.user.update({
           where: { id: managerId },
-          data: { staffOfGymId: gym.id }
+          data: { workingAtGymId: gym.id }
         });
         
         this.logger.log(`Manager ${managerId} assigned to gym ${gym.id}`);
@@ -301,16 +330,45 @@ export class GymsService {
           where: { gymId: id }
         });
 
-        // Actualizar usuarios (quitar relación con el gimnasio)
+        // Actualizar usuarios que trabajan en este gimnasio
         await tx.user.updateMany({
-          where: { memberOfGymId: id },
-          data: { memberOfGymId: null }
+          where: { workingAtGymId: id },
+          data: { workingAtGymId: null }
         });
-
-        await tx.user.updateMany({
-          where: { staffOfGymId: id },
-          data: { staffOfGymId: null }
+        
+        // Desconectar miembros (relación many-to-many)
+        const membersToDisconnect = await tx.user.findMany({
+          where: {
+            memberOfGyms: {
+              some: { id }
+            }
+          }
         });
+        
+        for (const member of membersToDisconnect) {
+          await tx.gym.update({
+            where: { id },
+            data: {
+              members: {
+                disconnect: { id: member.id }
+              }
+            }
+          });
+        }
+        
+        // Desconectar staff (relación many-to-many)
+        const staffToDisconnect = await tx.user.findMany({
+          where: {
+            workingAtGymId: id
+          }
+        });
+        
+        for (const staff of staffToDisconnect) {
+          await tx.user.update({
+            where: { id: staff.id },
+            data: { workingAtGymId: null }
+          });
+        }
 
         // Finalmente eliminar el gimnasio
         await tx.gym.delete({

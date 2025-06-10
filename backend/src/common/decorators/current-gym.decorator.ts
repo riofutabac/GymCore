@@ -9,7 +9,16 @@ export const CurrentGym = createParamDecorator(
       throw new InternalServerErrorException('No se encontró el usuario en la solicitud. Asegúrate de que AuthGuard esté activo.');
     }
     
-    const gym = user.ownedGym || user.staffOfGym || user.memberOfGym;
+    // Determine the gym based on user relationships with priority: working at > owned > member
+    let gym = null;
+    
+    if (user.workingAtGym) {
+      gym = user.workingAtGym;
+    } else if (user.ownedGyms && user.ownedGyms.length > 0) {
+      gym = user.ownedGyms[0];
+    } else if (user.memberOfGyms && user.memberOfGyms.length > 0) {
+      gym = user.memberOfGyms[0];
+    }
     
     if (!gym) {
       // Esto podría lanzar una excepción o ser manejado en el servicio.

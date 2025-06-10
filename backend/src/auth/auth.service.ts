@@ -212,19 +212,19 @@ export class AuthService {
         phone: true,
         emailVerified: true,
         createdAt: true,
-        memberOfGym: {
+        memberOfGyms: {
           select: {
             id: true,
             name: true,
           }
         },
-        staffOfGym: {
+        workingAtGym: {
           select: {
             id: true,
             name: true,
           }
         },
-        ownedGym: {
+        ownedGyms: {
           select: {
             id: true,
             name: true,

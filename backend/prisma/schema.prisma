@@ -31,11 +31,18 @@ model Gym {
   updatedAt DateTime @default(now()) @updatedAt
 
   // Relaciones
-  owner   User   @relation("GymOwner", fields: [ownerId], references: [id])
-  ownerId String @unique
+  owner   User   @relation("OwnedGyms", fields: [ownerId], references: [id])
+  ownerId String
 
-  members    User[]      @relation("GymMembers")
-  staff      User[]      @relation("GymStaff")
+  // Gerente asignado al gimnasio (one-to-one)
+  manager   User?   @relation("ManagedGym", fields: [managerId], references: [id])
+  managerId String? @unique
+
+  // Miembros del gimnasio (many-to-many)
+  members User[] @relation("GymMembers")
+  
+  // Personal del gimnasio (recepcionistas)
+  staff User[] @relation("GymStaff")
   products   Product[]
   sales      Sale[]
   accessLogs AccessLog[]
@@ -66,15 +73,23 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
 
-  // Relaciones de gimnasio
-  ownedGym      Gym?    @relation("GymOwner")
-  memberOfGym   Gym?    @relation("GymMembers", fields: [memberOfGymId], references: [id])
-  memberOfGymId String?
-  staffOfGym    Gym?    @relation("GymStaff", fields: [staffOfGymId], references: [id])
-  staffOfGymId  String?
+  // Relaciones de gimnasio según rol
+  // OWNER: Puede tener múltiples gimnasios
+  ownedGyms Gym[] @relation("OwnedGyms")
+  
+  // MANAGER: Gestiona un gimnasio
+  managedGym Gym? @relation("ManagedGym")
+  
+  // RECEPTION: Trabaja en un gimnasio
+  workingAtGym   Gym?    @relation("GymStaff", fields: [workingAtGymId], references: [id])
+  workingAtGymId String?
+  
+  // CLIENT: Puede ser miembro de varios gimnasios
+  memberOfGyms  Gym[]        @relation("GymMembers")
+  memberships   Membership[] @relation("UserMemberships")
 
-  // Otras relaciones
-  membership Membership?
+  // Otras relaciones - DEPRECATED: usar memberships[] en su lugar
+  membership Membership? @relation("LegacyMembership")
   accessLogs AccessLog[]
   sales      Sale[]      @relation("Seller")
 
@@ -85,7 +100,7 @@ enum UserRole {
   CLIENT // Socio del gimnasio
   RECEPTION // Personal de recepción
   MANAGER // Gerente del gimnasio
-  SYS_ADMIN // Administrador del sistema
+  OWNER // Dueño del sistema
 }
 
 // ============= MEMBRESÍAS =============
@@ -110,8 +125,12 @@ model Membership {
   updatedAt DateTime @default(now()) @updatedAt
 
   // Relaciones
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId String @unique
+  user   User   @relation("UserMemberships", fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  // Relación legacy - DEPRECATED
+  legacyUser   User?   @relation("LegacyMembership", fields: [legacyUserId], references: [id], onDelete: SetNull)
+  legacyUserId String? @unique
 
   payments Payment[]
 

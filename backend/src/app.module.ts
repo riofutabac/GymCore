@@ -7,14 +7,11 @@ import { GymsModule } from './gyms/gyms.module';
 import { MembershipsModule } from './modules/memberships/memberships.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { AccessControlModule } from './modules/access-control/access-control.module';
-<<<<<<< HEAD
 import { LoggerModule } from './common/logger/logger.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-=======
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
->>>>>>> 2c8043283d04c7cfdd332081d0cb9679f5aeac9a
 
 @Module({
   imports: [
@@ -30,11 +27,9 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
     InventoryModule,
     AccessControlModule,
   ],
-<<<<<<< HEAD
   controllers: [AppController],
-  providers: [AppService],
-=======
   providers: [
+    AppService,
     {
       provide: APP_FILTER,
       useClass: HttpExceptionFilter,
@@ -44,6 +39,5 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
       useClass: ResponseInterceptor,
     },
   ],
->>>>>>> 2c8043283d04c7cfdd332081d0cb9679f5aeac9a
 })
 export class AppModule {}

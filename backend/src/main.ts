@@ -47,7 +47,6 @@ async function bootstrap() {
     exclude: ['/health'], // Health check endpoint without prefix
   });
 
-<<<<<<< HEAD
   // Swagger documentation setup
   const config = new DocumentBuilder()
     .setTitle('GymCore API')
@@ -59,9 +58,6 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
-  // Puerto del backend
-  const port = process.env.PORT || 3001;
-=======
   // Health check endpoint
   app.getHttpAdapter().get('/health', (req, res) => {
     res.status(200).json({
@@ -72,9 +68,8 @@ async function bootstrap() {
     });
   });
 
-  const port = configService.get<number>('PORT') || 3001;
-  
->>>>>>> 2c8043283d04c7cfdd332081d0cb9679f5aeac9a
+  // Puerto del backend
+  const port = configService.get<number>('PORT') || process.env.PORT || 3001;
   await app.listen(port);
   
   logger.log(`🚀 Backend running on http://localhost:${port}`);

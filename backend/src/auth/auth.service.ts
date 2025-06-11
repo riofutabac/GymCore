@@ -244,4 +244,43 @@ export class AuthService {
       throw error;
     }
   }
+
+  async getAllUsers(): Promise<any[]> {
+    try {
+      this.logger.debug('Starting getAllUsers method');
+      
+      // Verificar la conexión a la base de datos
+      try {
+        await this.prisma.$queryRaw`SELECT 1`;
+        this.logger.debug('Database connection is working');
+      } catch (dbError) {
+        this.logger.error('Database connection error:', dbError);
+        throw new Error('Database connection failed');
+      }
+
+      this.logger.debug('Executing findMany query...');
+      const users = await this.prisma.user.findMany({
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          isActive: true,
+          createdAt: true,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+
+      this.logger.debug(`Query successful. Found ${users.length} users`);
+      this.logger.debug('Sample user data:', users[0] || 'No users found');
+      
+      return users;
+    } catch (error) {
+      this.logger.error(`Error in getAllUsers:`, error);
+      this.logger.error('Stack trace:', error.stack);
+      throw new BadRequestException(`Failed to retrieve users: ${error.message}`);
+    }
+  }
 }

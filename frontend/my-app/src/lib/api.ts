@@ -206,7 +206,7 @@ export const gymsApi = {
 export const usersApi = {
   getAll: async (): Promise<User[]> => {
     try {
-      const response = await axiosInstance.get<ApiResponse<User[]>>('/users');
+      const response = await axiosInstance.get<ApiResponse<User[]>>('/api/auth/users');
       return handleResponse(response);
     } catch (error) {
       console.error('Error al obtener usuarios:', error);

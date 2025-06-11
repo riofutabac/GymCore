@@ -36,13 +36,13 @@ export default function UsersPage() {
   // Consulta para obtener todos los usuarios
   const { data: users, isLoading, error, refetch } = useQuery({
     queryKey: ['users'],
-    queryFn: () => api.users.getUsers(),
+    queryFn: () => api.users.getAll(),
   });
 
   // Consulta para obtener todos los gimnasios (para asignar managers)
   const { data: gyms } = useQuery({
     queryKey: ['gyms'],
-    queryFn: () => api.gyms.getGyms(),
+    queryFn: () => api.gyms.getAll(),
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {

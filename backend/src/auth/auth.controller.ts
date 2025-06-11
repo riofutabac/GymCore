@@ -68,6 +68,24 @@ export class AuthController {
     };
   }
 
+  @Get('users')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles([Role.OWNER])
+  async getAllUsers(@CurrentUser() user: any) {
+    this.logger.debug(`Getting all users. Requested by user: ${user?.id}, role: ${user?.role}`);
+    try {
+      const users = await this.authService.getAllUsers();
+      this.logger.debug(`Successfully retrieved ${users.length} users`);
+      return {
+        success: true,
+        data: users
+      };
+    } catch (error) {
+      this.logger.error('Error in getAllUsers:', error);
+      throw error;
+    }
+  }
+
   @Get('users/role/:role')
   @UseGuards(new AuthGuard())
   async getUsersByRole(@Param('role') role: string) {

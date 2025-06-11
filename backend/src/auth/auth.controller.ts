@@ -1,15 +1,15 @@
 import { 
   Controller, 
   Post, 
-  Body, 
   Get, 
+  Body,
   UseGuards,
   HttpCode,
   HttpStatus,
   Param,
+  BadRequestException,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { LoginDto, RegisterDto } from './dto/auth.dto';
 import { AuthGuard } from '../common/guards/auth.guard';
 import { RoleGuard } from '../common/guards/role.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -20,47 +20,77 @@ import { Role } from '../common/enums/role.enum';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @Post('login')
-  @HttpCode(HttpStatus.OK)
-  async login(@Body() loginDto: LoginDto) {
-    return this.authService.login(loginDto);
-  }
-
-  @Post('register')
-  @HttpCode(HttpStatus.CREATED)
-  async register(@Body() registerDto: RegisterDto) {
-    return this.authService.register(registerDto);
-  }
-
   @Get('me')
   @UseGuards(AuthGuard)
-  async getProfile(@CurrentUser('sub') userId: string) {
-    return this.authService.getProfile(userId);
+  async getProfile(@CurrentUser() user: any) {
+    return {
+      success: true,
+      data: await this.authService.getProfile(user.id)
+    };
+  }
+
+  // También agregar el endpoint con 'profile' para compatibilidad
+  @Get('profile')
+  @UseGuards(AuthGuard)
+  async getProfileAlias(@CurrentUser() user: any) {
+    return {
+      success: true,
+      data: await this.authService.getProfile(user.id)
+    };
   }
 
   @Post('logout')
   @UseGuards(AuthGuard)
   @HttpCode(HttpStatus.OK)
   async logout() {
-    // En una implementación más avanzada, aquí invalidarías el token
-    // Por ejemplo, agregándolo a una blacklist en Redis
     return { 
       success: true, 
       message: 'Logged out successfully' 
     };
   }
 
-  @Post('create-user')
-  @Roles([Role.SYS_ADMIN])
-  @UseGuards(AuthGuard, RoleGuard)
-  @HttpCode(HttpStatus.CREATED)
-  async createUser(@Body() userData: RegisterDto) {
-    return this.authService.register(userData);
-  }
-
   @Get('users/role/:role')
   @UseGuards(AuthGuard)
   async getUsersByRole(@Param('role') role: string) {
-    return this.authService.getUsersByRole(role);
+    return {
+      success: true,
+      data: await this.authService.getUsersByRole(role)
+    };
+  }
+
+  @Post('webhook')
+  @HttpCode(HttpStatus.OK)
+  async handleWebhook(@Body() payload: any) {
+    // Handle Supabase webhook events
+    if (payload.type === 'user.created') {
+      await this.authService.createUserFromSupabase(payload.data);
+    }
+    return { success: true };
+  }
+
+  @Post('sync-user')
+  @HttpCode(HttpStatus.OK)
+  async syncUser(@Body() payload: { supabaseUserId: string; userData: any }) {
+    try {
+      if (!payload.supabaseUserId || !payload.userData || !payload.userData.email) {
+        throw new BadRequestException('Missing required fields');
+      }
+      
+      const user = await this.authService.syncUserFromSupabase(
+        payload.supabaseUserId,
+        payload.userData
+      );
+      
+      return { 
+        success: true, 
+        data: user,
+        message: 'User synchronized successfully' 
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || 'Failed to sync user'
+      };
+    }
   }
 }

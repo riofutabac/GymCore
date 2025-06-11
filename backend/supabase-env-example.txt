@@ -1,0 +1,16 @@
+# Supabase Database Connection
+# Replace [YOUR-PASSWORD] with your Supabase database password
+DATABASE_URL="postgresql://postgres:password@db.mubmrjjmkghrmafarqoj.supabase.co:5432/postgres?pgbouncer=true"
+
+# Supabase JWT Secret
+# This is the JWT Secret from your Supabase project (Project Settings > API)
+SUPABASE_JWT_SECRET="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im11Ym1yampta2docm1hZmFycW9qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk0ODY4NDIsImV4cCI6MjA2NTA2Mjg0Mn0.b_2Wsy1roJCQY8SY_TEKA6STko6POL0zziR_J946yv0"
+
+# Server Configuration
+PORT=3001
+NODE_ENV=development
+FRONTEND_URL="http://localhost:3000"
+
+# These are no longer needed for the main authentication but kept for reference
+# JWT_SECRET="super-secure-jwt-secret-for-docker"
+# JWT_EXPIRES_IN="7d"

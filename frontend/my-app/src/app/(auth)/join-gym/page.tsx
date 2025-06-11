@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import api from '@/lib/api';
 import { Gym } from '@/lib/types';
 import { useAuthStore } from '@/lib/store';
+import { createSupabaseBrowserClient } from '@/lib/supabase';
 
 export default function JoinGymPage() {
   const router = useRouter();
@@ -21,17 +22,37 @@ export default function JoinGymPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Redirigir si el usuario no está autenticado
-    if (!isAuthenticated) {
-      router.push('/login');
-      return;
-    }
-
-    // Si el usuario ya tiene un gimnasio asignado, redirigir al dashboard
-    if (user?.gymId) {
-      router.push('/dashboard');
-      return;
-    }
+    const checkSession = async () => {
+      try {
+        // Verificar si hay una sesión activa de Supabase
+        const supabase = createSupabaseBrowserClient();
+        const { data } = await supabase.auth.getSession();
+        
+        if (!data.session) {
+          // No hay sesión activa, redirigir al login
+          router.push('/login');
+          return;
+        }
+        
+        // Refrescar datos del usuario desde la API
+        if (!user) {
+          await useAuthStore.getState().refreshUser();
+        }
+        
+        // Si el usuario ya tiene un gimnasio asignado, redirigir al dashboard
+        const currentUser = useAuthStore.getState().user;
+        if (currentUser?.memberOfGyms && currentUser.memberOfGyms.length > 0) {
+          router.push('/dashboard');
+          return;
+        }
+      } catch (error) {
+        console.error('Error al verificar sesión:', error);
+        router.push('/login');
+      }
+    };
+    
+    checkSession();
+  }, [router]);
 
     // Cargar la lista de gimnasios
     const fetchGyms = async () => {
@@ -62,6 +83,9 @@ export default function JoinGymPage() {
       setError(null);
       
       await api.members.joinGym(gymId);
+      
+      // Refrescar datos del usuario para obtener la nueva membresía
+      await useAuthStore.getState().refreshUser();
       
       // Redirigir al dashboard después de unirse exitosamente
       router.push('/dashboard');

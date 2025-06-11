@@ -1,22 +1,25 @@
 import axios, { AxiosError, AxiosInstance, AxiosResponse } from 'axios';
-import { ApiResponse, AuthResponse, CreateGymRequest, CreateMemberRequest, CreateProductRequest, CreateSaleRequest, Gym, LoginRequest, Member, MembershipStatus, PaginatedResponse, Product, QRData, RegisterRequest, Sale, UpdateGymRequest, UpdateMembershipRequest, UpdateProductRequest, User, UserRole } from './types';
+import { ApiResponse, CreateGymRequest, CreateMemberRequest, CreateProductRequest, CreateSaleRequest, Gym, Member, MembershipStatus, PaginatedResponse, Product, QRData, Sale, UpdateGymRequest, UpdateMembershipRequest, UpdateProductRequest, User, UserRole } from './types';
+import { createSupabaseBrowserClient } from './supabase';
 
 // Configuración base de axios
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
-const axiosInstance: AxiosInstance = axios.create({
-  baseURL: API_URL,
+const axiosInstance = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Interceptor para agregar el token de autenticación
+// Interceptor para agregar el token de Supabase
 axiosInstance.interceptors.request.use(
-  (config) => {
-    const token = document.cookie.split('; ').find(row => row.startsWith('auth_token='))?.split('=')[1];
-    if (token) {
-      config.headers['Authorization'] = `Bearer ${token}`;
+  async (config) => {
+    const supabase = createSupabaseBrowserClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (session?.access_token) {
+      config.headers.Authorization = `Bearer ${session.access_token}`;
     }
     return config;
   },
@@ -28,12 +31,13 @@ axiosInstance.interceptors.request.use(
 // Interceptor para manejar errores de respuesta
 axiosInstance.interceptors.response.use(
   (response) => response,
-  (error: AxiosError) => {
-    // Si el error es 401 (Unauthorized), limpiar el token y redirigir al login
+  async (error: AxiosError) => {
+    // Si el error es 401 (Unauthorized), redirigir al login
     if (error.response?.status === 401) {
       if (typeof window !== 'undefined') {
-        document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
-        localStorage.removeItem('user');
+        // Cerrar sesión en Supabase
+        const supabase = createSupabaseBrowserClient();
+        await supabase.auth.signOut();
         window.location.href = '/login';
       }
     }
@@ -51,51 +55,45 @@ const handleResponse = <T>(response: AxiosResponse<ApiResponse<T>>): T => {
 
 // Módulo de autenticación
 export const authApi = {
-  login: async (credentials: LoginRequest): Promise<AuthResponse> => {
-    try {
-      const response = await axiosInstance.post<ApiResponse<AuthResponse>>('/api/auth/login', credentials);
-      const authData = handleResponse(response);
-      
-      // Guardar token en cookie y datos de usuario en localStorage
-      document.cookie = `auth_token=${authData.token}; path=/`;
-      localStorage.setItem('user', JSON.stringify(authData.user));
-      
-      return authData;
-    } catch (error) {
-      console.error('Error en login:', error);
-      throw error;
-    }
-  },
+  // Ya no necesitamos login ni register porque se manejan con Supabase directamente
   
-  register: async (userData: RegisterRequest): Promise<AuthResponse> => {
+  getProfile: async (): Promise<User> => {
     try {
-      const response = await axiosInstance.post<ApiResponse<AuthResponse>>('/api/auth/register', userData);
+      const response = await axiosInstance.get<ApiResponse<User>>('/api/auth/me');
       return handleResponse(response);
     } catch (error) {
-      console.error('Error en registro:', error);
+      console.error('Error al obtener perfil:', error);
       throw error;
     }
   },
   
-  logout: (): void => {
-    document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
-    localStorage.removeItem('user');
-    if (typeof window !== 'undefined') {
-      window.location.href = '/login';
-    }
-  },
-  
-  getCurrentUser: (): User | null => {
+  // getCurrentUser ahora usa Supabase para verificar la sesión
+  getCurrentUser: async (): Promise<User | null> => {
     if (typeof window === 'undefined') return null;
     
-    const userStr = localStorage.getItem('user');
-    if (!userStr) return null;
-    
     try {
-      return JSON.parse(userStr) as User;
+      const supabase = createSupabaseBrowserClient();
+      const { data } = await supabase.auth.getSession();
+      
+      if (!data.session) return null;
+      
+      // Obtener los datos completos del usuario desde nuestra API
+      const user = await authApi.getProfile();
+      return user;
     } catch (error) {
       console.error('Error al obtener usuario actual:', error);
       return null;
+    }
+  },
+  
+  // Método para obtener usuarios por rol (para administradores)
+  getUsersByRole: async (role: UserRole): Promise<User[]> => {
+    try {
+      const response = await axiosInstance.get<ApiResponse<User[]>>(`/api/auth/users/${role}`);
+      return handleResponse(response);
+    } catch (error) {
+      console.error(`Error al obtener usuarios con rol ${role}:`, error);
+      throw error;
     }
   },
   
@@ -260,7 +258,9 @@ export const membersApi = {
   joinGym: async (gymId: string): Promise<User> => {
     try {
       const response = await axiosInstance.post<ApiResponse<User>>('/api/members/join-gym', { gymId });
-      return handleResponse(response);
+      // Después de unirse a un gimnasio, actualizamos el perfil del usuario
+      const updatedUser = handleResponse(response);
+      return updatedUser;
     } catch (error) {
       console.error('Error al unirse al gimnasio:', error);
       throw error;
@@ -389,7 +389,7 @@ export const inventoryApi = {
   
   updateProduct: async (id: string, productData: UpdateProductRequest): Promise<Product> => {
     try {
-      const response = await axiosInstance.patch<ApiResponse<Product>>(`/inventory/products/${id}`, productData);
+      const response = await axiosInstance.patch<ApiResponse<Product>>(`/api/inventory/products/${id}`, productData);
       return handleResponse(response);
     } catch (error) {
       console.error(`Error al actualizar producto ${id}:`, error);
@@ -399,7 +399,7 @@ export const inventoryApi = {
   
   deleteProduct: async (id: string): Promise<void> => {
     try {
-      await axiosInstance.delete<ApiResponse<void>>(`/inventory/products/${id}`);
+      await axiosInstance.delete<ApiResponse<void>>(`/api/inventory/products/${id}`);
     } catch (error) {
       console.error(`Error al eliminar producto ${id}:`, error);
       throw error;
@@ -408,7 +408,7 @@ export const inventoryApi = {
   
   getSales: async (): Promise<Sale[]> => {
     try {
-      const response = await axiosInstance.get<ApiResponse<Sale[]>>('/inventory/sales');
+      const response = await axiosInstance.get<ApiResponse<Sale[]>>('/api/inventory/sales');
       return handleResponse(response);
     } catch (error) {
       console.error('Error al obtener ventas:', error);
@@ -418,7 +418,7 @@ export const inventoryApi = {
   
   getSaleById: async (id: string): Promise<Sale> => {
     try {
-      const response = await axiosInstance.get<ApiResponse<Sale>>(`/inventory/sales/${id}`);
+      const response = await axiosInstance.get<ApiResponse<Sale>>(`/api/inventory/sales/${id}`);
       return handleResponse(response);
     } catch (error) {
       console.error(`Error al obtener venta ${id}:`, error);
@@ -428,7 +428,7 @@ export const inventoryApi = {
   
   recordSale: async (saleData: CreateSaleRequest): Promise<Sale> => {
     try {
-      const response = await axiosInstance.post<ApiResponse<Sale>>('/inventory/sales', saleData);
+      const response = await axiosInstance.post<ApiResponse<Sale>>('/api/inventory/sales', saleData);
       return handleResponse(response);
     } catch (error) {
       console.error('Error al registrar venta:', error);
@@ -441,7 +441,7 @@ export const inventoryApi = {
 export const accessApi = {
   getAccessLogs: async (): Promise<any[]> => {
     try {
-      const response = await axiosInstance.get<ApiResponse<any[]>>('/access/logs');
+      const response = await axiosInstance.get<ApiResponse<any[]>>('/api/access/logs');
       return handleResponse(response);
     } catch (error) {
       console.error('Error al obtener logs de acceso:', error);

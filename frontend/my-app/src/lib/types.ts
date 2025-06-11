@@ -29,7 +29,14 @@ export interface User {
   email: string;
   name: string;
   role: UserRole;
-  gymId?: string;
+  isActive: boolean;
+  memberOfGyms?: {
+    id: string;
+    name: string;
+    role: string;
+    membershipStatus: MembershipStatus;
+    membershipEndDate?: string;
+  }[];
   createdAt: string;
   updatedAt: string;
 }
@@ -46,9 +53,9 @@ export interface RegisterRequest {
   password: string;
 }
 
+// No longer needed with Supabase Auth
 export interface AuthResponse {
   user: User;
-  token: string;
 }
 
 // Gym Types

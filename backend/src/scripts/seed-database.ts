@@ -1,5 +1,5 @@
 import { PrismaClient, Membership, MembershipStatus, AccessType, AccessStatus, PaymentMethod, PaymentStatus } from '@prisma/client';
-import * as bcrypt from 'bcrypt';
+
 
 const prisma = new PrismaClient();
 
@@ -23,18 +23,34 @@ async function seedDatabase() {
       
       console.log('🗑️ Datos existentes eliminados');
 
-      // 2. Pre-hashear contraseña una vez
-      const hashedPassword = await bcrypt.hash('password123', 10);
+      console.log('\n🚨 IMPORTANTE: Antes de ejecutar este script, crea los siguientes usuarios en Supabase Auth:');
+      console.log('1. Admin - admin@gymcore.com / password123');
+      console.log('2. Manager - manager@gym1.com / password123');
+      console.log('3. Reception - reception@gym1.com / password123');
+      console.log('4. Client - client@test.com / password123');
+      
+      console.log('\n⏳ Esperando 10 segundos para que crees los usuarios en Supabase...');
+      await new Promise(resolve => setTimeout(resolve, 10000));
 
-      // 3. Crear OWNER del sistema
-      const owner = await tx.user.create({
-        data: {
-          email: 'owner@gym.com',
-          password: hashedPassword,
-          name: 'Propietario GymCore',
-          role: 'OWNER',
-        }
+      // Verificar que exista el usuario admin
+      const adminUser = await prisma.user.findUnique({
+        where: { email: 'admin@gymcore.com' },
       });
+
+      if (!adminUser) {
+        throw new Error('Usuario admin no encontrado. Crea primero el usuario en Supabase Auth.');
+      }
+
+      // Actualizar el rol a OWNER
+      await prisma.user.update({
+        where: { id: adminUser.id },
+        data: {
+          role: 'OWNER',
+          isActive: true,
+        },
+      });
+
+      const owner = adminUser;
 
       console.log('👤 OWNER creado:', owner.name);
 
@@ -77,86 +93,113 @@ async function seedDatabase() {
 
       console.log('🏢 Gimnasios creados:', gyms.map(g => g.name).join(', '));
 
-      // 5. Crear MANAGERS (uno por gimnasio)
-      const managers = await Promise.all(gyms.map((gym, i) => 
-        tx.user.create({
+      // 5. Verificar y actualizar MANAGERS (uno por gimnasio)
+      const managers = await Promise.all(gyms.map(async (gym, i) => {
+        const manager = await tx.user.findUnique({
+          where: { email: `manager@gym${i+1}.com` }
+        });
+
+        if (!manager) {
+          throw new Error(`Usuario manager@gym${i+1}.com no encontrado. Crea primero el usuario en Supabase Auth.`);
+        }
+
+        const updatedManager = await tx.user.update({
+          where: { id: manager.id },
           data: {
-            email: `manager${i+1}@gym.com`,
-            password: hashedPassword,
             name: `Manager ${gym.name}`,
             role: 'MANAGER',
+            isActive: true
           }
-        })
-      ));
+        });
 
-      // Asignar cada manager a su gimnasio
-      await Promise.all(gyms.map((gym, i) =>
-        tx.gym.update({
+        // Asignar manager al gimnasio
+        await tx.gym.update({
           where: { id: gym.id },
-          data: { managerId: managers[i].id }
-        })
-      ));
+          data: { managerId: updatedManager.id }
+        });
 
-      console.log('👥 MANAGERS creados:', managers.map(m => m.name).join(', '));
+        return updatedManager;
+      }));
 
-      // 6. Crear RECEPTIONISTS (distribuidos en los gimnasios)
-      const receptionists = await Promise.all([
-        // 2 recepcionistas para Central
-        tx.user.create({
-          data: {
-            email: 'reception1@gym.com',
-            password: hashedPassword,
-            name: 'Recepcionista Central 1',
-            role: 'RECEPTION',
-            workingAtGym: { connect: { id: gyms[0].id } },
+      console.log('👥 MANAGERS actualizados:', managers.map(m => m.name || m.email).join(', '));
+
+      // 6. Verificar y actualizar RECEPTIONISTS
+      const receptionEmails = [
+        { email: 'reception@gym1.com', name: 'Recepcionista Central', gymIndex: 0 },
+        { email: 'reception@gym2.com', name: 'Recepcionista Norte', gymIndex: 1 },
+        { email: 'reception@gym3.com', name: 'Recepcionista Sur', gymIndex: 2 }
+      ];
+
+      const receptionists = await Promise.all(
+        receptionEmails.map(async ({ email, name, gymIndex }) => {
+          const reception = await tx.user.findUnique({
+            where: { email }
+          });
+
+          if (!reception) {
+            throw new Error(`Usuario ${email} no encontrado. Crea primero el usuario en Supabase Auth.`);
           }
-        }),
-        tx.user.create({
-          data: {
-            email: 'reception2@gym.com',
-            password: hashedPassword,
-            name: 'Recepcionista Central 2',
-            role: 'RECEPTION',
-            workingAtGym: { connect: { id: gyms[0].id } },
-          }
-        }),
-        // 1 recepcionista para Norte y Sur
-        tx.user.create({
-          data: {
-            email: 'reception3@gym.com',
-            password: hashedPassword,
-            name: 'Recepcionista Norte',
-            role: 'RECEPTION',
-            workingAtGym: { connect: { id: gyms[1].id } },
-          }
-        }),
-        tx.user.create({
-          data: {
-            email: 'reception4@gym.com',
-            password: hashedPassword,
-            name: 'Recepcionista Sur',
-            role: 'RECEPTION',
-            workingAtGym: { connect: { id: gyms[2].id } },
-          }
+
+          return await tx.user.update({
+            where: { id: reception.id },
+            data: {
+              name,
+              role: 'RECEPTION',
+              isActive: true,
+              workingAtGym: { connect: { id: gyms[gymIndex].id } },
+            }
+          });
         })
-      ]);
+      );
+
+      // Verificar y actualizar RECEPTION
+      const reception = await tx.user.findUnique({
+        where: { email: 'reception@gym1.com' }
+      });
+
+      if (!reception) {
+        throw new Error('Usuario reception no encontrado. Crea primero el usuario en Supabase Auth.');
+      }
+
+      await tx.user.update({
+        where: { id: reception.id },
+        data: { role: 'RECEPTION', isActive: true }
+      });
+
+      console.log('👤 RECEPTION actualizado:', reception.name || reception.email);
 
       console.log('👥 RECEPTIONISTS creados:', receptionists.length);
 
       const staffUsers = [...managers, ...receptionists];
 
-      // 7. Crear CLIENTS (15 clientes con membresías variadas)
+      // 7. Verificar y actualizar clientes de prueba
+      const clientEmails = [
+        { email: 'client@test.com', name: 'Cliente General' },
+        ...Array.from({ length: 3 }).map((_, i) => ({
+          email: `client${i + 1}@test.com`,
+          name: `Cliente ${i + 1}`
+        }))
+      ];
+
       const clients = await Promise.all(
-        Array.from({ length: 15 }, (_, i) => 
-          tx.user.create({
+        clientEmails.map(async ({ email, name }) => {
+          const client = await tx.user.findUnique({
+            where: { email }
+          });
+
+          if (!client) {
+            throw new Error(`Usuario ${email} no encontrado. Crea primero el usuario en Supabase Auth.`);
+          }
+
+          return await tx.user.update({
+            where: { id: client.id },
             data: {
-              email: i === 0 ? 'client@gym.com' : `client${i}@gym.com`,
-              password: hashedPassword,
-              name: i === 0 ? 'Cliente Demo' : `Cliente ${i}`,
+              name,
               role: 'CLIENT',
+              isActive: true
             }
-          })
-        )
+          });
+        })
       );
 
       // Distribuir membresías entre gimnasios
@@ -380,13 +423,14 @@ async function seedDatabase() {
     }); // Fin de transacción
 
     console.log('\n✅ Seed completado exitosamente!');
-    console.log('\n👤 Usuarios de prueba:');
-    console.log('📧 OWNER: owner@gym.com / password123');
-    console.log('📧 MANAGERS: manager1@gym.com a manager3@gym.com / password123');
-    console.log('📧 RECEPTION: reception1@gym.com a reception4@gym.com / password123');
-    console.log('📧 CLIENTS: client@gym.com y client1@gym.com a client14@gym.com / password123');
+    console.log('\n👤 Usuarios de prueba (todos con password123):');
+    console.log('📧 OWNER: admin@gymcore.com');
+    console.log('📧 MANAGERS: manager@gym1.com');
+    console.log('📧 RECEPTION: reception@gym1.com');
+    console.log('📧 CLIENTS: client@test.com');
     console.log('\n🏢 Códigos de gimnasio: GYM001, GYM002, GYM003');
     console.log('\n📊 ¡Todos los datos insertados correctamente con relaciones válidas!');
+    console.log('\nℹ️ NOTA: Asegúrate de crear los usuarios en Supabase Auth primero.');
     
   } catch (error) {
     console.error('❌ Error durante el seed:', error);

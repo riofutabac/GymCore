@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,10 +9,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuthStore } from '@/lib/store';
 import AuthHeader from '@/components/shared/AuthHeader';
+import { createSupabaseBrowserClient } from '@/lib/supabase';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, error: authError, clearError } = useAuthStore();
+  const login = useAuthStore.getState().login;
+  const authError = useAuthStore.getState().error;
+  const clearError = useAuthStore.getState().clearError;
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -28,6 +31,46 @@ export default function LoginPage() {
     if (authError) clearError();
   };
 
+  // Verificar si ya hay una sesión activa al cargar la página
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const supabase = createSupabaseBrowserClient();
+        const { data } = await supabase.auth.getSession();
+        
+        if (data.session) {
+          // Ya hay una sesión activa, refrescar datos del usuario
+          await useAuthStore.getState().refreshUser();
+          redirectBasedOnRole();
+        }
+      } catch (error) {
+        console.error('Error al verificar sesión:', error);
+      }
+    };
+    
+    checkSession();
+  }, []);
+
+  const redirectBasedOnRole = () => {
+    const user = useAuthStore.getState().user;
+    if (!user) return;
+    
+    // Redirigir según el rol del usuario
+    switch (user.role) {
+      case 'OWNER':
+        router.push('/owner');
+        break;
+      case 'MANAGER':
+        router.push('/manager');
+        break;
+      case 'STAFF':
+        router.push('/staff');
+        break;
+      default:
+        router.push('/dashboard');
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -40,26 +83,7 @@ export default function LoginPage() {
     try {
       setIsLoading(true);
       await login(formData.email, formData.password);
-      
-      // Obtener el usuario actual del store
-      const user = useAuthStore.getState().user;
-      
-      if (user) {
-        // Redirigir según el rol del usuario
-        switch (user.role) {
-          case 'OWNER':
-            router.push('/owner');
-            break;
-          case 'MANAGER':
-            router.push('/manager');
-            break;
-          case 'STAFF':
-            router.push('/staff');
-            break;
-          default:
-            router.push('/dashboard');
-        }
-      }
+      redirectBasedOnRole();
     } catch (err) {
       console.error('Error en inicio de sesión:', err);
       setError('Error al iniciar sesión. Verifica tus credenciales.');

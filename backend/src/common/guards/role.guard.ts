@@ -37,7 +37,7 @@ export class RoleGuard implements CanActivate {
     
     if (!hasRole) {
       this.logger.warn(
-        `Role guard: User ${user.username} with role ${user.role} attempted to access endpoint requiring roles: ${requiredRoles.join(', ')}`
+        `Role guard: User ${user.sub} with role ${user.role} attempted to access endpoint requiring roles: ${requiredRoles.join(', ')}`
       );
       throw new ForbiddenException(
         `Access denied: Required roles: ${requiredRoles.join(', ')}`

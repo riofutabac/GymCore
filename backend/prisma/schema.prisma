@@ -52,9 +52,9 @@ model Gym {
 
 // ============= USUARIOS =============
 model User {
-  id        String  @id @default(cuid())
+  id        String  @id @default(uuid()) // Changed to uuid to match Supabase Auth
   email     String  @unique
-  password  String // Campo password agregado
+  // password field removed as it's managed by Supabase Auth
   name      String?
   phone     String?
   avatarUrl String?

@@ -1,27 +1,19 @@
 import { Module } from '@nestjs/common';
-import { JwtModule } from '@nestjs/jwt';
-import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { PrismaModule } from '../prisma/prisma.module';
+import { ConfigModule } from '@nestjs/config';
+import { PassportModule } from '@nestjs/passport';
+import { SupabaseStrategy } from './strategies/supabase.strategy';
 
 @Module({
   imports: [
     PrismaModule,
-    JwtModule.registerAsync({
-      imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET') || 'fallback-secret-for-dev',
-        signOptions: {
-          expiresIn: configService.get<string>('JWT_EXPIRES_IN') || '7d',
-        },
-        global: true,
-      }),
-      inject: [ConfigService],
-    }),
+    PassportModule.register({ defaultStrategy: 'supabase' }),
+    ConfigModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService],
-  exports: [AuthService, JwtModule],
+  providers: [AuthService, SupabaseStrategy],
+  exports: [AuthService],
 })
 export class AuthModule {}

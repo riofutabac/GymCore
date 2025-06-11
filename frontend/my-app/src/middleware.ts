@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { createServerClient } from '@supabase/ssr'
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
 
 // Constantes para mejorar mantenibilidad
 const AUTH_PAGES = ['/login', '/register'];
@@ -90,49 +91,69 @@ function extractBaseRoute(pathname: string): string {
   return segments.length > 0 ? `/${segments[0]}` : '/';
 }
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   // Obtener información de la solicitud
   const { pathname } = request.nextUrl;
-  const token = request.cookies.get('auth_token')?.value;
   const isAuthPage = AUTH_PAGES.includes(pathname);
   const currentBaseRoute = extractBaseRoute(pathname);
   const referer = request.headers.get('referer') || '';
   
-  // Comprobar si el usuario está autenticado con un token válido
-  if (token) {
-    const { valid, payload } = parseJwt(token);
-    
-    if (valid && payload) {
-      const baseRoute = getBaseRouteByRole(payload.role);
-      
-      // CASO 1: Usuario autenticado en página de autenticación o raíz -> Redirigir a su dashboard
-      if (isAuthPage || pathname === '/') {
-        // IMPORTANTE: Verificar si ya estamos en un bucle
-        if (referer && referer.includes(baseRoute)) {
-          return NextResponse.next();
-        }
-        
-        return redirectWithToken(baseRoute, request.url, token);
-      }
-      
-      // CASO 2: Usuario autenticado en /dashboard genérico -> Redirigir a su dashboard específico
-      if (pathname === '/dashboard') {
-        return redirectWithToken(baseRoute, request.url, token);
-      }
-      
-      // CASO 3: Usuario autenticado en ruta protegida que no corresponde a su rol
-      if (PROTECTED_ROUTES.includes(currentBaseRoute) && currentBaseRoute !== baseRoute) {
-        return redirectWithToken(baseRoute, request.url, token);
-      }
-      
-      // CASO 4: Usuario autenticado en su ruta correcta -> Permitir acceso
-      return NextResponse.next();
-    } else {
-      // Token inválido o expirado
-      const response = NextResponse.redirect(new URL('/login', request.url));
-      response.cookies.delete('auth_token', { path: '/' });
-      return response;
+  // Crear cliente de Supabase para el servidor
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name) {
+          return request.cookies.get(name)?.value;
+        },
+        set(name, value, options) {
+          // Este método no se utiliza en el middleware
+        },
+        remove(name, options) {
+          // Este método no se utiliza en el middleware
+        },
+      },
     }
+  );
+  
+  // Verificar la sesión de Supabase
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  // Comprobar si el usuario está autenticado con una sesión válida
+  if (session) {
+    // Obtener el rol del usuario desde la base de datos
+    const { data: userData } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', session.user.id)
+      .single();
+    
+    const role = userData?.role || 'CLIENT';
+    const baseRoute = getBaseRouteByRole(role);
+    
+    // CASO 1: Usuario autenticado en página de autenticación o raíz -> Redirigir a su dashboard
+    if (isAuthPage || pathname === '/') {
+      // IMPORTANTE: Verificar si ya estamos en un bucle
+      if (referer && referer.includes(baseRoute)) {
+        return NextResponse.next();
+      }
+      
+      return NextResponse.redirect(new URL(baseRoute, request.url));
+    }
+    
+    // CASO 2: Usuario autenticado en /dashboard genérico -> Redirigir a su dashboard específico
+    if (pathname === '/dashboard') {
+      return NextResponse.redirect(new URL(baseRoute, request.url));
+    }
+    
+    // CASO 3: Usuario autenticado en ruta protegida que no corresponde a su rol
+    if (PROTECTED_ROUTES.includes(currentBaseRoute) && currentBaseRoute !== baseRoute) {
+      return NextResponse.redirect(new URL(baseRoute, request.url));
+    }
+    
+    // CASO 4: Usuario autenticado en su ruta correcta -> Permitir acceso
+    return NextResponse.next();
   }
   
   // Usuario NO autenticado
@@ -153,18 +174,7 @@ export function middleware(request: NextRequest) {
   return NextResponse.next();
 }
 
-// Función auxiliar para redirigir manteniendo el token
-function redirectWithToken(destination: string, baseUrl: string, token: string) {
-  const response = NextResponse.redirect(new URL(destination, baseUrl));
-  response.cookies.set('auth_token', token, {
-    path: '/',
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: 7 * 24 * 60 * 60 // 7 días
-  });
-  
-  return response;
-}
+// Ya no necesitamos esta función con Supabase, que maneja las cookies automáticamente
 
 // Configurar qué rutas deben ser procesadas por el middleware
 export const config = {

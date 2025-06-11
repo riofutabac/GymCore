@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store';
 import api from '@/lib/api';
 import { User } from '@/lib/types';
+import { createSupabaseBrowserClient } from '@/lib/supabase';
+import Cookies from 'js-cookie';
 
 interface AuthContextType {
   user: User | null;
@@ -57,9 +59,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const register = async (name: string, email: string, password: string) => {
     setIsLoading(true);
     try {
-      const { user: userData, token: authToken } = await api.auth.register(name, email, password);
-      setUser(userData);
-      setToken(authToken);
+      const supabase = createSupabaseBrowserClient();
+      
+      // Registrar usuario con Supabase
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name
+          }
+        }
+      });
+      
+      if (error) throw error;
+      
+      // Guardar el token en cookies para solicitudes posteriores
+      if (data.session) {
+        Cookies.set('auth_token', data.session.access_token, { expires: 7, secure: true });
+      }
+      
+      // Obtener datos completos del usuario desde nuestra API
+      if (data.user) {
+        try {
+          const userData = await api.auth.getProfile();
+          setUser(userData);
+        } catch (profileError) {
+          console.error('Error al obtener perfil después del registro:', profileError);
+          // Continuar con los datos básicos del usuario
+          setUser({
+            id: data.user.id,
+            email: data.user.email || '',
+            name: name,
+            role: 'USER'
+          } as User);
+        }
+      }
     } catch (error) {
       console.error('Error en registro:', error);
       throw error;

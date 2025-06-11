@@ -1,15 +1,13 @@
 import { 
   Injectable, 
   UnauthorizedException, 
-  ConflictException,
   Logger,
   BadRequestException,
+  NotFoundException,
+  ConflictException
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import { LoginDto, RegisterDto } from './dto/auth.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserRole } from '@prisma/client';
-import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class AuthService {
@@ -17,224 +15,152 @@ export class AuthService {
 
   constructor(
     private prisma: PrismaService,
-    private jwtService: JwtService,
   ) {}
 
-  async login({ email, password }: LoginDto) {
-    this.logger.log(`Login attempt for: ${email}`);
-    
-    // Validación de entrada
-    if (!email || !password) {
-      throw new BadRequestException('Email and password are required');
-    }
+  // Login y register ahora son manejados por Supabase directamente en el frontend
 
-    // Detectar si alguien está enviando un hash en lugar de password
-    if (password.startsWith('$2b$') || password.startsWith('$2a$')) {
-      this.logger.warn(`Hash sent as password for user: ${email}`);
-      throw new UnauthorizedException('Invalid credentials format');
-    }
-    
+  // El registro ahora es manejado por Supabase y el trigger de base de datos
+
+  // La validación del token ahora es manejada por la estrategia de Supabase
+
+  /**
+   * Crea un usuario en la base de datos a partir de los datos de Supabase
+   * Este método es llamado por el webhook cuando se crea un usuario en Supabase
+   */
+  async createUserFromSupabase(userData: any) {
     try {
-      // Buscar usuario en la base de datos
-      const user = await this.prisma.user.findUnique({
-        where: { email: email.toLowerCase() },
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          role: true,
-          password: true,
-          isActive: true,
-          emailVerified: true,
-        }
-      });
+      this.logger.log(`Creating user from Supabase: ${userData.email}`);
       
-      if (!user) {
-        this.logger.warn(`Login failed: User not found for email: ${email}`);
-        throw new UnauthorizedException('Invalid credentials');
-      }
-
-      if (!user.isActive) {
-        this.logger.warn(`Login failed: User account is inactive: ${email}`);
-        throw new UnauthorizedException('Account is inactive');
-      }
-
-      // Verificar contraseña
-      const isPasswordValid = await bcrypt.compare(password, user.password);
-      
-      if (!isPasswordValid) {
-        this.logger.warn(`Login failed: Invalid password for user: ${email}`);
-        throw new UnauthorizedException('Invalid credentials');
-      }
-
-      // Generar JWT token
-      const payload = { 
-        sub: user.id, 
-        username: user.email, 
-        role: user.role 
-      };
-      const accessToken = await this.jwtService.signAsync(payload);
-
-      // Respuesta exitosa (sin password)
-      const response = {
-        success: true,
-        user: { 
-          id: user.id, 
-          email: user.email, 
-          name: user.name,
-          role: user.role,
-          emailVerified: user.emailVerified,
-        },
-        token: accessToken,
-      };
-      
-      this.logger.log(`Login successful for user: ${email}`);
-      return response;
-      
-    } catch (error) {
-      if (error instanceof UnauthorizedException || error instanceof BadRequestException) {
-        throw error;
-      }
-      
-      this.logger.error(`Login error for user ${email}:`, error.stack);
-      throw new UnauthorizedException('Authentication failed');
-    }
-  }
-
-  async register({ email, password, name }: RegisterDto) {
-    this.logger.log(`Registration attempt for: ${email}`);
-    
-    // Validación de entrada
-    if (!email || !password) {
-      throw new BadRequestException('Email and password are required');
-    }
-
-    if (password.length < 6) {
-      throw new BadRequestException(
-        'Password must be at least 6 characters long',
-      );
-    }
-    
-    try {
       // Verificar si el usuario ya existe
       const existingUser = await this.prisma.user.findUnique({
-        where: { email: email.toLowerCase() }
+        where: { id: userData.id }
       });
       
       if (existingUser) {
-        this.logger.warn(`Registration failed: User already exists: ${email}`);
-        throw new ConflictException('User with this email already exists');
+        this.logger.log(`User ${userData.email} already exists in database`);
+        return existingUser;
       }
-
-      // Hash de la contraseña
-      const saltRounds = 12; // Aumentamos la seguridad
-      const hashedPassword = await bcrypt.hash(password, saltRounds);
-
-      // Crear usuario en la base de datos
+      
+      // Extraer datos del usuario de Supabase
+      const { id, email, user_metadata } = userData;
+      const name = user_metadata?.name || email.split('@')[0];
+      const role = (user_metadata?.role || 'CLIENT').toUpperCase();
+      
+      // Crear el usuario en nuestra base de datos
       const newUser = await this.prisma.user.create({
         data: {
-          email: email.toLowerCase(),
-          password: hashedPassword,
-          name: name?.trim() || null,
-          role: 'CLIENT', // Rol por defecto
-        },
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          role: true,
-          emailVerified: true,
+          id,
+          email,
+          name,
+          role,
+          isActive: true,
+          emailVerified: !!userData.email_confirmed_at
         }
       });
-
-      // Generar JWT token
-      const payload = { 
-        sub: newUser.id, 
-        username: newUser.email, 
-        role: newUser.role 
-      };
-      const accessToken = await this.jwtService.signAsync(payload);
-
-      const response = {
-        success: true,
-        user: newUser,
-        token: accessToken,
-      };
       
-      this.logger.log(`Registration successful for user: ${email}`);
-      return response;
-      
+      this.logger.log(`User ${email} created successfully with ID: ${id}`);
+      return newUser;
     } catch (error) {
-      if (error instanceof ConflictException || error instanceof BadRequestException) {
-        throw error;
-      }
-      
-      this.logger.error(`Registration error for user ${email}:`, error.stack);
-      throw new BadRequestException('Registration failed');
+      this.logger.error(`Error creating user from Supabase: ${error.message}`, error.stack);
+      throw new BadRequestException(`Failed to create user: ${error.message}`);
     }
   }
-
-  async validateToken(token: string) {
+  
+  /**
+   * Método alternativo para crear manualmente un usuario desde Supabase
+   * Útil para sincronizar usuarios existentes en Supabase pero no en nuestra base de datos
+   */
+  async syncUserFromSupabase(supabaseUserId: string, userData: any) {
     try {
-      const payload = await this.jwtService.verifyAsync(token);
+      // Verificar si el usuario ya existe
+      const existingUser = await this.prisma.user.findUnique({
+        where: { id: supabaseUserId }
+      });
       
-      // Buscar usuario en la base de datos para asegurar que sigue existiendo y activo
-      const user = await this.prisma.user.findUnique({
-        where: { id: payload.sub },
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          role: true,
+      if (existingUser) {
+        throw new ConflictException(`User with ID ${supabaseUserId} already exists`);
+      }
+      
+      // Crear el usuario en nuestra base de datos
+      const newUser = await this.prisma.user.create({
+        data: {
+          id: supabaseUserId,
+          email: userData.email,
+          name: userData.name || userData.email.split('@')[0],
+          role: (userData.role || 'CLIENT').toUpperCase(),
           isActive: true,
+          emailVerified: !!userData.emailVerified
         }
       });
       
-      if (!user || !user.isActive) {
-        throw new UnauthorizedException('User not found or inactive');
-      }
-
-      return user;
+      this.logger.log(`User ${userData.email} synced successfully with ID: ${supabaseUserId}`);
+      return newUser;
     } catch (error) {
-      this.logger.warn(`Token validation failed: ${error.message}`);
-      throw new UnauthorizedException('Invalid or expired token');
+      this.logger.error(`Error syncing user from Supabase: ${error.message}`, error.stack);
+      throw new BadRequestException(`Failed to sync user: ${error.message}`);
     }
   }
 
   async getProfile(userId: string) {
     const user = await this.prisma.user.findUnique({
-      where: { id: userId },
+      where: {
+        id: userId,
+        isActive: true,
+      },
       select: {
         id: true,
         email: true,
         name: true,
-        role: true,
         phone: true,
+        avatarUrl: true,
+        role: true,
+        isActive: true,
         emailVerified: true,
         createdAt: true,
-        memberOfGyms: {
+        updatedAt: true,
+        // Incluir relaciones según el rol
+        ownedGyms: {
           select: {
             id: true,
             name: true,
+            isActive: true,
+          }
+        },
+        managedGym: {
+          select: {
+            id: true,
+            name: true,
+            isActive: true,
           }
         },
         workingAtGym: {
           select: {
             id: true,
             name: true,
+            isActive: true,
           }
         },
-        ownedGyms: {
+        memberOfGyms: {
           select: {
             id: true,
             name: true,
+            isActive: true,
+          }
+        },
+        memberships: {
+          select: {
+            id: true,
+            type: true,
+            status: true,
+            startDate: true,
+            expiresAt: true,
           }
         }
       }
     });
 
     if (!user) {
-      throw new UnauthorizedException('User not found');
+      throw new NotFoundException('User not found');
     }
 
     return user;

@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import * as bcrypt from 'bcrypt';
+
 
 async function createTestUser() {
   const prisma = new PrismaClient();
@@ -14,43 +14,31 @@ async function createTestUser() {
       }
     });
     console.log('🗑️ Deleted existing user if any');
-    
-    // Hash de la contraseña "password123"
-    const plainPassword = 'password123';
-    const hashedPassword = await bcrypt.hash(plainPassword, 10);
-    console.log('🔒 Plain password:', plainPassword);
-    console.log('🔒 Hashed password:', hashedPassword);
-    
-    // Crear nuevo usuario con contraseña hasheada
-    const user = await prisma.user.create({
-      data: {
-        email: 'admin@gym.com',
-        password: hashedPassword,
-        name: 'Admin User',
-        role: 'MANAGER',
-      }
+
+    // Esperar a que el trigger cree el usuario
+    console.log('\n⏳ Esperando 5 segundos para que el trigger cree el usuario...');
+    await new Promise(resolve => setTimeout(resolve, 5000));
+
+    // Verificar que se creó el usuario
+    const user = await prisma.user.findUnique({
+      where: { email: 'admin@gym.com' },
     });
-    
-    console.log('✅ Test user created successfully:', {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role
-    });
-    
-    // Verificar que la contraseña funciona
-    console.log('\n🔍 Testing password verification...');
-    const isValid = await bcrypt.compare(plainPassword, user.password);
-    console.log('✅ Password verification test result:', isValid ? 'PASS ✅' : 'FAIL ❌');
-    
-    if (isValid) {
-      console.log('\n🎉 SUCCESS! You can now login with:');
-      console.log('📧 Email: admin@gym.com');
-      console.log('🔑 Password: password123');
-    } else {
-      console.log('\n❌ ERROR: Password verification failed!');
+
+    if (!user) {
+      console.log('\n❌ ERROR: Usuario no encontrado. Asegúrate de crearlo primero en Supabase Auth.');
+      return;
     }
-    
+
+    // Actualizar el rol a OWNER
+    const updatedUser = await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        role: 'OWNER',
+        isActive: true,
+      },
+    });
+
+    console.log('\n✅ Usuario actualizado:', updatedUser);
   } catch (error) {
     console.error('❌ Error creating test user:', error);
   } finally {

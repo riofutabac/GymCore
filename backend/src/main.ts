@@ -14,12 +14,14 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
   
-  // CORS Configuration
+  // CORS Configuration - Agregar IP de Radmin
   app.enableCors({
     origin: [
       configService.get<string>('FRONTEND_URL') || 'http://localhost:3000',
       'http://localhost:3000',
       'http://localhost:3001',
+      `http://${process.env.RADMIN_IP}:3000`, // Frontend en Radmin
+      `http://${process.env.RADMIN_IP}:3001`, // Backend en Radmin
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
@@ -29,13 +31,13 @@ async function bootstrap() {
   // Global validation pipe with enhanced configuration
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true, // Strip properties that don't have decorators
-      forbidNonWhitelisted: true, // Throw error if non-whitelisted properties are present
-      transform: true, // Automatically transform payloads to DTO instances
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
       transformOptions: {
-        enableImplicitConversion: true, // Allow implicit type conversion
+        enableImplicitConversion: true,
       },
-      disableErrorMessages: process.env.NODE_ENV === 'production', // Hide detailed validation errors in production
+      disableErrorMessages: process.env.NODE_ENV === 'production',
     }),
   );
 
@@ -44,7 +46,7 @@ async function bootstrap() {
 
   // Global prefix for all routes
   app.setGlobalPrefix('api', {
-    exclude: ['/health'], // Health check endpoint without prefix
+    exclude: ['/health'],
   });
 
   // Swagger documentation setup
@@ -68,15 +70,20 @@ async function bootstrap() {
     });
   });
 
-  // Puerto del backend
-  const port = configService.get<number>('PORT') || process.env.PORT || 3001;
-  await app.listen(port);
-  
-  logger.log(`🚀 Backend running on http://localhost:${port}`);
-  logger.log(`📖 API endpoints available at http://localhost:${port}/api`);
-  logger.log(`🔐 Auth endpoints: http://localhost:${port}/api/auth/login`);
-  logger.log(`🔐 Auth endpoints: http://localhost:${port}/api/auth/register`);
-  logger.log(`❤️ Health check: http://localhost:${port}/health`);
+  // Configuración del servidor
+  const PORT = process.env.PORT || 3001;
+  const HOST = process.env.SERVER_HOST || '0.0.0.0';
+
+  await app.listen(PORT, HOST);
+
+  // Logs informativos
+  logger.log(`🚀 Backend running on http://${HOST}:${PORT}`);
+  logger.log(`🌐 Radmin VPN access: http://${process.env.RADMIN_IP}:${PORT}`);
+  logger.log(`📖 API endpoints available at http://${HOST}:${PORT}/api`);
+  logger.log(`🔐 Auth endpoints: http://${HOST}:${PORT}/api/auth/login`);
+  logger.log(`🔐 Auth endpoints: http://${HOST}:${PORT}/api/auth/register`);
+  logger.log(`❤️ Health check: http://${HOST}:${PORT}/health`);
+  logger.log(`📋 API docs: http://${HOST}:${PORT}/api/docs`);
   logger.log(`✅ Environment: ${process.env.NODE_ENV || 'development'}`);
 }
 

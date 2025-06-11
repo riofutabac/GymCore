@@ -130,7 +130,7 @@ export default function MembersPage() {
     if (!currentGym?.id) return;
     
     try {
-      await api.members.createMember({
+      await api.members.create({
         ...formData,
         gymId: currentGym.id
       });

@@ -286,7 +286,35 @@ export const membersApi = {
     }
   },
   
-  create: async (memberData: CreateMemberRequest): Promise<Member> => {
+  getMembers: async (gymId: string): Promise<Member[]> => {
+    try {
+      const response = await axiosInstance.get<ApiResponse<Member[]>>(`/api/members/gym/${gymId}`);
+      return handleResponse(response);
+    } catch (error) {
+      console.error(`Error al obtener miembros del gimnasio ${gymId}:`, error);
+      throw error;
+    }
+  },
+
+  getMembershipTypes: async (gymId: string): Promise<any[]> => {
+    try {
+      const response = await axiosInstance.get<ApiResponse<any[]>>(`/api/gyms/${gymId}/membership-types`);
+      return handleResponse(response);
+    } catch (error) {
+      console.error(`Error al obtener tipos de membresía del gimnasio ${gymId}:`, error);
+      // Devolver tipos por defecto si no hay endpoint específico
+      return [
+        { id: 'daily', code: 'daily', name: 'Diaria' },
+        { id: 'weekly', code: 'weekly', name: 'Semanal' },
+        { id: 'monthly', code: 'monthly', name: 'Mensual' },
+        { id: 'quarterly', code: 'quarterly', name: 'Trimestral' },
+        { id: 'semiannual', code: 'semiannual', name: 'Semestral' },
+        { id: 'annual', code: 'annual', name: 'Anual' }
+      ];
+    }
+  },
+
+  createMember: async (memberData: CreateMemberRequest): Promise<Member> => {
     try {
       const response = await axiosInstance.post<ApiResponse<Member>>('/api/members', memberData);
       return handleResponse(response);

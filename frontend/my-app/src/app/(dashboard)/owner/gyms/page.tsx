@@ -12,6 +12,7 @@ import { GymForm } from '@/components/modules/gyms/GymForm';
 
 export default function GymsPage() {
   const [selectedGymId, setSelectedGymId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState('list');
   
   // Consulta para obtener todos los gimnasios
   const { data: gyms, isLoading, error, refetch } = useQuery({
@@ -28,15 +29,24 @@ export default function GymsPage() {
 
   const handleGymCreated = () => {
     refetch();
+    setActiveTab('list');
+    setSelectedGymId(null);
   };
 
   const handleGymUpdated = () => {
     refetch();
     setSelectedGymId(null);
+    setActiveTab('list');
   };
 
   const handleEditGym = (gymId: string) => {
     setSelectedGymId(gymId);
+    setActiveTab('new');
+  };
+
+  const handleNewGym = () => {
+    setSelectedGymId(null);
+    setActiveTab('new');
   };
 
   return (
@@ -48,23 +58,15 @@ export default function GymsPage() {
         </p>
       </div>
 
-      <Tabs defaultValue={selectedGymId ? "edit" : "list"} className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full md:w-[400px] grid-cols-2">
-          <TabsTrigger 
-            value="list" 
-            className="flex items-center gap-2"
-            onClick={() => setSelectedGymId(null)}
-          >
+          <TabsTrigger value="list" className="flex items-center gap-2">
             <Building className="h-4 w-4" />
             Gimnasios
           </TabsTrigger>
-          <TabsTrigger 
-            value="edit" 
-            className="flex items-center gap-2"
-            disabled={!selectedGymId}
-          >
+          <TabsTrigger value="new" className="flex items-center gap-2" onClick={handleNewGym}>
             <PlusCircle className="h-4 w-4" />
-            {selectedGymId ? 'Editar Gimnasio' : 'Nuevo Gimnasio'}
+            Nuevo Gimnasio
           </TabsTrigger>
         </TabsList>
         
@@ -73,19 +75,6 @@ export default function GymsPage() {
             <CardHeader>
               <CardTitle>Lista de Gimnasios</CardTitle>
               <CardDescription>Gestiona todos los gimnasios de la red</CardDescription>
-              <div className="flex justify-end">
-                <Button 
-                  onClick={() => {
-                    setSelectedGymId(null);
-                    document.querySelector('[data-value="edit"]')?.dispatchEvent(
-                      new MouseEvent('click', { bubbles: true })
-                    );
-                  }}
-                >
-                  <PlusCircle className="h-4 w-4 mr-2" />
-                  Nuevo Gimnasio
-                </Button>
-              </div>
             </CardHeader>
             <CardContent>
               <GymDataTable 
@@ -99,7 +88,7 @@ export default function GymsPage() {
           </Card>
         </TabsContent>
         
-        <TabsContent value="edit" className="mt-6">
+        <TabsContent value="new" className="mt-6">
           <Card>
             <CardHeader>
               <CardTitle>{selectedGymId ? 'Editar Gimnasio' : 'Nuevo Gimnasio'}</CardTitle>
@@ -111,12 +100,7 @@ export default function GymsPage() {
               <GymForm 
                 gym={selectedGym} 
                 onSuccess={selectedGymId ? handleGymUpdated : handleGymCreated}
-                onCancel={() => {
-                  setSelectedGymId(null);
-                  document.querySelector('[data-value="list"]')?.dispatchEvent(
-                    new MouseEvent('click', { bubbles: true })
-                  );
-                }}
+                onCancel={() => setActiveTab('list')}
               />
             </CardContent>
           </Card>

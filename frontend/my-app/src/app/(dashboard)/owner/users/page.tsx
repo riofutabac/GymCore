@@ -102,7 +102,7 @@ export default function UsersPage() {
   const filteredUsers = users?.filter(user => 
     user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  ) || [];
 
   return (
     <div className="container mx-auto py-10 space-y-8">
@@ -129,15 +129,33 @@ export default function UsersPage() {
           <Card>
             <CardHeader>
               <CardTitle>Lista de Usuarios</CardTitle>
-              <CardDescription>Gestiona todos los usuarios del sistema</CardDescription>
-              <div className="mt-2">
-                <Input
-                  placeholder="Buscar por nombre o email..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="max-w-sm"
-                />
-              </div>
+              <CardDescription>
+                Aquí puedes ver y gestionar todos los usuarios del sistema
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="flex items-center justify-center h-24">
+                  <p className="text-muted-foreground">Cargando usuarios...</p>
+                </div>
+              ) : error ? (
+                <div className="flex items-center justify-center h-24">
+                  <p className="text-red-500">Error al cargar usuarios</p>
+                </div>
+              ) : (
+                <UserDataTable data={filteredUsers} />
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="new" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Nuevo Usuario</CardTitle>
+              <CardDescription>
+                Crea un nuevo usuario para el sistema
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <UserDataTable 

@@ -29,10 +29,12 @@ export function useSupabaseAuth() {
           async (event, session) => {
             console.log('Auth state changed:', event);
             
-            if (session) {
+            if (event === 'SIGNED_IN' && session) {
+              // Wait a bit to ensure the session is fully established
+              await new Promise(resolve => setTimeout(resolve, 300));
               // Sesión iniciada o actualizada
               await refreshUser();
-            } else {
+            } else if (event === 'SIGNED_OUT' || !session) {
               // Sesión cerrada
               useAuthStore.setState({ 
                 user: null, 

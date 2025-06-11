@@ -30,22 +30,22 @@ export class AuthService {
   async createUserFromSupabase(userData: any) {
     try {
       this.logger.log(`Creating user from Supabase: ${userData.email}`);
-      
+
       // Verificar si el usuario ya existe
       const existingUser = await this.prisma.user.findUnique({
         where: { id: userData.id }
       });
-      
+
       if (existingUser) {
         this.logger.log(`User ${userData.email} already exists in database`);
         return existingUser;
       }
-      
+
       // Extraer datos del usuario de Supabase
       const { id, email, user_metadata } = userData;
       const name = user_metadata?.name || email.split('@')[0];
       const role = (user_metadata?.role || 'CLIENT').toUpperCase();
-      
+
       // Crear el usuario en nuestra base de datos
       const newUser = await this.prisma.user.create({
         data: {
@@ -57,7 +57,7 @@ export class AuthService {
           emailVerified: !!userData.email_confirmed_at
         }
       });
-      
+
       this.logger.log(`User ${email} created successfully with ID: ${id}`);
       return newUser;
     } catch (error) {
@@ -65,7 +65,7 @@ export class AuthService {
       throw new BadRequestException(`Failed to create user: ${error.message}`);
     }
   }
-  
+
   /**
    * Método alternativo para crear manualmente un usuario desde Supabase
    * Útil para sincronizar usuarios existentes en Supabase pero no en nuestra base de datos
@@ -76,11 +76,11 @@ export class AuthService {
       const existingUser = await this.prisma.user.findUnique({
         where: { id: supabaseUserId }
       });
-      
+
       if (existingUser) {
         throw new ConflictException(`User with ID ${supabaseUserId} already exists`);
       }
-      
+
       // Crear el usuario en nuestra base de datos
       const newUser = await this.prisma.user.create({
         data: {
@@ -92,7 +92,7 @@ export class AuthService {
           emailVerified: !!userData.emailVerified
         }
       });
-      
+
       this.logger.log(`User ${userData.email} synced successfully with ID: ${supabaseUserId}`);
       return newUser;
     } catch (error) {
@@ -101,75 +101,81 @@ export class AuthService {
     }
   }
 
-  async getProfile(userId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: {
-        id: userId,
-        isActive: true,
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        phone: true,
-        avatarUrl: true,
-        role: true,
-        isActive: true,
-        emailVerified: true,
-        createdAt: true,
-        updatedAt: true,
-        // Incluir relaciones según el rol
-        ownedGyms: {
-          select: {
-            id: true,
-            name: true,
-            isActive: true,
-          }
+  async getProfile(userId: string): Promise<any> {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: {
+          id: userId,
+          isActive: true,
         },
-        managedGym: {
-          select: {
-            id: true,
-            name: true,
-            isActive: true,
-          }
-        },
-        workingAtGym: {
-          select: {
-            id: true,
-            name: true,
-            isActive: true,
-          }
-        },
-        memberOfGyms: {
-          select: {
-            id: true,
-            name: true,
-            isActive: true,
-          }
-        },
-        memberships: {
-          select: {
-            id: true,
-            type: true,
-            status: true,
-            startDate: true,
-            expiresAt: true,
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          phone: true,
+          avatarUrl: true,
+          role: true,
+          isActive: true,
+          emailVerified: true,
+          createdAt: true,
+          updatedAt: true,
+          // Incluir relaciones según el rol
+          ownedGyms: {
+            select: {
+              id: true,
+              name: true,
+              isActive: true,
+            }
+          },
+          managedGym: {
+            select: {
+              id: true,
+              name: true,
+              isActive: true,
+            }
+          },
+          workingAtGym: {
+            select: {
+              id: true,
+              name: true,
+              isActive: true,
+            }
+          },
+          memberOfGyms: {
+            select: {
+              id: true,
+              name: true,
+              isActive: true,
+            }
+          },
+          memberships: {
+            select: {
+              id: true,
+              type: true,
+              status: true,
+              startDate: true,
+              expiresAt: true,
+            }
           }
         }
+      });
+
+      if (!user) {
+        this.logger.warn(`User with id ${userId} not found in database`);
+        throw new NotFoundException('User not found');
       }
-    });
 
-    if (!user) {
-      throw new NotFoundException('User not found');
+      return user;
+    } catch (error) {
+      this.logger.error(`Error getting profile for user ${userId}:`, error);
+      throw error;
     }
-
-    return user;
   }
 
-  async getUsersByRole(role: string) {
+  async getUsersByRole(role: string): Promise<any[]> {
     try {
       this.logger.log(`Getting users with role: ${role}`);
-      
+
       // Validar que el rol proporcionado sea válido y convertirlo al enum UserRole
       const upperRole = role.toUpperCase();
 
@@ -179,7 +185,7 @@ export class AuthService {
         this.logger.error(`Invalid role provided: ${role}`);
         throw new BadRequestException(`Invalid role: ${role}`);
       }
-      
+
       // Asignar el rol validado
       const userRole = upperRole as UserRole;
       const users = await this.prisma.user.findMany({
@@ -197,14 +203,45 @@ export class AuthService {
           createdAt: true,
         }
       });
-      
-      return {
-        success: true,
-        data: users
-      };
+
+      return users;
     } catch (error) {
       this.logger.error(`Error getting users with role ${role}:`, error.stack);
       throw new BadRequestException(`Failed to get users with role ${role}`);
+    }
+  }
+
+  async syncUserFromSupabaseV1(userId: string, email: string, name?: string, role?: string): Promise<any> {
+    try {
+      const user = await this.prisma.user.upsert({
+        where: { id: userId },
+        update: {
+          email,
+          name: name || email.split('@')[0],
+          role: (role || 'CLIENT') as any,
+          updatedAt: new Date(),
+        },
+        create: {
+          id: userId,
+          email,
+          name: name || email.split('@')[0],
+          role: (role || 'CLIENT') as any,
+          isActive: true,
+          emailVerified: true,
+        },
+        include: {
+          ownedGyms: true,
+          managedGym: true,
+          memberOfGyms: true,
+          memberships: true,
+        },
+      });
+
+      this.logger.debug(`User synced successfully: ${user.email}`);
+      return user;
+    } catch (error) {
+      this.logger.error(`Error syncing user ${userId}:`, error);
+      throw error;
     }
   }
 }

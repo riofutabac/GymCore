@@ -61,39 +61,56 @@ const authStore = create<AuthState>(
       refreshUser: async () => {
         try {
           const supabase = createSupabaseBrowserClient();
+
+          // Get current session from Supabase
           const { data: { session } } = await supabase.auth.getSession();
-          
+
           if (!session) {
-            set({ user: null, isAuthenticated: false, isLoading: false });
+            set({ user: null, isAuthenticated: false });
             return;
           }
-          
-          try {
-            const user = await authApi.getProfile();
-            set({
-              user: user,
-              isAuthenticated: true,
-              isLoading: false,
-              error: null
-            });
-          } catch (profileError) {
-            console.error('Error al obtener perfil del usuario:', profileError);
-            // Si falla obtener el perfil, cerrar sesión
-            await supabase.auth.signOut();
-            set({ 
-              user: null, 
-              isAuthenticated: false, 
-              isLoading: false,
-              error: 'Error al cargar datos del usuario'
-            });
-          }
+
+          // Wait a bit to ensure the interceptor has the session
+          await new Promise(resolve => setTimeout(resolve, 100));
+
+          // Get user profile from our backend
+          const user = await authApi.getProfile();
+
+          set({
+            user: user,
+            isAuthenticated: true,
+            error: null
+          });
         } catch (error) {
-          console.error('Error al verificar sesión:', error);
-          set({ 
-            user: null, 
-            isAuthenticated: false, 
-            isLoading: false,
-            error: 'Error de conexión'
+          console.error('Error al obtener perfil del usuario:', error);
+
+          // If it's a 401, it might be that the user exists in Supabase but not in our DB
+          if (error.response?.status === 401) {
+            try {
+              const supabase = createSupabaseBrowserClient();
+              const { data: { session } } = await supabase.auth.getSession();
+
+              if (session?.user) {
+                // Try to sync the user to our database
+                console.log('Attempting to sync user to database...');
+                // For now, just sign out and let them try again
+                await supabase.auth.signOut();
+                set({
+                  user: null,
+                  isAuthenticated: false,
+                  error: 'Usuario no encontrado en la base de datos. Por favor, intenta registrarte nuevamente.'
+                });
+                return;
+              }
+            } catch (syncError) {
+              console.error('Error during user sync attempt:', syncError);
+            }
+          }
+
+          set({
+            user: null,
+            isAuthenticated: false,
+            error: 'Error al obtener perfil del usuario'
           });
         }
       },
@@ -101,15 +118,23 @@ const authStore = create<AuthState>(
         set({ isLoading: true, error: null });
         try {
           const supabase = createSupabaseBrowserClient();
-          const { error } = await supabase.auth.signInWithPassword({
+
+          const { data, error } = await supabase.auth.signInWithPassword({
             email,
             password
           });
 
           if (error) throw error;
-          
-          // Refresh user data after successful login
-          await authStore.getState().refreshUser();
+
+          if (!data.session) {
+            throw new Error('No se pudo iniciar sesión');
+          }
+
+          // Wait a moment for the session to be fully established
+          await new Promise(resolve => setTimeout(resolve, 200));
+
+          // The auth state change will trigger refreshUser automatically
+          // through the useSupabaseAuth hook, so we don't need to call it here
         } catch (error) {
           set({
             error: error instanceof Error ? error.message : 'Error al iniciar sesión',
@@ -124,7 +149,7 @@ const authStore = create<AuthState>(
         set({ isLoading: true, error: null });
         try {
           const supabase = createSupabaseBrowserClient();
-          
+
           // Registrar usuario con Supabase
           const { data, error } = await supabase.auth.signUp({
             email: userData.email,
@@ -136,16 +161,16 @@ const authStore = create<AuthState>(
               }
             }
           });
-          
+
           if (error) {
             console.error('Supabase signup error:', error);
             throw new Error(error.message || 'Error al registrar usuario en Supabase');
           }
-          
+
           if (!data.user) {
             throw new Error('No se pudo crear el usuario');
           }
-          
+
           // Si el usuario necesita confirmar email, mostrar mensaje apropiado
           if (!data.session && data.user && !data.user.email_confirmed_at) {
             set({
@@ -154,7 +179,7 @@ const authStore = create<AuthState>(
             });
             return false;
           }
-          
+
           // Si hay sesión, actualizar el estado
           if (data.session) {
             try {
@@ -173,7 +198,7 @@ const authStore = create<AuthState>(
               });
             }
           }
-          
+
           return true;
         } catch (error) {
           console.error('Error en registro:', error);
@@ -218,7 +243,7 @@ const gymStore = create<GymState>((set) => ({
 export function useSyncSupabaseAuth() {
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
-    
+
     // Escuchar cambios en la sesión
     const {
       data: { subscription },

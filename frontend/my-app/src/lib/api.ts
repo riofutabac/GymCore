@@ -17,7 +17,7 @@ axiosInstance.interceptors.request.use(
   async (config) => {
     const supabase = createSupabaseBrowserClient();
     const { data: { session } } = await supabase.auth.getSession();
-    
+
     if (session?.access_token) {
       config.headers.Authorization = `Bearer ${session.access_token}`;
     }
@@ -56,7 +56,7 @@ const handleResponse = <T>(response: AxiosResponse<ApiResponse<T>>): T => {
 // Módulo de autenticación
 export const authApi = {
   // Ya no necesitamos login ni register porque se manejan con Supabase directamente
-  
+
   getProfile: async (): Promise<User> => {
     try {
       const response = await axiosInstance.get<ApiResponse<User>>('/api/auth/me');
@@ -66,17 +66,17 @@ export const authApi = {
       throw error;
     }
   },
-  
+
   // getCurrentUser ahora usa Supabase para verificar la sesión
   getCurrentUser: async (): Promise<User | null> => {
     if (typeof window === 'undefined') return null;
-    
+
     try {
       const supabase = createSupabaseBrowserClient();
       const { data } = await supabase.auth.getSession();
-      
+
       if (!data.session) return null;
-      
+
       // Obtener los datos completos del usuario desde nuestra API
       const user = await authApi.getProfile();
       return user;
@@ -85,7 +85,7 @@ export const authApi = {
       return null;
     }
   },
-  
+
   // Método para obtener usuarios por rol (para administradores)
   getUsersByRole: async (role: UserRole): Promise<User[]> => {
     try {
@@ -96,7 +96,7 @@ export const authApi = {
       throw error;
     }
   },
-  
+
   getMyQR: async (): Promise<QRData> => {
     try {
       const response = await axiosInstance.get<ApiResponse<QRData>>('/api/auth/qr');
@@ -119,7 +119,7 @@ export const gymsApi = {
       throw error;
     }
   },
-  
+
   getById: async (id: string): Promise<Gym> => {
     try {
       const response = await axiosInstance.get<ApiResponse<Gym>>(`/gyms/${id}`);
@@ -129,7 +129,7 @@ export const gymsApi = {
       throw error;
     }
   },
-  
+
   create: async (gymData: CreateGymRequest): Promise<Gym> => {
     try {
       const response = await axiosInstance.post<ApiResponse<Gym>>('/gyms', gymData);
@@ -139,7 +139,7 @@ export const gymsApi = {
       throw error;
     }
   },
-  
+
   update: async (id: string, gymData: UpdateGymRequest): Promise<Gym> => {
     try {
       const response = await axiosInstance.patch<ApiResponse<Gym>>(`/gyms/${id}`, gymData);
@@ -149,7 +149,7 @@ export const gymsApi = {
       throw error;
     }
   },
-  
+
   delete: async (id: string): Promise<void> => {
     try {
       await axiosInstance.delete<ApiResponse<void>>(`/gyms/${id}`);
@@ -158,7 +158,7 @@ export const gymsApi = {
       throw error;
     }
   },
-  
+
   getMyGym: async (): Promise<Gym> => {
     try {
       const response = await axiosInstance.get<ApiResponse<Gym>>('/gyms/my-gym');
@@ -180,7 +180,7 @@ export const gymsApi = {
       // Podemos usar /api/gyms para obtener gimnasios y construir las métricas
       const response = await axiosInstance.get<ApiResponse<Gym[]>>('/api/gyms');
       const gyms = handleResponse(response);
-      
+
       // Construir métricas basadas en los gimnasios disponibles
       return {
         totalGyms: gyms.length,
@@ -212,7 +212,7 @@ export const usersApi = {
       throw error;
     }
   },
-  
+
   getByRole: async (role: UserRole): Promise<User[]> => {
     try {
       const response = await axiosInstance.get<ApiResponse<User[]>>(`/users/role/${role}`);
@@ -222,7 +222,7 @@ export const usersApi = {
       throw error;
     }
   },
-  
+
   getById: async (id: string): Promise<User> => {
     try {
       const response = await axiosInstance.get<ApiResponse<User>>(`/users/${id}`);
@@ -232,7 +232,7 @@ export const usersApi = {
       throw error;
     }
   },
-  
+
   updateRole: async (id: string, role: UserRole): Promise<User> => {
     try {
       const response = await axiosInstance.patch<ApiResponse<User>>(`/users/${id}/role`, { role });
@@ -242,7 +242,7 @@ export const usersApi = {
       throw error;
     }
   },
-  
+
   resetPassword: async (id: string): Promise<void> => {
     try {
       await axiosInstance.post<ApiResponse<void>>(`/users/${id}/reset-password`);
@@ -275,7 +275,7 @@ export const membersApi = {
       throw error;
     }
   },
-  
+
   getById: async (id: string): Promise<Member> => {
     try {
       const response = await axiosInstance.get<ApiResponse<Member>>(`/api/members/${id}`);
@@ -285,7 +285,7 @@ export const membersApi = {
       throw error;
     }
   },
-  
+
   getMembers: async (gymId: string): Promise<Member[]> => {
     try {
       const response = await axiosInstance.get<ApiResponse<Member[]>>(`/api/members/gym/${gymId}`);
@@ -323,7 +323,7 @@ export const membersApi = {
       throw error;
     }
   },
-  
+
   updateMembership: async (id: string, membershipData: UpdateMembershipRequest): Promise<Member> => {
     try {
       const response = await axiosInstance.patch<ApiResponse<Member>>(`/api/members/${id}/membership`, membershipData);
@@ -333,7 +333,7 @@ export const membersApi = {
       throw error;
     }
   },
-  
+
   suspendMembership: async (id: string): Promise<Member> => {
     try {
       const response = await axiosInstance.patch<ApiResponse<Member>>(`/api/members/${id}/suspend`);
@@ -343,7 +343,7 @@ export const membersApi = {
       throw error;
     }
   },
-  
+
   validateQR: async (qrToken: string): Promise<{ user: User; membershipStatus: MembershipStatus }> => {
     try {
       const response = await axiosInstance.post<ApiResponse<{ user: User; membershipStatus: MembershipStatus }>>('/api/members/validate-qr', { token: qrToken });
@@ -366,7 +366,7 @@ export const inventoryApi = {
       throw error;
     }
   },
-  
+
   getProductById: async (id: string): Promise<Product> => {
     try {
       const response = await axiosInstance.get<ApiResponse<Product>>(`/api/inventory/products/${id}`);
@@ -376,7 +376,7 @@ export const inventoryApi = {
       throw error;
     }
   },
-  
+
   createProduct: async (productData: CreateProductRequest): Promise<Product> => {
     try {
       const response = await axiosInstance.post<ApiResponse<Product>>('/api/inventory/products', productData);
@@ -386,7 +386,7 @@ export const inventoryApi = {
       throw error;
     }
   },
-  
+
   updateProduct: async (id: string, productData: UpdateProductRequest): Promise<Product> => {
     try {
       const response = await axiosInstance.patch<ApiResponse<Product>>(`/api/inventory/products/${id}`, productData);
@@ -396,7 +396,7 @@ export const inventoryApi = {
       throw error;
     }
   },
-  
+
   deleteProduct: async (id: string): Promise<void> => {
     try {
       await axiosInstance.delete<ApiResponse<void>>(`/api/inventory/products/${id}`);
@@ -405,7 +405,7 @@ export const inventoryApi = {
       throw error;
     }
   },
-  
+
   getSales: async (): Promise<Sale[]> => {
     try {
       const response = await axiosInstance.get<ApiResponse<Sale[]>>('/api/inventory/sales');
@@ -415,7 +415,7 @@ export const inventoryApi = {
       throw error;
     }
   },
-  
+
   getSaleById: async (id: string): Promise<Sale> => {
     try {
       const response = await axiosInstance.get<ApiResponse<Sale>>(`/api/inventory/sales/${id}`);
@@ -425,7 +425,7 @@ export const inventoryApi = {
       throw error;
     }
   },
-  
+
   recordSale: async (saleData: CreateSaleRequest): Promise<Sale> => {
     try {
       const response = await axiosInstance.post<ApiResponse<Sale>>('/api/inventory/sales', saleData);

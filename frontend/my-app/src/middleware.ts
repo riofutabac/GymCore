@@ -158,6 +158,12 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL(baseRoute, request.url));
     }
     
+    // CASO ESPECIAL: Si es la página de reset-password, permitir acceso siempre
+    // Esto es necesario para el flujo de recuperación de contraseña
+    if (pathname === '/reset-password') {
+      return NextResponse.next();
+    }
+    
     // CASO 2: Usuario autenticado en /dashboard genérico -> Redirigir a su dashboard específico
     if (pathname === '/dashboard') {
       return NextResponse.redirect(new URL(baseRoute, request.url));

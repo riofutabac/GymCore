@@ -19,21 +19,38 @@ export default function ResetPasswordPage() {
   // Verificar el estado de autenticación y el token de recuperación
   useEffect(() => {
     async function checkAuthState() {
+      // Verificar si hay un hash de recuperación en la URL
+      const hash = window.location.hash;
+      const isRecoveryMode = hash && hash.includes('type=recovery');
+      
+      // Obtener el usuario actual
       const { data: { user }, error } = await supabase.auth.getUser();
+      
+      // Suscribirse a cambios de estado de autenticación
       const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
         if (event === 'PASSWORD_RECOVERY') {
           setIsSessionReady(true);
         }
       });
 
-      // Si no hay error y tenemos un usuario, verificar si estamos en modo recuperación
-      if (!error && user) {
-        const hash = window.location.hash;
-        if (hash && hash.includes('type=recovery')) {
+      // Si estamos en modo recuperación, permitir el restablecimiento
+      if (isRecoveryMode) {
+        setIsSessionReady(true);
+        return () => subscription.unsubscribe();
+      }
+      
+      // Si no hay hash de recuperación pero hay un usuario, verificar si podemos recuperar
+      if (!error && user && !isRecoveryMode) {
+        // Intentar obtener el modo de recuperación desde la sesión
+        const { data } = await supabase.auth.getSession();
+        if (data.session?.user?.email) {
           setIsSessionReady(true);
         } else {
-          // Si no estamos en modo recuperación, redirigir al dashboard
-          router.push('/login');
+          // Si no estamos en modo recuperación, redirigir al login
+          toast.error('No se encontró un enlace de recuperación válido');
+          setTimeout(() => {
+            router.push('/login');
+          }, 2000);
         }
       }
 
@@ -62,21 +79,34 @@ export default function ResetPasswordPage() {
         return;
       }
 
+      // Actualizar la contraseña
       const { error } = await supabase.auth.updateUser({ password });
 
       if (error) {
-        toast.error(error.message);
+        toast.error(error.message || 'Error al actualizar la contraseña');
         setIsLoading(false);
         return;
       }
 
       toast.success('Contraseña actualizada con éxito');
       
-      // Cerrar sesión y redirigir al login
-      await supabase.auth.signOut();
-      setTimeout(() => {
-        router.push('/login');
-      }, 2000);
+      // Cerrar sesión completamente para forzar un nuevo login
+      try {
+        // Limpiar cualquier sesión existente
+        await supabase.auth.signOut({ scope: 'global' });
+        
+        // Esperar un momento y luego redirigir
+        setTimeout(() => {
+          // Usar window.location.href para forzar una recarga completa
+          window.location.href = '/login';
+        }, 2000);
+      } catch (signOutError) {
+        console.error('Error al cerrar sesión:', signOutError);
+        // Aún así intentamos redirigir
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 2000);
+      }
     } catch (error) {
       toast.error('Error al actualizar la contraseña');
       console.error('Error:', error);

@@ -5,6 +5,7 @@ import type { NextRequest } from 'next/server'
 // Constantes para mejorar mantenibilidad
 const AUTH_PAGES = ['/login', '/register'];
 const PROTECTED_ROUTES = ['/dashboard', '/owner', '/manager', '/reception', '/client', '/settings', '/join-gym'];
+const COMMON_ROUTES = ['/settings']; // Rutas accesibles para todos los roles autenticados
 
 /**
  * Función para decodificar Base64Url correctamente
@@ -95,6 +96,7 @@ export async function middleware(request: NextRequest) {
   // Obtener información de la solicitud
   const { pathname } = request.nextUrl;
   const isAuthPage = AUTH_PAGES.includes(pathname);
+  const isCommonRoute = COMMON_ROUTES.some(route => pathname.startsWith(route));
   const currentBaseRoute = extractBaseRoute(pathname);
   const referer = request.headers.get('referer') || '';
   
@@ -147,12 +149,17 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL(baseRoute, request.url));
     }
     
-    // CASO 3: Usuario autenticado en ruta protegida que no corresponde a su rol
+    // CASO 3: Usuario autenticado en ruta común (como /settings) -> Permitir acceso
+    if (isCommonRoute) {
+      return NextResponse.next();
+    }
+    
+    // CASO 4: Usuario autenticado en ruta protegida que no corresponde a su rol
     if (PROTECTED_ROUTES.includes(currentBaseRoute) && currentBaseRoute !== baseRoute) {
       return NextResponse.redirect(new URL(baseRoute, request.url));
     }
     
-    // CASO 4: Usuario autenticado en su ruta correcta -> Permitir acceso
+    // CASO 5: Usuario autenticado en su ruta correcta -> Permitir acceso
     return NextResponse.next();
   }
   

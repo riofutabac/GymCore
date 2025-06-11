@@ -251,7 +251,85 @@ export const usersApi = {
       throw error;
     }
   },
+
+  getMyProfile: async (): Promise<User> => {
+    try {
+      const response = await axiosInstance.get<ApiResponse<User>>('/api/users/me');
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error al obtener mi perfil:', error);
+      throw error;
+    }
+  },
+  
+  updateMyProfile: async (profileData: {
+    name?: string;
+    phone?: string;
+    address?: string;
+    emergencyContact?: string;
+    emergencyPhone?: string;
+    birthDate?: string;
+    medicalInfo?: string;
+    // Campos específicos para staff
+    department?: string;
+    employeeId?: string;
+  }): Promise<User> => {
+    try {
+      const response = await axiosInstance.patch<ApiResponse<User>>('/api/users/me', profileData);
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error al actualizar mi perfil:', error);
+      throw error;
+    }
+  },
+
+  // Método específico para que managers/owners actualicen perfiles de empleados
+  updateEmployeeProfile: async (userId: string, profileData: {
+    name?: string;
+    phone?: string;
+    department?: string;
+    employeeId?: string;
+    isActive?: boolean;
+  }): Promise<User> => {
+    try {
+      const response = await axiosInstance.patch<ApiResponse<User>>(`/api/users/${userId}/profile`, profileData);
+      return handleResponse(response);
+    } catch (error) {
+      console.error(`Error al actualizar perfil de empleado ${userId}:`, error);
+      throw error;
+    }
+  },
+  
+  updateMyAvatar: async (avatarFile: File): Promise<User> => {
+    try {
+      const formData = new FormData();
+      formData.append('avatar', avatarFile);
+      
+      const response = await axiosInstance.post<ApiResponse<User>>('/api/users/me/avatar', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error al actualizar avatar:', error);
+      throw error;
+    }
+  },
+  
+  changeMyPassword: async (passwordData: {
+    currentPassword: string;
+    newPassword: string;
+  }): Promise<void> => {
+    try {
+      await axiosInstance.patch<ApiResponse<void>>('/api/users/me/password', passwordData);
+    } catch (error) {
+      console.error('Error al cambiar contraseña:', error);
+      throw error;
+    }
+  },
 };
+
 
 // Módulo de miembros
 export const membersApi = {
@@ -353,6 +431,7 @@ export const membersApi = {
       throw error;
     }
   },
+
 };
 
 // Módulo de productos e inventario
@@ -450,6 +529,72 @@ export const accessApi = {
   },
 };
 
+// Módulo de configuraciones/settings
+export const settingsApi = {
+  getMySettings: async (): Promise<User> => {
+    try {
+      const response = await axiosInstance.get<ApiResponse<User>>('/api/settings/profile');
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error al obtener configuraciones:', error);
+      // Fallback: usar el endpoint de perfil existente
+      return usersApi.getMyProfile();
+    }
+  },
+
+  updateMySettings: async (settingsData: {
+    name?: string;
+    phone?: string;
+    address?: string;
+    emergencyContact?: string;
+    emergencyPhone?: string;
+    birthDate?: string;
+    medicalInfo?: string;
+    department?: string;
+    employeeId?: string;
+  }): Promise<User> => {
+    try {
+      const response = await axiosInstance.patch<ApiResponse<User>>('/api/settings/profile', settingsData);
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error al actualizar configuraciones:', error);
+      // Fallback: usar el endpoint de perfil existente
+      return usersApi.updateMyProfile(settingsData);
+    }
+  },
+
+  updateMyPassword: async (passwordData: {
+    currentPassword: string;
+    newPassword: string;
+  }): Promise<void> => {
+    try {
+      await axiosInstance.patch<ApiResponse<void>>('/api/settings/password', passwordData);
+    } catch (error) {
+      console.error('Error al cambiar contraseña en settings:', error);
+      // Fallback: usar el endpoint de usuarios existente
+      return usersApi.changeMyPassword(passwordData);
+    }
+  },
+
+  updateMyAvatar: async (avatarFile: File): Promise<User> => {
+    try {
+      const formData = new FormData();
+      formData.append('avatar', avatarFile);
+      
+      const response = await axiosInstance.post<ApiResponse<User>>('/api/settings/avatar', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error al actualizar avatar en settings:', error);
+      // Fallback: usar el endpoint de usuarios existente
+      return usersApi.updateMyAvatar(avatarFile);
+    }
+  },
+};
+
 // Exportar todos los módulos de API
 const api = {
   auth: authApi,
@@ -458,6 +603,7 @@ const api = {
   members: membersApi,
   inventory: inventoryApi,
   access: accessApi,
+  settings: settingsApi,
 };
 
 export default api;

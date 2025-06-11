@@ -27,9 +27,14 @@ export enum UserRole {
 export interface User {
   id: string;
   email: string;
-  name: string;
+  name?: string;
+  phone?: string;       // ← Agregar esta línea
+  avatarUrl?: string;   // ← Agregar esta línea
   role: UserRole;
-  isActive: boolean;
+  isActive?: boolean;
+  emailVerified?: boolean;
+  createdAt?: string;
+  metadata?: Record<string, any>;
   memberOfGyms?: {
     id: string;
     name: string;
@@ -37,7 +42,6 @@ export interface User {
     membershipStatus: MembershipStatus;
     membershipEndDate?: string;
   }[];
-  createdAt: string;
   updatedAt: string;
 }
 

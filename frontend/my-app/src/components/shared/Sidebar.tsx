@@ -16,7 +16,8 @@ interface SidebarLinkProps {
 
 function SidebarLink({ href, children }: SidebarLinkProps) {
   const pathname = usePathname();
-  const isActive = pathname === href;
+  // Check if current path matches exactly or if it's a settings subpage
+  const isActive = pathname === href || (href === '/settings' && pathname.startsWith('/settings'));
 
   return (
     <Link
@@ -47,6 +48,7 @@ export function Sidebar() {
             <SidebarLink href="/owner">Dashboard</SidebarLink>
             <SidebarLink href="/owner/gyms">Gimnasios</SidebarLink>
             <SidebarLink href="/owner/users">Usuarios</SidebarLink>
+            <SidebarLink href="/settings">Mi Perfil</SidebarLink>
           </>
         );
       case UserRole.MANAGER:
@@ -56,6 +58,7 @@ export function Sidebar() {
             <SidebarLink href="/manager/members">Miembros</SidebarLink>
             <SidebarLink href="/manager/staff">Personal</SidebarLink>
             <SidebarLink href="/manager/inventory">Inventario</SidebarLink>
+            <SidebarLink href="/settings">Mi Perfil</SidebarLink>
           </>
         );
       case UserRole.RECEPTION:
@@ -63,12 +66,14 @@ export function Sidebar() {
           <>
             <SidebarLink href="/reception">Check-in</SidebarLink>
             <SidebarLink href="/reception/pos">Punto de Venta</SidebarLink>
+            <SidebarLink href="/settings">Mi Perfil</SidebarLink>
           </>
         );
       case UserRole.CLIENT:
         return (
           <>
             <SidebarLink href="/client">Mi Membresía</SidebarLink>
+            <SidebarLink href="/settings">Mi Perfil</SidebarLink>
           </>
         );
       default:
@@ -86,14 +91,13 @@ export function Sidebar() {
       <div className="flex-1 overflow-auto py-4">
         <nav className="grid gap-1 px-2">
           {renderLinks()}
-          <SidebarLink href="/settings">Configuración</SidebarLink>
         </nav>
       </div>
       <div className="border-t p-4">
         <div className="flex items-center gap-2">
           <div className="rounded-full bg-primary/10 p-1">
             <div className="h-8 w-8 rounded-full bg-primary text-center text-primary-foreground flex items-center justify-center">
-              {user.name.substring(0, 2).toUpperCase()}
+              {user.name?.substring(0, 2).toUpperCase() || 'U'}
             </div>
           </div>
           <div>
@@ -102,7 +106,6 @@ export function Sidebar() {
           </div>
         </div>
         
-        {/* Botón de Cerrar Sesión */}
         <Button 
           variant="outline" 
           className="w-full mt-4 flex items-center justify-center gap-2" 

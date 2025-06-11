@@ -14,9 +14,13 @@ export class SupabaseStrategy extends PassportStrategy(Strategy, 'supabase') {
     private configService: ConfigService,
     private prisma: PrismaService,
   ) {
-    const supabaseUrl = configService.get('SUPABASE_URL');
-    const supabaseServiceKey = configService.get('SUPABASE_SERVICE_ROLE_KEY');
-    const jwtSecret = configService.get('SUPABASE_JWT_SECRET');
+    const supabaseUrl = configService.get<string>('SUPABASE_URL');
+    const supabaseServiceKey = configService.get<string>('SUPABASE_SERVICE_ROLE_KEY');
+    const jwtSecret = configService.get<string>('SUPABASE_JWT_SECRET');
+
+    if (!supabaseUrl || !supabaseServiceKey || !jwtSecret) {
+      throw new Error('Missing required Supabase configuration');
+    }
 
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -25,9 +29,9 @@ export class SupabaseStrategy extends PassportStrategy(Strategy, 'supabase') {
     });
     
     // Initialize logger and Supabase client after super()
-    this.logger.debug(`Supabase URL: ${supabaseUrl ? 'configured' : 'missing'}`);
-    this.logger.debug(`Supabase Service Key: ${supabaseServiceKey ? 'configured' : 'missing'}`);
-    this.logger.debug(`JWT Secret: ${jwtSecret ? 'configured' : 'missing'}`);
+    this.logger.debug(`Supabase URL: configured`);
+    this.logger.debug(`Supabase Service Key: configured`);
+    this.logger.debug(`JWT Secret: configured`);
 
     this.supabase = createClient(supabaseUrl, supabaseServiceKey);
   }

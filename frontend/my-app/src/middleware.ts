@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 // Constantes para mejorar mantenibilidad
-const AUTH_PAGES = ['/login', '/register'];
+const PUBLIC_ROUTES = ['/login', '/register', '/reset-password', '/forgot-password'];
 const PROTECTED_ROUTES = ['/dashboard', '/owner', '/manager', '/reception', '/client', '/settings', '/join-gym'];
 const COMMON_ROUTES = ['/settings']; // Rutas accesibles para todos los roles autenticados
 
@@ -95,7 +95,7 @@ function extractBaseRoute(pathname: string): string {
 export async function middleware(request: NextRequest) {
   // Obtener información de la solicitud
   const { pathname } = request.nextUrl;
-  const isAuthPage = AUTH_PAGES.includes(pathname);
+  const isPublicRoute = PUBLIC_ROUTES.includes(pathname);
   const isCommonRoute = COMMON_ROUTES.some(route => pathname.startsWith(route));
   const currentBaseRoute = extractBaseRoute(pathname);
   const referer = request.headers.get('referer') || '';
@@ -119,23 +119,37 @@ export async function middleware(request: NextRequest) {
     }
   );
   
-  // Verificar la sesión de Supabase
-  const { data: { session } } = await supabase.auth.getSession();
-  
-  // Comprobar si el usuario está autenticado con una sesión válida
-  if (session) {
-    // Obtener el rol del usuario desde la base de datos
+  // Verificar la autenticación del usuario de forma segura
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+  // Si hay un error al obtener el usuario o no hay usuario, tratar como no autenticado
+  if (userError || !user) {
+    // Si es una ruta pública o landing, permitir acceso
+    if (isPublicRoute || pathname === '/') {
+      return NextResponse.next();
+    }
+
+    // Si intenta acceder a ruta protegida sin autenticación
+    if (PROTECTED_ROUTES.some(route => pathname.startsWith(route))) {
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('callbackUrl', pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+
+    return NextResponse.next();
+  } else {
+    // Usuario autenticado - Obtener el rol del usuario
     const { data: userData } = await supabase
       .from('users')
       .select('role')
-      .eq('id', session.user.id)
+      .eq('id', user.id)
       .single();
     
     const role = userData?.role || 'CLIENT';
     const baseRoute = getBaseRouteByRole(role);
     
-    // CASO 1: Usuario autenticado en página de autenticación o raíz -> Redirigir a su dashboard
-    if (isAuthPage || pathname === '/') {
+    // CASO 1: Usuario autenticado en página pública (excepto reset-password y forgot-password) o raíz -> Redirigir a su dashboard
+    if ((isPublicRoute && !['/reset-password', '/forgot-password'].includes(pathname)) || pathname === '/') {
       // IMPORTANTE: Verificar si ya estamos en un bucle
       if (referer && referer.includes(baseRoute)) {
         return NextResponse.next();
@@ -165,8 +179,8 @@ export async function middleware(request: NextRequest) {
   
   // Usuario NO autenticado
   
-  // Si ya está en página de autenticación o landing page, permitir acceso
-  if (isAuthPage || pathname === '/') {
+  // Si ya está en página pública o landing page, permitir acceso
+  if (isPublicRoute || pathname === '/') {
     return NextResponse.next();
   }
   

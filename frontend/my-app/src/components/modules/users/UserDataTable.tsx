@@ -1,24 +1,36 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { User } from '@/lib/types';
 import { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/components/ui/data-table';
 
 interface UserDataTableProps {
-  data: User[];
+  users: User[];
+  isLoading?: boolean;
+  error?: string | null;
+  onRefresh?: () => void;
   onEdit?: (user: User) => void;
   onToggleStatus?: (user: User) => void;
   onResetPassword?: (user: User) => void;
 }
 
 export function UserDataTable({ 
-  data, 
+  users, 
+  isLoading,
+  error,
+  onRefresh,
   onEdit, 
   onToggleStatus, 
   onResetPassword 
 }: UserDataTableProps) {
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   // Definir columnas para la tabla
   const columns: ColumnDef<User, any>[] = [
     {
@@ -89,13 +101,46 @@ export function UserDataTable({
           )}
         </div>
       ),
-    },
-  ];
+    },  ];
+
+  if (!isClient) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-2 text-muted-foreground">Cargando usuarios...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="text-center">
+          <p className="text-destructive mb-2">{error}</p>
+          {onRefresh && (
+            <Button variant="outline" onClick={onRefresh}>
+              Reintentar
+            </Button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <DataTable
       columns={columns}
-      data={data}
+      data={users}
       searchColumn="name"
       searchPlaceholder="Buscar por nombre o email..."
     />

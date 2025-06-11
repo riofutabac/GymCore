@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
+import { User, Gym } from '@/lib/types';
 
 interface UserFormData {
   name: string;
@@ -24,7 +25,6 @@ interface UserFormData {
 
 export default function UsersPage() {
   const { toast } = useToast();
-  const [searchTerm, setSearchTerm] = useState('');
   const [formData, setFormData] = useState<UserFormData>({
     name: '',
     email: '',
@@ -95,14 +95,8 @@ export default function UsersPage() {
         title: 'Error',
         description: 'No se pudo crear el usuario',
         variant: 'destructive',
-      });
-    }
+      });    }
   };
-
-  const filteredUsers = users?.filter(user => 
-    user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
 
   return (
     <div className="container mx-auto py-10 space-y-8">
@@ -126,40 +120,13 @@ export default function UsersPage() {
         </TabsList>
         
         <TabsContent value="list" className="mt-6">
-          <Card>
-            <CardHeader>
+          <Card>            <CardHeader>
               <CardTitle>Lista de Usuarios</CardTitle>
-              <CardDescription>
-                Aquí puedes ver y gestionar todos los usuarios del sistema
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="flex items-center justify-center h-24">
-                  <p className="text-muted-foreground">Cargando usuarios...</p>
-                </div>
-              ) : error ? (
-                <div className="flex items-center justify-center h-24">
-                  <p className="text-red-500">Error al cargar usuarios</p>
-                </div>
-              ) : (
-                <UserDataTable data={filteredUsers} />
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="new" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Nuevo Usuario</CardTitle>
-              <CardDescription>
-                Crea un nuevo usuario para el sistema
-              </CardDescription>
+              <CardDescription>Gestiona todos los usuarios del sistema</CardDescription>
             </CardHeader>
             <CardContent>
               <UserDataTable 
-                users={filteredUsers || []} 
+                users={users || []} 
                 isLoading={isLoading} 
                 error={error ? 'Error al cargar usuarios' : null}
                 onRefresh={refetch}
@@ -225,10 +192,9 @@ export default function UsersPage() {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="role">Rol</Label>
-                    <Select 
+                    <Label htmlFor="role">Rol</Label>                    <Select 
                       value={formData.role} 
-                      onValueChange={(value) => handleSelectChange('role', value)}
+                      onValueChange={(value: string) => handleSelectChange('role', value)}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Selecciona un rol" />
@@ -243,16 +209,14 @@ export default function UsersPage() {
                   
                   {formData.role === 'manager' && (
                     <div className="space-y-2">
-                      <Label htmlFor="gymId">Gimnasio asignado</Label>
-                      <Select 
+                      <Label htmlFor="gymId">Gimnasio asignado</Label>                      <Select 
                         value={formData.gymId} 
-                        onValueChange={(value) => handleSelectChange('gymId', value)}
+                        onValueChange={(value: string) => handleSelectChange('gymId', value)}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Selecciona un gimnasio" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {gyms?.map(gym => (
+                        </SelectTrigger>                        <SelectContent>
+                          {gyms?.map((gym: Gym) => (
                             <SelectItem key={gym.id} value={gym.id}>
                               {gym.name}
                             </SelectItem>

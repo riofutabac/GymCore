@@ -122,7 +122,7 @@ export const gymsApi = {
 
   getById: async (id: string): Promise<Gym> => {
     try {
-      const response = await axiosInstance.get<ApiResponse<Gym>>(`/gyms/${id}`);
+      const response = await axiosInstance.get<ApiResponse<Gym>>(`/api/gyms/${id}`);
       return handleResponse(response);
     } catch (error) {
       console.error(`Error al obtener gimnasio ${id}:`, error);
@@ -132,7 +132,7 @@ export const gymsApi = {
 
   create: async (gymData: CreateGymRequest): Promise<Gym> => {
     try {
-      const response = await axiosInstance.post<ApiResponse<Gym>>('/gyms', gymData);
+      const response = await axiosInstance.post<ApiResponse<Gym>>('/api/gyms', gymData);
       return handleResponse(response);
     } catch (error) {
       console.error('Error al crear gimnasio:', error);
@@ -142,8 +142,9 @@ export const gymsApi = {
 
   update: async (id: string, gymData: UpdateGymRequest): Promise<Gym> => {
     try {
-      const response = await axiosInstance.patch<ApiResponse<Gym>>(`/gyms/${id}`, gymData);
+      const response = await axiosInstance.put<ApiResponse<Gym>>(`/api/gyms/${id}`, gymData);
       return handleResponse(response);
+      
     } catch (error) {
       console.error(`Error al actualizar gimnasio ${id}:`, error);
       throw error;
@@ -152,7 +153,7 @@ export const gymsApi = {
 
   delete: async (id: string): Promise<void> => {
     try {
-      await axiosInstance.delete<ApiResponse<void>>(`/gyms/${id}`);
+      await axiosInstance.delete<ApiResponse<void>>(`/api/gyms/${id}`);
     } catch (error) {
       console.error(`Error al eliminar gimnasio ${id}:`, error);
       throw error;

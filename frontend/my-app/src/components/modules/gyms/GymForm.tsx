@@ -20,6 +20,7 @@ export function GymForm({ initialData, onSubmit, isSubmitting }: GymFormProps) {
     address: '',
     phone: '',
     email: '',
+    description: '',
     isActive: true,
   });
 
@@ -31,7 +32,18 @@ export function GymForm({ initialData, onSubmit, isSubmitting }: GymFormProps) {
         address: initialData.address || '',
         phone: initialData.phone || '',
         email: initialData.email || '',
+        description: initialData.description || '',
         isActive: initialData.isActive ?? true,
+      });
+    } else {
+      // Reset form when switching to create mode
+      setFormData({
+        name: '',
+        address: '',
+        phone: '',
+        email: '',
+        description: '',
+        isActive: true,
       });
     }
   }, [initialData]);
@@ -97,6 +109,15 @@ export function GymForm({ initialData, onSubmit, isSubmitting }: GymFormProps) {
                 onChange={handleChange}
               />
             </div>
+            <div className="space-y-2 col-span-2">
+              <Label htmlFor="description">Descripción</Label>
+              <Input
+                id="description"
+                name="description"
+                value={formData.description}
+                onChange={handleChange}
+              />
+            </div>
             {initialData && (
               <div className="flex items-center space-x-2">
                 <Switch 
@@ -108,9 +129,9 @@ export function GymForm({ initialData, onSubmit, isSubmitting }: GymFormProps) {
               </div>
             )}
           </div>
-          <div className="flex justify-end">
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Guardando...' : (initialData ? 'Actualizar' : 'Crear')}
+          <div className="flex justify-end space-x-2">
+            <Button type="submit" disabled={isSubmitting} variant={initialData ? "outline" : "default"}>
+              {isSubmitting ? 'Guardando...' : (initialData ? 'Guardar Cambios' : 'Crear Gimnasio')}
             </Button>
           </div>
         </form>

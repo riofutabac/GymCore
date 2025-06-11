@@ -23,7 +23,7 @@ export default function GymsPage() {
   });
 
   // Consulta para obtener un gimnasio específico cuando se selecciona para editar
-  const { data: selectedGym } = useQuery({
+  const { data: selectedGym, isLoading: isLoadingSelectedGym } = useQuery({
     queryKey: ['gym', selectedGymId],
     queryFn: () => selectedGymId ? api.gyms.getById(selectedGymId) : null,
     enabled: !!selectedGymId,
@@ -51,9 +51,9 @@ export default function GymsPage() {
       const gymData = {
         name: data.name || '',
         address: data.address || '',
-        description: data.description,
-        phone: data.phone,
-        email: data.email,
+        description: data.description || '',
+        phone: data.phone || '',
+        email: data.email || '',
         isActive: data.isActive
       };
       
@@ -66,7 +66,15 @@ export default function GymsPage() {
         if (!gymData.name || !gymData.address) {
           throw new Error('Nombre y dirección son requeridos');
         }
-        await api.gyms.create(gymData as CreateGymRequest);
+        // Eliminamos isActive para la creación ya que por defecto es true
+        const createGymData = {
+          name: gymData.name,
+          address: gymData.address,
+          description: gymData.description,
+          phone: gymData.phone,
+          email: gymData.email
+        };
+        await api.gyms.create(createGymData as CreateGymRequest);
         handleGymCreated();
       }
     } catch (error) {
@@ -149,14 +157,21 @@ export default function GymsPage() {
             <CardHeader>
               <CardTitle>Editar Gimnasio</CardTitle>
               <CardDescription>
-                Modifica la información del gimnasio seleccionado
+                {selectedGym ? `Modificando: ${selectedGym.name}` : 'Cargando información del gimnasio...'}
               </CardDescription>
             </CardHeader>
-            <CardContent>              <GymForm 
-                initialData={selectedGym || undefined} 
-                onSubmit={handleSubmitGym}
-                isSubmitting={isSubmitting}
-              />
+            <CardContent>
+              {isLoadingSelectedGym ? (
+                <div className="flex justify-center items-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              ) : (
+                <GymForm 
+                  initialData={selectedGym || undefined} 
+                  onSubmit={handleSubmitGym}
+                  isSubmitting={isSubmitting}
+                />
+              )}
             </CardContent>
           </Card>
         </TabsContent>

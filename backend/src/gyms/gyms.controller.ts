@@ -3,7 +3,9 @@ import { GymsService } from './gyms.service';
 import { CreateGymDto } from './dto/create-gym.dto';
 import { JoinGymDto } from './dto/join-gym.dto';
 import { AuthGuard } from '../common/guards/auth.guard';
+import { RoleGuard } from '../common/guards/role.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { Roles } from '../common/decorators/roles.decorator';
 
 @Controller('gyms')
 export class GymsController {
@@ -31,7 +33,8 @@ export class GymsController {
   }
 
   @Post()
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles(['OWNER'])
   async create(@Body() gymData: CreateGymDto, @CurrentUser() user: any) {
     return this.gymsService.create(gymData, user.id);
   }

@@ -67,15 +67,22 @@ export interface Gym {
   id: string;
   name: string;
   address: string;
+  description?: string;
+  phone?: string;
+  email?: string;
   managerId?: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  joinCode?: string;
 }
 
 export interface CreateGymRequest {
   name: string;
   address: string;
+  description?: string;
+  phone?: string;
+  email?: string;
   managerId?: string;
 }
 

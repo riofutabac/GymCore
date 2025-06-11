@@ -218,21 +218,22 @@ export default function ChangePasswordPage() {
 
   return (
     <div className="container mx-auto py-6 space-y-6 max-w-4xl">
-      {/* Header con botón de volver y título alineados */}
-      <div className="flex items-center gap-4">
+      {/* Botón de volver independiente */}
+      <div className="flex justify-start">
         <Link href="/settings">
           <Button variant="outline" size="sm">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Volver al Perfil
           </Button>
         </Link>
-        
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold tracking-tight">Cambiar Contraseña</h1>
-          <p className="text-muted-foreground text-lg">
-            Actualiza tu contraseña para mantener tu cuenta segura
-          </p>
-        </div>
+      </div>
+
+      {/* Header con título y descripción */}
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Cambiar Contraseña</h1>
+        <p className="text-muted-foreground text-lg">
+          Actualiza tu contraseña para mantener tu cuenta segura
+        </p>
       </div>
 
       {/* Mensaje de estado */}

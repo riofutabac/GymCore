@@ -8,14 +8,28 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserRole } from '@prisma/client';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
+  private supabaseAdmin: SupabaseClient;
 
   constructor(
     private prisma: PrismaService,
-  ) {}
+    private configService: ConfigService,
+  ) {
+    // Inicializar el cliente de admin de Supabase
+    const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
+    const supabaseServiceKey = this.configService.get<string>('SUPABASE_SERVICE_ROLE_KEY');
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error('Missing required Supabase configuration');
+    }
+
+    this.supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+  }
 
   // Login y register ahora son manejados por Supabase directamente en el frontend
 
@@ -393,26 +407,33 @@ export class AuthService {
 
   async resetUserPassword(userId: string) {
     try {
-      this.logger.log(`Resetting password for user ${userId}`);
-      
-      // Aquí podrías integrar con Supabase para resetear la contraseña
-      // Por ahora simulamos el proceso
+      this.logger.log(`Initiating password reset for user ${userId}`);
       
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
-        select: { email: true, name: true }
+        select: { email: true }
       });
 
       if (!user) {
         throw new NotFoundException('User not found');
       }
 
-      // Aquí enviarías un email de reset de contraseña
-      this.logger.log(`Password reset email would be sent to ${user.email}`);
+      // Llamar a la API de Supabase para enviar el correo de restablecimiento
+      const { data, error } = await this.supabaseAdmin.auth.resetPasswordForEmail(user.email);
+
+      if (error) {
+        this.logger.error(`Supabase password reset error for user ${userId}:`, error.message);
+        throw new BadRequestException(`Failed to initiate password reset: ${error.message}`);
+      }
+
+      this.logger.log(`Password reset email sent successfully to ${user.email}`);
       
-      return { message: 'Password reset email sent' };
+      return { message: 'Password reset email sent successfully' };
     } catch (error) {
-      this.logger.error(`Error resetting password for user ${userId}:`, error);
+      this.logger.error(`Error in resetUserPassword for user ${userId}:`, error);
+      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+        throw error;
+      }
       throw new BadRequestException(`Failed to reset password: ${error.message}`);
     }
   }

@@ -32,7 +32,7 @@ export function UserForm({ initialData, gyms, onSubmit, onCancel }: UserFormProp
     password: '',
     confirmPassword: '',
     role: 'MANAGER',
-    gymId: '',
+    gymId: 'unassigned',
     isActive: true,
   });
 
@@ -48,7 +48,7 @@ export function UserForm({ initialData, gyms, onSubmit, onCancel }: UserFormProp
         password: '',
         confirmPassword: '',
         role: initialData.role || 'MANAGER',
-        gymId: (initialData as any).workingAtGymId || '',
+        gymId: (initialData as any).workingAtGymId || 'unassigned',
         isActive: initialData.isActive ?? true,
       });
     } else {
@@ -59,7 +59,7 @@ export function UserForm({ initialData, gyms, onSubmit, onCancel }: UserFormProp
         password: '',
         confirmPassword: '',
         role: 'MANAGER',
-        gymId: '',
+        gymId: 'unassigned',
         isActive: true,
       });
     }
@@ -166,14 +166,14 @@ export function UserForm({ initialData, gyms, onSubmit, onCancel }: UserFormProp
           <div className="space-y-2">
             <Label htmlFor="gymId">Gimnasio asignado</Label>
             <Select 
-              value={formData.gymId || ''} 
+              value={formData.gymId || 'unassigned'} 
               onValueChange={(value: string) => handleSelectChange('gymId', value)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Selecciona un gimnasio" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Sin asignar</SelectItem>
+                <SelectItem value="unassigned">Sin asignar</SelectItem>
                 {gyms?.map((gym: Gym) => (
                   <SelectItem key={gym.id} value={gym.id}>
                     {gym.name}

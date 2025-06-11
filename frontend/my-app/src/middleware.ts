@@ -138,14 +138,10 @@ export async function middleware(request: NextRequest) {
 
     return NextResponse.next();
   } else {
-    // Usuario autenticado - Obtener el rol del usuario
-    const { data: userData } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-    
-    const role = userData?.role || 'CLIENT';
+    // Usuario autenticado - Obtener el rol directamente del token JWT
+    // El objeto 'user' ya contiene los metadatos con el rol. ¡No se necesita otra consulta!
+    const role = user.user_metadata?.role || 'CLIENT';
+    console.log(`Usuario autenticado con rol: ${role}`); // Log para depuración
     const baseRoute = getBaseRouteByRole(role);
     
     // CASO 1: Usuario autenticado en página pública (excepto reset-password y forgot-password) o raíz -> Redirigir a su dashboard
@@ -155,6 +151,7 @@ export async function middleware(request: NextRequest) {
         return NextResponse.next();
       }
       
+      console.log(`Redirigiendo a ${baseRoute} desde ${pathname}`); // Log para depuración
       return NextResponse.redirect(new URL(baseRoute, request.url));
     }
     

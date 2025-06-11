@@ -225,8 +225,11 @@ export const gymsApi = {
 export const usersApi = {
   getAll: async (): Promise<User[]> => {
     try {
+      console.log('Fetching all users...');
       const response = await axiosInstance.get<ApiResponse<User[]>>('/api/auth/users');
-      return handleResponse(response);
+      const users = handleResponse(response);
+      console.log('Users fetched successfully:', users.length);
+      return users;
     } catch (error) {
       console.error('Error al obtener usuarios:', error);
       throw error;
@@ -253,19 +256,54 @@ export const usersApi = {
     }
   },
 
-  updateRole: async (id: string, role: UserRole): Promise<User> => {
+  createUser: async (userData: {
+    name: string;
+    email: string;
+    password: string;
+    role: string;
+    gymId?: string;
+  }): Promise<User> => {
     try {
-      const response = await axiosInstance.patch<ApiResponse<User>>(`/users/${id}/role`, { role });
+      const response = await axiosInstance.post<ApiResponse<User>>('/api/auth/users', userData);
       return handleResponse(response);
     } catch (error) {
-      console.error(`Error al actualizar rol de usuario ${id}:`, error);
+      console.error('Error al crear usuario:', error);
+      throw error;
+    }
+  },
+
+  updateUser: async (id: string, userData: Partial<User>): Promise<User> => {
+    try {
+      console.log(`Updating user ${id} with data:`, userData);
+      const response = await axiosInstance.put<ApiResponse<User>>(`/api/auth/users/${id}`, userData);
+      const updatedUser = handleResponse(response);
+      console.log('User updated successfully:', updatedUser);
+      return updatedUser;
+    } catch (error) {
+      console.error(`Error al actualizar usuario ${id}:`, error);
+      throw error;
+    }
+  },
+
+  updateUserStatus: async (id: string, isActive: boolean): Promise<User> => {
+    try {
+      console.log(`Updating user ${id} status to:`, isActive);
+      const response = await axiosInstance.patch<ApiResponse<User>>(`/api/auth/users/${id}/status`, { isActive });
+      const updatedUser = handleResponse(response);
+      console.log('User status updated successfully:', updatedUser);
+      return updatedUser;
+    } catch (error) {
+      console.error(`Error al actualizar estado de usuario ${id}:`, error);
       throw error;
     }
   },
 
   resetPassword: async (id: string): Promise<void> => {
     try {
-      await axiosInstance.post<ApiResponse<void>>(`/users/${id}/reset-password`);
+      console.log(`Resetting password for user ${id}`);
+      const response = await axiosInstance.post<ApiResponse<void>>(`/api/auth/users/${id}/reset-password`);
+      handleResponse(response);
+      console.log('Password reset successfully');
     } catch (error) {
       console.error(`Error al resetear contraseña de usuario ${id}:`, error);
       throw error;

@@ -10,6 +10,8 @@ import {
   BadRequestException,
   UnauthorizedException,
   Logger,
+  Put,
+  Patch,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuthGuard } from '../common/guards/auth.guard';
@@ -144,6 +146,77 @@ export class AuthController {
         success: false,
         message: error.message || 'Failed to sync user'
       };
+    }
+  }
+
+  @Post('users')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles([Role.OWNER])
+  async createStaffUser(@Body() userData: any, @CurrentUser() user: any) {
+    try {
+      const newUser = await this.authService.createStaffUser(userData, user.id);
+      return {
+        success: true,
+        data: newUser,
+        message: 'Staff user created successfully'
+      };
+    } catch (error) {
+      this.logger.error('Error creating staff user:', error);
+      throw error;
+    }
+  }
+
+  @Put('users/:id')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles([Role.OWNER])
+  async updateUser(@Param('id') userId: string, @Body() updateData: any, @CurrentUser() user: any) {
+    try {
+      this.logger.log(`Updating user ${userId} by ${user.id}`);
+      const updatedUser = await this.authService.updateUser(userId, updateData);
+      return {
+        success: true,
+        data: updatedUser,
+        message: 'User updated successfully'
+      };
+    } catch (error) {
+      this.logger.error(`Error updating user ${userId}:`, error);
+      throw error;
+    }
+  }
+  
+  @Patch('users/:id/status')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles([Role.OWNER])
+  async updateUserStatus(@Param('id') userId: string, @Body() body: { isActive: boolean }, @CurrentUser() user: any) {
+    try {
+      this.logger.log(`Updating status of user ${userId} to ${body.isActive} by ${user.id}`);
+      const updatedUser = await this.authService.updateUserStatus(userId, body.isActive);
+      return {
+        success: true,
+        data: updatedUser,
+        message: 'User status updated successfully'
+      };
+    } catch (error) {
+      this.logger.error(`Error updating user status ${userId}:`, error);
+      throw error;
+    }
+  }
+
+  @Post('users/:id/reset-password')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles([Role.OWNER])
+  async resetUserPassword(@Param('id') userId: string, @CurrentUser() user: any) {
+    try {
+      this.logger.log(`Resetting password for user ${userId} by ${user.id}`);
+      const result = await this.authService.resetUserPassword(userId);
+      return {
+        success: true,
+        data: result,
+        message: 'Password reset initiated successfully'
+      };
+    } catch (error) {
+      this.logger.error(`Error resetting password for user ${userId}:`, error);
+      throw error;
     }
   }
 }

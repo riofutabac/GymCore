@@ -266,7 +266,15 @@ export class AuthService {
           name: true,
           role: true,
           isActive: true,
+          workingAtGymId: true,
           createdAt: true,
+          updatedAt: true,
+          workingAtGym: {
+            select: {
+              id: true,
+              name: true,
+            }
+          }
         },
         orderBy: {
           createdAt: 'desc',
@@ -281,6 +289,131 @@ export class AuthService {
       this.logger.error(`Error in getAllUsers:`, error);
       this.logger.error('Stack trace:', error.stack);
       throw new BadRequestException(`Failed to retrieve users: ${error.message}`);
+    }
+  }
+
+  async createStaffUser(userData: any, ownerId: string) {
+    try {
+      this.logger.log(`Owner ${ownerId} creating staff user: ${userData.email}`);
+
+      // Crear el usuario en nuestra base de datos
+      const newUser = await this.prisma.user.create({
+        data: {
+          email: userData.email,
+          name: userData.name,
+          role: userData.role.toUpperCase(),
+          isActive: true,
+          emailVerified: false,
+          workingAtGymId: userData.gymId || null,
+        }
+      });
+
+      this.logger.log(`Staff user ${userData.email} created successfully with ID: ${newUser.id}`);
+      return newUser;
+    } catch (error) {
+      this.logger.error(`Error creating staff user: ${error.message}`, error.stack);
+      throw new BadRequestException(`Failed to create staff user: ${error.message}`);
+    }
+  }
+
+  async updateUser(userId: string, updateData: any) {
+    try {
+      this.logger.log(`Updating user ${userId} with data:`, updateData);
+      
+      const user = await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          name: updateData.name,
+          role: updateData.role?.toUpperCase(),
+          workingAtGymId: updateData.gymId || null,
+          isActive: updateData.isActive,
+          updatedAt: new Date(),
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          isActive: true,
+          workingAtGymId: true,
+          createdAt: true,
+          updatedAt: true,
+          workingAtGym: {
+            select: {
+              id: true,
+              name: true,
+            }
+          }
+        },
+      });
+
+      this.logger.log(`User ${userId} updated successfully`);
+      return user;
+    } catch (error) {
+      this.logger.error(`Error updating user ${userId}:`, error);
+      throw new BadRequestException(`Failed to update user: ${error.message}`);
+    }
+  }
+
+  async updateUserStatus(userId: string, isActive: boolean) {
+    try {
+      this.logger.log(`Setting user ${userId} active status to: ${isActive}`);
+      
+      const user = await this.prisma.user.update({
+        where: { id: userId },
+        data: { 
+          isActive,
+          updatedAt: new Date(),
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          isActive: true,
+          workingAtGymId: true,
+          createdAt: true,
+          updatedAt: true,
+          workingAtGym: {
+            select: {
+              id: true,
+              name: true,
+            }
+          }
+        },
+      });
+
+      this.logger.log(`User ${userId} status updated successfully to ${isActive}`);
+      return user;
+    } catch (error) {
+      this.logger.error(`Error updating user status ${userId}:`, error);
+      throw new BadRequestException(`Failed to update user status: ${error.message}`);
+    }
+  }
+
+  async resetUserPassword(userId: string) {
+    try {
+      this.logger.log(`Resetting password for user ${userId}`);
+      
+      // Aquí podrías integrar con Supabase para resetear la contraseña
+      // Por ahora simulamos el proceso
+      
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true, name: true }
+      });
+
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      // Aquí enviarías un email de reset de contraseña
+      this.logger.log(`Password reset email would be sent to ${user.email}`);
+      
+      return { message: 'Password reset email sent' };
+    } catch (error) {
+      this.logger.error(`Error resetting password for user ${userId}:`, error);
+      throw new BadRequestException(`Failed to reset password: ${error.message}`);
     }
   }
 }

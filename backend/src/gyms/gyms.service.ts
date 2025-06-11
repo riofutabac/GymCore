@@ -178,15 +178,26 @@ export class GymsService {
 
   async create(gymData: CreateGymDto, userId: string) {
     try {
-      // Verificar si el usuario ya tiene un gimnasio
-      const existingGyms = await this.prisma.gym.findMany({ 
-        where: { ownerId: userId } 
+      // Verificar el rol del usuario
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId }
       });
-      
-      if (existingGyms && existingGyms.length > 0) {
-        throw new BadRequestException('You already own a gym');
+
+      if (!user) {
+        throw new BadRequestException('User not found');
       }
-      
+
+      // Solo verificar límite de gimnasios si NO es OWNER
+      if (user.role !== 'OWNER') {
+        const existingGyms = await this.prisma.gym.findMany({ 
+          where: { ownerId: userId } 
+        });
+        
+        if (existingGyms && existingGyms.length > 0) {
+          throw new BadRequestException('You already own a gym');
+        }
+      }
+
       // Generar código de unión único
       let joinCode = generateJoinCode();
       let codeExists = true;

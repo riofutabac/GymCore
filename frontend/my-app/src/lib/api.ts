@@ -110,6 +110,25 @@ export const authApi = {
 
 // Módulo de gimnasios
 export const gymsApi = {
+  update: async (id: string, gymData: Partial<Gym>): Promise<ApiResponse<Gym>> => {
+    try {
+      const response = await axiosInstance.put<ApiResponse<Gym>>(`/api/gyms/${id}`, gymData);
+      return handleResponse(response);
+    } catch (error) {
+      console.error(`Error updating gym ${id}:`, error);
+      throw error;
+    }
+  },
+
+  delete: async (id: string): Promise<ApiResponse<void>> => {
+    try {
+      const response = await axiosInstance.delete<ApiResponse<void>>(`/api/gyms/${id}`);
+      return handleResponse(response);
+    } catch (error) {
+      console.error(`Error deleting gym ${id}:`, error);
+      throw error;
+    }
+  },
   getAll: async (): Promise<Gym[]> => {
     try {
       const response = await axiosInstance.get<ApiResponse<Gym[]>>('/api/gyms');

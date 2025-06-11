@@ -5,21 +5,56 @@ import { Button } from '@/components/ui/button';
 import { Gym } from '@/lib/types';
 import { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/components/ui/data-table';
-import { Copy, Check } from 'lucide-react';
+import { Copy, Check, Trash2, Edit, Power, PowerOff } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import api from '@/lib/api';
+import { useToast } from '@/components/ui/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface GymDataTableProps {
   data: Gym[];
   onEdit: (gym: Gym) => void;
   onToggleStatus?: (gym: Gym) => void;
+  onDelete?: (gym: Gym) => void;
   isLoading?: boolean;
   error?: string | null;
   onRefresh?: () => void;
 }
 
 export function GymDataTable({ data, onEdit, onToggleStatus, isLoading, error, onRefresh }: GymDataTableProps) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
-  
+  const [gymToDelete, setGymToDelete] = useState<Gym | null>(null);
+
+  const deleteMutation = useMutation({
+    mutationFn: (gymId: string) => api.gyms.delete(gymId),
+    onSuccess: () => {
+      toast({ title: 'Gimnasio eliminado', description: 'El gimnasio ha sido eliminado exitosamente.' });
+      queryClient.invalidateQueries({ queryKey: ['gyms'] });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: 'Error', 
+        description: `No se pudo eliminar el gimnasio: ${error.message}`, 
+        variant: 'destructive' 
+      });
+    },
+    onSettled: () => {
+      setGymToDelete(null);
+    }
+  });
+
   const handleCopyCode = (code: string) => {
     navigator.clipboard.writeText(code);
     setCopiedCode(code);
@@ -27,7 +62,7 @@ export function GymDataTable({ data, onEdit, onToggleStatus, isLoading, error, o
   };
   
   // Definir columnas para la tabla
-  const columns: ColumnDef<Gym, any>[] = [
+  const columns: ColumnDef<Gym>[] = [
     {
       accessorKey: 'name',
       header: 'Nombre',
@@ -94,23 +129,63 @@ export function GymDataTable({ data, onEdit, onToggleStatus, isLoading, error, o
       id: 'actions',
       header: 'Acciones',
       cell: ({ row }) => (
-        <div className="flex gap-2">
+        <div className="flex items-center gap-1">
           {onToggleStatus && (
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => onToggleStatus(row.original)}
-            >
-              {row.original.isActive ? 'Desactivar' : 'Activar'}
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => onToggleStatus(row.original)}
+                  >
+                    {row.original.isActive ? 
+                      <PowerOff className="h-4 w-4 text-red-500" /> : 
+                      <Power className="h-4 w-4 text-green-500" />
+                    }
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{row.original.isActive ? 'Desactivar' : 'Activar'}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => onEdit(row.original)}
-          >
-            Editar
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8"
+                  onClick={() => onEdit(row.original)}
+                >
+                  <Edit className="h-4 w-4 text-blue-500" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Editar gimnasio</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8 hover:bg-red-50"
+                  onClick={() => setGymToDelete(row.original)}
+                >
+                  <Trash2 className="h-4 w-4 text-red-500" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Eliminar gimnasio</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       ),
     },
@@ -134,11 +209,37 @@ export function GymDataTable({ data, onEdit, onToggleStatus, isLoading, error, o
   }
 
   return (
-    <DataTable
-      columns={columns}
-      data={data}
-      searchColumn="name"
-      searchPlaceholder="Buscar por nombre..."
-    />
+    <>
+      <DataTable
+        columns={columns}
+        data={data}
+        searchColumn="name"
+        searchPlaceholder="Buscar por nombre..."
+      />
+
+      <AlertDialog open={!!gymToDelete} onOpenChange={() => setGymToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción es irreversible. Se eliminará el gimnasio "{gymToDelete?.name}" y todos sus datos asociados (miembros, ventas, productos, etc.).
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                if (gymToDelete) {
+                  deleteMutation.mutate(gymToDelete.id);
+                }
+              }}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? 'Eliminando...' : 'Sí, eliminar'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

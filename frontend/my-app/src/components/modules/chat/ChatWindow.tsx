@@ -72,32 +72,10 @@ export function ChatWindow() {
       socketService.joinConversation(activeConversationId);
     }
 
-    // Configurar listener para nuevos mensajes
-    const unsubscribeNewMessage = socketService.onNewMessage((message: Message) => {
-      console.log('📨 Nuevo mensaje recibido:', message);
-      
-      if (message.conversationId === activeConversationId) {
-        // Verificar si el mensaje ya existe para evitar duplicados
-        const existingMessage = useChatStore.getState().messages.find(m => m.id === message.id);
-        if (!existingMessage) {
-          addMessage(message);
-        }
-      }
-    });
-
-    // Configurar listener para errores
-    const unsubscribeError = socketService.onError((error) => {
-      console.error('❌ Error en socket:', error);
-      toast.error('Error de conexión', {
-        description: error?.message || 'Problema con la conexión de chat'
-      });
-    });
-
-    return () => {
-      unsubscribeNewMessage();
-      unsubscribeError();
-    };
-  }, [activeConversationId, addMessage]);
+    // Los listeners ya están configurados en el store globalmente
+    // Solo necesitamos asegurar que estamos unidos a la conversación
+    
+  }, [activeConversationId]);
 
   // Scroll automático al final
   useEffect(() => {

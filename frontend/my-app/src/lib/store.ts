@@ -270,65 +270,191 @@ export function useSyncSupabaseAuth() {
     };
   }, []);
 }
-// ... (después de tu gymStore)
 
 
-interface ChatState {
-  conversations: any[];
+interface ChatStore {
+  conversations: Conversation[];
+  messages: Message[];
   activeConversationId: string | null;
-  messages: any[];
-  setConversations: (conversations: any[]) => void;
-  setActiveConversation: (conversationId: string) => void;
-  addMessage: (message: any) => void;
+  isLoading: boolean;
+  error: string | null;
+  
+  // Actions
+  setActiveConversation: (conversationId: string | null) => void;
   fetchConversations: () => Promise<void>;
   fetchMessages: (conversationId: string) => Promise<void>;
+  addMessage: (message: Message) => void;
+  addConversation: (conversation: Conversation) => void;
+  updateConversation: (conversationId: string, updates: Partial<Conversation>) => void;
+  clearMessages: () => void;
+  setLoading: (loading: boolean) => void;
+  setError: (error: string | null) => void;
 }
 
-export const useChatStore = create<ChatState>((set, get) => ({
+export const useChatStore = create<ChatStore>((set, get) => ({
   conversations: [],
-  activeConversationId: null,
   messages: [],
-  setConversations: (conversations) => set({ conversations }),
+  activeConversationId: null,
+  isLoading: false,
+  error: null,
+
   setActiveConversation: (conversationId) => {
-    set({ activeConversationId: conversationId, messages: [] });
-    socketService.joinConversation(conversationId);
-    get().fetchMessages(conversationId);
-  },
-  addMessage: (message) => {
-    if (message.conversationId === get().activeConversationId) {
-      set((state) => {
-        // Verificar si el mensaje ya existe para evitar duplicados
-        const messageExists = state.messages.some(msg => 
-          // Si tiene ID real, comparar por ID
-          (msg.id && msg.id === message.id) || 
-          // Si es un mensaje temporal, comparar por contenido y timestamp
-          (msg._status === 'sending' && 
-           msg.content === message.content && 
-           Math.abs(new Date(msg.createdAt).getTime() - new Date(message.createdAt).getTime()) < 5000)
-        );
+    const currentId = get().activeConversationId;
+    
+    // Solo cambiar si es diferente
+    if (currentId !== conversationId) {
+      set({ 
+        activeConversationId: conversationId,
+        messages: [], // Limpiar mensajes anteriores
+        error: null 
+      });
+      
+      // Cargar mensajes inmediatamente si hay conversación
+      if (conversationId) {
+        get().fetchMessages(conversationId);
         
-        if (messageExists) {
-          console.log('Mensaje duplicado, no se agregará:', message);
-          return { messages: state.messages };
+        // Unirse a la conversación en el socket
+        if (typeof window !== 'undefined') {
+          import('./socket').then(({ socketService }) => {
+            if (socketService.isConnected()) {
+              socketService.joinConversation(conversationId);
+            }
+          });
         }
-        
-        console.log('Agregando nuevo mensaje al estado:', message);
-        return { messages: [...state.messages, message] };
+      }
+    }
+  },
+
+  fetchConversations: async () => {
+    const currentConversations = get().conversations;
+    
+    try {
+      // Solo mostrar loading si no hay conversaciones cargadas
+      if (currentConversations.length === 0) {
+        set({ isLoading: true, error: null });
+      }
+      
+      const conversations = await chatApi.getConversations();
+      
+      // Verificar si hay cambios reales antes de actualizar
+      const hasChanges = conversations.length !== currentConversations.length ||
+        conversations.some(conv => 
+          !currentConversations.find(curr => 
+            curr.id === conv.id && curr.updatedAt === conv.updatedAt
+          )
+        );
+      
+      if (hasChanges) {
+        set({ conversations, isLoading: false });
+      } else {
+        set({ isLoading: false });
+      }
+    } catch (error) {
+      console.error('Error fetching conversations:', error);
+      set({ 
+        error: error instanceof Error ? error.message : 'Error loading conversations',
+        isLoading: false 
       });
     }
   },
-  fetchConversations: async () => {
-    const conversations = await chatApi.getConversations();
-    set({ conversations });
-  },
+
   fetchMessages: async (conversationId) => {
-    const messages = await chatApi.getMessages(conversationId);
-    set({ messages });
+    const currentConversationId = get().activeConversationId;
+    
+    // Solo cargar si es la conversación activa
+    if (currentConversationId !== conversationId) return;
+    
+    try {
+      set({ isLoading: true, error: null });
+      const messages = await chatApi.getMessages(conversationId);
+      
+      // Solo actualizar si sigue siendo la conversación activa
+      if (get().activeConversationId === conversationId) {
+        set({ messages, isLoading: false });
+      }
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+      if (get().activeConversationId === conversationId) {
+        set({ 
+          error: error instanceof Error ? error.message : 'Error loading messages',
+          isLoading: false 
+        });
+      }
+    }
   },
+
+  addMessage: (message) => {
+    const { messages, activeConversationId, conversations } = get();
+    
+    // Solo agregar si es de la conversación activa
+    if (message.conversationId === activeConversationId) {
+      // Verificar que no existe ya el mensaje
+      const existingMessage = messages.find(m => m.id === message.id);
+      if (!existingMessage) {
+        set({ messages: [...messages, message] });
+      }
+    }
+    
+    // Actualizar la conversación con el último mensaje
+    const updatedConversations = conversations.map(conv => {
+      if (conv.id === message.conversationId) {
+        return {
+          ...conv,
+          messages: [message], // Último mensaje para preview
+          updatedAt: message.createdAt
+        };
+      }
+      return conv;
+    });
+    
+    set({ conversations: updatedConversations });
+  },
+
+  addConversation: (conversation) => {
+    const conversations = get().conversations;
+    const exists = conversations.find(c => c.id === conversation.id);
+    
+    if (!exists) {
+      set({ conversations: [conversation, ...conversations] });
+    }
+  },
+
+  updateConversation: (conversationId, updates) => {
+    const conversations = get().conversations;
+    const updatedConversations = conversations.map(conv =>
+      conv.id === conversationId ? { ...conv, ...updates } : conv
+    );
+    set({ conversations: updatedConversations });
+  },
+
+  clearMessages: () => set({ messages: [] }),
+  setLoading: (isLoading) => set({ isLoading }),
+  setError: (error) => set({ error }),
 }));
 
-// La conexión del socket se maneja en el método refreshUser del authStore
-// y los listeners se configuran en el componente ChatNotification
+// Configurar listeners del socket una sola vez cuando se inicializa el store
+if (typeof window !== 'undefined') {
+  import('./socket').then(({ socketService }) => {
+    // Configurar listener para nuevos mensajes
+    socketService.onNewMessage((message) => {
+      console.log('📨 Nuevo mensaje recibido en store:', message);
+      useChatStore.getState().addMessage(message);
+    });
+
+    // Configurar listener para actualizaciones de conversación
+    socketService.onConversationUpdate((conversation) => {
+      console.log('💬 Conversación actualizada en store:', conversation);
+      useChatStore.getState().fetchConversations();
+    });
+
+    // Configurar listener para errores
+    socketService.onError((error) => {
+      console.error('❌ Error de socket en store:', error);
+      useChatStore.getState().setError(error?.message || 'Error de conexión');
+    });
+  });
+}
+
 // Exportar los stores
 export const useAuthStore = authStore;
 export const useGymStore = gymStore;

@@ -161,6 +161,22 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
       // Emitir el mensaje a todos en la sala de la conversación
       this.server.to(`conversation_${data.conversationId}`).emit('newMessage', message);
 
+      // También notificar a los participantes que no están en la sala activa
+      const conversation = await this.chatService.getConversationWithParticipants(data.conversationId);
+      if (conversation) {
+        conversation.participants.forEach(participant => {
+          if (participant.id !== user.id) {
+            this.server.to(`user_${participant.id}`).emit('newMessage', message);
+          }
+        });
+
+        // Actualizar la conversación para todos los participantes
+        this.server.to(`conversation_${data.conversationId}`).emit('conversationUpdated', {
+          ...conversation,
+          messages: [message]
+        });
+      }
+
       this.logger.log(`📤 Mensaje de ${user.email} enviado a conversación: ${data.conversationId}`);
       
       // Confirmar al emisor que el mensaje se envió

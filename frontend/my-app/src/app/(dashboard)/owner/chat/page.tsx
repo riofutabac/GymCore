@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { ChatWindow } from '@/components/modules/chat/ChatWindow';
 import { ConversationList } from '@/components/modules/chat/ConversationList';
 import { ManagerList } from '@/components/modules/chat/ManagerList';
@@ -13,105 +13,119 @@ import { socketService } from '@/lib/socket';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function OwnerChatPage() {
-  const { fetchConversations, activeConversationId, conversations } = useChatStore();
+  const { fetchConversations, activeConversationId, conversations, isLoading, error } = useChatStore();
   const { user } = useAuthStore();
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isConnected, setIsConnected] = useState(socketService.isConnected());
+  const [isConnected, setIsConnected] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
 
-  // Monitorear el estado de conexión del socket
+  // Inicialización más eficiente
+  const initializeChat = useCallback(async () => {
+    if (!user || !isInitializing) return;
+
+    console.log('🚀 Inicializando chat para owner...');
+    
+    try {
+      // Conectar socket primero
+      if (!socketService.isConnected()) {
+        console.log('🔌 Conectando socket...');
+        const connected = await socketService.connect();
+        setIsConnected(connected);
+        
+        if (!connected) {
+          throw new Error('No se pudo conectar al servidor de chat');
+        }
+      } else {
+        setIsConnected(true);
+      }
+
+      // Cargar conversaciones en paralelo (no bloquear la UI)
+      console.log('📂 Cargando conversaciones para el owner...');
+      fetchConversations().then(() => {
+        console.log('✅ Conversaciones cargadas exitosamente');
+      }).catch(error => {
+        console.error('❌ Error cargando conversaciones:', error);
+      });
+
+    } catch (error: any) {
+      console.error('❌ Error inicializando chat:', error);
+      toast.error('Error de inicialización', {
+        description: error?.message || 'Problema al inicializar el chat'
+      });
+    } finally {
+      setIsInitializing(false);
+    }
+  }, [user, fetchConversations, isInitializing]);
+
+  // Ejecutar inicialización una sola vez
+  useEffect(() => {
+    if (user && isInitializing) {
+      initializeChat();
+    }
+  }, [user, initializeChat, isInitializing]);
+
+  // Monitorear conexión del socket de forma más eficiente
   useEffect(() => {
     const checkConnection = () => {
       const connected = socketService.isConnected();
       setIsConnected(connected);
     };
 
-    // Verificar cada 2 segundos
-    const interval = setInterval(checkConnection, 2000);
-
-    // Verificar inmediatamente
     checkConnection();
+    const interval = setInterval(checkConnection, 5000); // Verificar cada 5 segundos
 
-    // Iniciar conexión si no está conectado
-    if (!socketService.isConnected()) {
-      console.log('🔌 Iniciando conexión del socket desde OwnerChatPage');
-      socketService.connect().then((connected) => {
-        console.log(`🔌 Resultado de conexión: ${connected}`);
-        setIsConnected(connected);
-        if (connected) {
-          loadConversations();
-        }
-      }).catch((error) => {
-        console.error('❌ Error conectando socket:', error);
-        setIsConnected(false);
-      });
-    } else {
-      console.log('✅ Socket ya conectado en OwnerChatPage');
-      setIsConnected(true);
-    }
-
-    return () => {
-      clearInterval(interval);
-    };
+    return () => clearInterval(interval);
   }, []);
 
-  const loadConversations = async () => {
-    if (!user) {
-      console.log('⚠️ No hay usuario, saltando carga de conversaciones');
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      console.log('📂 Cargando conversaciones para el owner...');
-      await fetchConversations();
-      console.log('✅ Conversaciones cargadas exitosamente');
-    } catch (error: any) {
-      console.error('❌ Error al cargar conversaciones:', error);
-      setError(error?.message || 'No se pudieron cargar las conversaciones');
-      toast.error('Error de carga', {
-        description: 'No se pudieron cargar las conversaciones'
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+  // Configurar listeners de tiempo real
   useEffect(() => {
-    if (user) {
-      loadConversations();
-    }
+    if (!user) return;
+
+    console.log('🔗 Configurando listeners de tiempo real...');
+
+    // Listener para nuevos mensajes
+    const unsubscribeMessages = socketService.onNewMessage((message) => {
+      console.log('📨 Nuevo mensaje recibido:', message);
+      // El store se encarga de actualizar automáticamente
+    });
+
+    // Listener para actualizaciones de conversaciones
+    const unsubscribeConversations = socketService.onConversationUpdate((conversation) => {
+      console.log('💬 Conversación actualizada:', conversation);
+      // Actualizar lista de conversaciones si es necesario
+      fetchConversations();
+    });
+
+    return () => {
+      unsubscribeMessages();
+      unsubscribeConversations();
+    };
   }, [user, fetchConversations]);
 
-  const handleRetry = async () => {
-    setError(null);
+  const handleRetry = useCallback(async () => {
+    setIsInitializing(true);
     
-    // Reconectar socket si es necesario
-    if (!socketService.isConnected()) {
-      const connected = await socketService.connect();
-      setIsConnected(connected);
-      
-      if (!connected) {
-        toast.error('Error de conexión', {
-          description: 'No se pudo restablecer la conexión con el servidor'
-        });
-        return;
-      }
+    // Reconectar socket
+    const connected = await socketService.connect();
+    setIsConnected(connected);
+    
+    if (connected) {
+      // Recargar conversaciones
+      await fetchConversations();
+      toast.success('Conexión restablecida');
+    } else {
+      toast.error('No se pudo restablecer la conexión');
     }
     
-    // Recargar conversaciones
-    await loadConversations();
-  };
+    setIsInitializing(false);
+  }, [fetchConversations]);
 
-  // Mostrar loader solo en la carga inicial
-  if (isLoading && conversations.length === 0) {
+  // Mostrar loader solo durante inicialización
+  if (isInitializing) {
     return (
       <div className="flex h-full items-center justify-center flex-col">
         <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
-        <span>Cargando conversaciones...</span>
-        <p className="text-sm text-muted-foreground mt-2">Esto puede tomar unos momentos</p>
+        <span>Inicializando chat...</span>
+        <p className="text-sm text-muted-foreground mt-2">Conectando con el servidor</p>
       </div>
     );
   }
@@ -125,7 +139,7 @@ export default function OwnerChatPage() {
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="conversations" className="text-xs">
                 <MessageSquare className="h-4 w-4 mr-1" />
-                Chats
+                Chats ({conversations.length})
               </TabsTrigger>
               <TabsTrigger value="managers" className="text-xs">
                 <Users className="h-4 w-4 mr-1" />
@@ -156,7 +170,7 @@ export default function OwnerChatPage() {
             <Button 
               onClick={handleRetry} 
               className="mt-4"
-              disabled={isLoading}
+              disabled={isInitializing}
             >
               <RefreshCw className="mr-2 h-4 w-4" />
               Reintentar
@@ -172,9 +186,9 @@ export default function OwnerChatPage() {
               </AlertDescription>
             </Alert>
             <Button 
-              onClick={() => socketService.connect().then(setIsConnected)} 
+              onClick={handleRetry} 
               className="mt-4"
-              disabled={isLoading}
+              disabled={isInitializing}
             >
               <RefreshCw className="mr-2 h-4 w-4" />
               Reconectar
@@ -189,6 +203,12 @@ export default function OwnerChatPage() {
             <p className="text-sm text-muted-foreground text-center max-w-md">
               Puedes continuar una conversación existente o iniciar una nueva seleccionando un gerente en la pestaña "Gerentes"
             </p>
+            {isLoading && (
+              <div className="flex items-center gap-2 mt-4 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Cargando conversaciones...
+              </div>
+            )}
           </div>
         ) : (
           <ChatWindow />

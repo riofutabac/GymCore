@@ -170,4 +170,15 @@ export class ChatService {
     
     return owners.length > 0 ? owners[0] : null;
   }
+
+  async getConversationWithParticipants(conversationId: string) {
+    return this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+      include: {
+        participants: {
+          select: { id: true, name: true, role: true, email: true },
+        },
+      },
+    });
+  }
 }

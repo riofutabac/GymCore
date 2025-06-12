@@ -31,7 +31,7 @@ type GymState = {
   clearCurrentGym: () => void;
 };
 
-const authStore = create<AuthState>(
+const authStore = create<AuthState>()(
   persist(
     (set, get) => ({
       user: null,
@@ -39,27 +39,18 @@ const authStore = create<AuthState>(
       isLoading: false,
       error: null,
       setUser: (user) => set({ user, isAuthenticated: !!user }),
-      clearError: () => set({ error: null }),      logout: async () => {
+      clearError: () => set({ error: null }),
+      logout: async () => {
         set({ isLoading: true });
         try {
           const supabase = createSupabaseBrowserClient();
-          
-          // Desconectar socket antes de cerrar sesión
-          socketService.disconnect();
-          
-          // Limpiar estado del gimnasio
-          gymStore.getState().clearCurrentGym();
-          
-          // Cerrar sesión en Supabase
           await supabase.auth.signOut();
-          
           set({
             user: null,
             isAuthenticated: false,
             error: null,
             isLoading: false
           });
-          
           if (typeof window !== 'undefined') {
             window.location.href = '/login';
           }
@@ -105,6 +96,8 @@ const authStore = create<AuthState>(
               const { data: { session } } = await supabase.auth.getSession();
 
               if (session?.user) {
+                // Try to sync the user to our database
+                console.log('Attempting to sync user to database...');
                 // For now, just sign out and let them try again
                 await supabase.auth.signOut();
                 set({
@@ -260,7 +253,8 @@ export function useSyncSupabaseAuth() {
 
     // Escuchar cambios en la sesión
     const {
-      data: { subscription },    } = supabase.auth.onAuthStateChange(async (event: string, session: any) => {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event: string, session: any) => {
       if (event === 'SIGNED_IN') {
         await authStore.getState().refreshUser();
       } else if (event === 'SIGNED_OUT') {
@@ -312,6 +306,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
            msg.content === message.content && 
            Math.abs(new Date(msg.createdAt).getTime() - new Date(message.createdAt).getTime()) < 5000)
         );
+        
+        if (messageExists) {
+          console.log('Mensaje duplicado, no se agregará:', message);
+          return { messages: state.messages };
+        }
+        
+        console.log('Agregando nuevo mensaje al estado:', message);
         return { messages: [...state.messages, message] };
       });
     }

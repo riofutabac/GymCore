@@ -1,4 +1,4 @@
-import { Controller, Get, Param, UseGuards, Post, Body } from '@nestjs/common';
+import { Controller, Get, Param, UseGuards, Post, Body, BadRequestException } from '@nestjs/common';
 import { ChatService } from './chat.service';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -25,10 +25,12 @@ export class ChatController {
     } else if (user.role === 'OWNER') {
       // Si es el owner quien inicia, necesitamos el ID del manager
       if (!body.managerId) {
-        throw new Error('Se requiere el ID del manager para iniciar la conversación');
+        throw new BadRequestException('Se requiere el ID del manager para iniciar la conversación');
       }
       return this.chatService.findOrCreateConversation(user.id, body.managerId, body.gymId);
     }
+    
+    throw new BadRequestException('Rol no autorizado para iniciar conversaciones');
   }
 
   @Get('conversations/:id/messages')

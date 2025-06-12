@@ -59,7 +59,30 @@ export function GymForm({ initialData, onSubmit, isSubmitting }: GymFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await onSubmit(formData);
+    
+    // Validaciones básicas
+    if (!formData.name.trim() || !formData.address.trim()) {
+      return;
+    }
+    
+    try {
+      await onSubmit(formData);
+      
+      // Solo limpiar el formulario si es creación (no edición)
+      if (!initialData) {
+        setFormData({
+          name: '',
+          address: '',
+          phone: '',
+          email: '',
+          description: '',
+          isActive: true,
+        });
+      }
+    } catch (error) {
+      // El error se maneja en el componente padre
+      console.error('Error in form submission:', error);
+    }
   };
 
   return (
@@ -78,6 +101,7 @@ export function GymForm({ initialData, onSubmit, isSubmitting }: GymFormProps) {
                 value={formData.name}
                 onChange={handleChange}
                 required
+                disabled={isSubmitting}
               />
             </div>
             <div className="space-y-2">
@@ -88,6 +112,7 @@ export function GymForm({ initialData, onSubmit, isSubmitting }: GymFormProps) {
                 value={formData.address}
                 onChange={handleChange}
                 required
+                disabled={isSubmitting}
               />
             </div>
             <div className="space-y-2">
@@ -97,6 +122,7 @@ export function GymForm({ initialData, onSubmit, isSubmitting }: GymFormProps) {
                 name="phone"
                 value={formData.phone}
                 onChange={handleChange}
+                disabled={isSubmitting}
               />
             </div>
             <div className="space-y-2">
@@ -107,6 +133,7 @@ export function GymForm({ initialData, onSubmit, isSubmitting }: GymFormProps) {
                 type="email"
                 value={formData.email}
                 onChange={handleChange}
+                disabled={isSubmitting}
               />
             </div>
             <div className="space-y-2 col-span-2">
@@ -116,6 +143,7 @@ export function GymForm({ initialData, onSubmit, isSubmitting }: GymFormProps) {
                 name="description"
                 value={formData.description}
                 onChange={handleChange}
+                disabled={isSubmitting}
               />
             </div>
             {initialData && (
@@ -123,15 +151,27 @@ export function GymForm({ initialData, onSubmit, isSubmitting }: GymFormProps) {
                 <Switch 
                   id="isActive" 
                   checked={formData.isActive} 
-                  onCheckedChange={handleSwitchChange} 
+                  onCheckedChange={handleSwitchChange}
+                  disabled={isSubmitting}
                 />
                 <Label htmlFor="isActive">Activo</Label>
               </div>
             )}
           </div>
           <div className="flex justify-end space-x-2">
-            <Button type="submit" disabled={isSubmitting} variant={initialData ? "outline" : "default"}>
-              {isSubmitting ? 'Guardando...' : (initialData ? 'Guardar Cambios' : 'Crear Gimnasio')}
+            <Button 
+              type="submit" 
+              disabled={isSubmitting || !formData.name.trim() || !formData.address.trim()} 
+              variant={initialData ? "outline" : "default"}
+            >
+              {isSubmitting ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Guardando...
+                </>
+              ) : (
+                initialData ? 'Guardar Cambios' : 'Crear Gimnasio'
+              )}
             </Button>
           </div>
         </form>

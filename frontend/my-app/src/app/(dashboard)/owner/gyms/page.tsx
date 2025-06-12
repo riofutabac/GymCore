@@ -31,35 +31,60 @@ export default function GymsPage() {
   });
 
   const gymMutation = useMutation({
-    mutationFn: (gymData: { id?: string; data: CreateGymRequest | UpdateGymRequest }) => {
+    mutationFn: async (gymData: { id?: string; data: CreateGymRequest | UpdateGymRequest }) => {
       if (gymData.id) {
         return api.gyms.update(gymData.id, gymData.data as UpdateGymRequest);
       }
       return api.gyms.create(gymData.data as CreateGymRequest);
     },
-    onSuccess: (_, variables) => {
-      toast({
-        title: `Gimnasio ${variables.id ? 'actualizado' : 'creado'}`,
-        description: `El gimnasio se ha ${variables.id ? 'actualizado' : 'creado'} correctamente.`,
-      });
-      queryClient.invalidateQueries({ queryKey: ['gyms'] });
-      setActiveTab('list');
-      setSelectedGymId(null);
+    onMutate: async () => {
+      // Cancelar consultas en progreso para evitar conflictos
+      await queryClient.cancelQueries({ queryKey: ['gyms'] });
     },
-    onError: (error: any) => {
+    onSuccess: (newGym, variables) => {
+      // Actualización optimista inmediata
+      queryClient.setQueryData(['gyms'], (oldGyms: Gym[] | undefined) => {
+        if (!oldGyms) return [newGym];
+        
+        if (variables.id) {
+          // Actualizar gimnasio existente
+          return oldGyms.map(gym => gym.id === variables.id ? newGym : gym);
+        } else {
+          // Agregar nuevo gimnasio al inicio
+          return [newGym, ...oldGyms];
+        }
+      });
+
+      toast({
+        title: `¡Éxito!`,
+        description: `Gimnasio ${variables.id ? 'actualizado' : 'creado'} correctamente.`,
+      });
+
+      // Resetear estado inmediatamente
+      setSelectedGymId(null);
+      setActiveTab('list');
+    },
+    onError: (error: any, variables) => {
+      // Revertir cambios optimistas en caso de error
+      queryClient.invalidateQueries({ queryKey: ['gyms'] });
+      
       toast({
         title: 'Error',
-        description: `No se pudo ${selectedGymId ? 'actualizar' : 'crear'} el gimnasio: ${error.message}`,
+        description: `No se pudo ${variables.id ? 'actualizar' : 'crear'} el gimnasio: ${error.message}`,
         variant: 'destructive',
       });
+    },
+    onSettled: () => {
+      // Asegurar que los datos estén actualizados
+      queryClient.invalidateQueries({ queryKey: ['gyms'] });
     },
   });
 
   const handleSubmit = async (data: Partial<Gym>) => {
     // Base data for both create and update
     const baseData = {
-      name: data.name,
-      address: data.address,
+      name: data.name!,
+      address: data.address!,
       description: data.description,
       phone: data.phone,
       email: data.email,
@@ -81,13 +106,27 @@ export default function GymsPage() {
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
+    if (tab !== 'edit') {
+      setSelectedGymId(null);
+    }
+  };
+
+  const handleNewGym = () => {
+    setSelectedGymId(null);
+    setActiveTab('new');
   };
 
   return (
     <div className="container mx-auto py-10 space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Gestión de Gimnasios</h1>
-        <p className="text-muted-foreground">Administra todos los gimnasios de la red</p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Gestión de Gimnasios</h1>
+          <p className="text-muted-foreground">Administra todos los gimnasios de la red</p>
+        </div>
+        <Button onClick={handleNewGym} className="flex items-center gap-2">
+          <PlusCircle className="h-4 w-4" />
+          Nuevo Gimnasio
+        </Button>
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">

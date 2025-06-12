@@ -1,4 +1,5 @@
-import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Logger } from 'nestjs-pino';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, ExtractJwt } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
@@ -7,12 +8,13 @@ import { createClient } from '@supabase/supabase-js';
 
 @Injectable()
 export class SupabaseStrategy extends PassportStrategy(Strategy, 'supabase') {
-  private readonly logger = new Logger(SupabaseStrategy.name);
+
   private supabase;
 
   constructor(
-    private configService: ConfigService,
-    private prisma: PrismaService,
+    private readonly configService: ConfigService,
+    private readonly prisma: PrismaService,
+    private readonly logger: Logger,
   ) {
     const supabaseUrl = configService.get<string>('SUPABASE_URL');
     const supabaseServiceKey = configService.get<string>('SUPABASE_SERVICE_ROLE_KEY');
@@ -28,24 +30,16 @@ export class SupabaseStrategy extends PassportStrategy(Strategy, 'supabase') {
       secretOrKey: jwtSecret,
     });
     
-    // Initialize logger and Supabase client after super()
-    this.logger.debug(`Supabase URL: configured`);
-    this.logger.debug(`Supabase Service Key: configured`);
-    this.logger.debug(`JWT Secret: configured`);
-
+    // Initialize Supabase client after super()
     this.supabase = createClient(supabaseUrl, supabaseServiceKey);
   }
 
   async validate(payload: any): Promise<any> {
     try {
-      this.logger.debug(`Validating token for user: ${payload.sub}`);
-      this.logger.debug(`Token payload: ${JSON.stringify(payload, null, 2)}`);
-
-      // El payload contiene la información del usuario de Supabase
       const userId = payload.sub;
 
       if (!userId) {
-        this.logger.error('No user ID found in token payload');
+        this.logger.error('Token sin ID de usuario válido');
         throw new UnauthorizedException('Invalid token: no user ID');
       }
 
@@ -55,13 +49,13 @@ export class SupabaseStrategy extends PassportStrategy(Strategy, 'supabase') {
       });
 
       if (!user) {
-        this.logger.log(`User ${userId} not found in database, attempting to sync from Supabase`);
+        this.logger.log(`👤 Sincronizando usuario desde Supabase: ${payload.email}`);
 
         // Obtener información del usuario desde Supabase
         const { data: supabaseUser, error } = await this.supabase.auth.admin.getUserById(userId);
 
         if (error || !supabaseUser) {
-          this.logger.error(`Failed to fetch user from Supabase: ${error?.message}`);
+          this.logger.error(`❌ Usuario no encontrado en Supabase: ${error?.message}`);
           throw new UnauthorizedException('User not found in Supabase');
         }
 
@@ -79,24 +73,22 @@ export class SupabaseStrategy extends PassportStrategy(Strategy, 'supabase') {
             }
           });
 
-          this.logger.log(`User ${user.email} created successfully in database`);
+          this.logger.log(`✅ Usuario creado: ${user.email}`);
         } catch (createError) {
-          this.logger.error(`Failed to create user in database: ${createError.message}`);
+          this.logger.error(`❌ Error creando usuario: ${createError.message}`);
           throw new UnauthorizedException('Failed to create user in database');
         }
-      } else {
-        this.logger.debug(`User ${user.email} found in database`);
       }
 
       // Verificar que el usuario esté activo
       if (!user.isActive) {
-        this.logger.warn(`Inactive user ${user.email} attempted to authenticate`);
+        this.logger.warn(`⚠️  Usuario inactivo: ${user.email}`);
         throw new UnauthorizedException('User account is inactive');
       }
 
       return user;
     } catch (error) {
-      this.logger.error(`Validation error: ${error.message}`, error.stack);
+      this.logger.error(`❌ Error de autenticación: ${error.message}`);
       if (error instanceof UnauthorizedException) {
         throw error;
       }

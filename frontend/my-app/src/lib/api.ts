@@ -110,25 +110,6 @@ export const authApi = {
 
 // Módulo de gimnasios
 export const gymsApi = {
-  update: async (id: string, gymData: Partial<Gym>): Promise<ApiResponse<Gym>> => {
-    try {
-      const response = await axiosInstance.put<ApiResponse<Gym>>(`/api/gyms/${id}`, gymData);
-      return handleResponse(response);
-    } catch (error) {
-      console.error(`Error updating gym ${id}:`, error);
-      throw error;
-    }
-  },
-
-  delete: async (id: string): Promise<ApiResponse<void>> => {
-    try {
-      const response = await axiosInstance.delete<ApiResponse<void>>(`/api/gyms/${id}`);
-      return handleResponse(response);
-    } catch (error) {
-      console.error(`Error deleting gym ${id}:`, error);
-      throw error;
-    }
-  },
   getAll: async (): Promise<Gym[]> => {
     try {
       const response = await axiosInstance.get<ApiResponse<Gym[]>>('/api/gyms');
@@ -163,7 +144,6 @@ export const gymsApi = {
     try {
       const response = await axiosInstance.put<ApiResponse<Gym>>(`/api/gyms/${id}`, gymData);
       return handleResponse(response);
-      
     } catch (error) {
       console.error(`Error al actualizar gimnasio ${id}:`, error);
       throw error;
@@ -196,12 +176,8 @@ export const gymsApi = {
     activeGyms: number;
   }> => {
     try {
-      // Usar un endpoint existente o simular datos si no hay endpoint específico
-      // Podemos usar /api/gyms para obtener gimnasios y construir las métricas
       const response = await axiosInstance.get<ApiResponse<Gym[]>>('/api/gyms');
       const gyms = handleResponse(response);
-
-      // Construir métricas basadas en los gimnasios disponibles
       return {
         totalGyms: gyms.length,
         activeGyms: gyms.filter(gym => gym.active).length,
@@ -210,7 +186,6 @@ export const gymsApi = {
       };
     } catch (error) {
       console.error('Error al obtener métricas del dashboard:', error);
-      // Devolver datos simulados en caso de error para evitar que la UI se rompa
       return {
         totalGyms: 0,
         activeGyms: 0,

@@ -1,24 +1,24 @@
 import { 
   Injectable, 
   UnauthorizedException, 
-  Logger,
-  BadRequestException,
+  BadRequestException, 
   NotFoundException,
   ConflictException
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { UserRole } from '@prisma/client';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { ConfigService } from '@nestjs/config';
+import { Logger } from 'nestjs-pino';
+import { UserRole } from '@prisma/client';
 
 @Injectable()
 export class AuthService {
-  private readonly logger = new Logger(AuthService.name);
   private supabaseAdmin: SupabaseClient;
 
   constructor(
-    private prisma: PrismaService,
-    private configService: ConfigService,
+    private readonly prisma: PrismaService,
+    private readonly configService: ConfigService,
+    private readonly logger: Logger,
   ) {
     // Inicializar el cliente de admin de Supabase
     const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
@@ -43,7 +43,7 @@ export class AuthService {
    */
   async createUserFromSupabase(userData: any) {
     try {
-      this.logger.log(`Creating user from Supabase: ${userData.email}`);
+      this.logger.log(`👤 Creando usuario desde Supabase: ${userData.email}`);
 
       // Verificar si el usuario ya existe
       const existingUser = await this.prisma.user.findUnique({
@@ -51,7 +51,7 @@ export class AuthService {
       });
 
       if (existingUser) {
-        this.logger.log(`User ${userData.email} already exists in database`);
+        this.logger.log(`✅ Usuario ya existe: ${userData.email}`);
         return existingUser;
       }
 
@@ -72,10 +72,10 @@ export class AuthService {
         }
       });
 
-      this.logger.log(`User ${email} created successfully with ID: ${id}`);
+      this.logger.log(`✅ Usuario creado exitosamente: ${email}`);
       return newUser;
     } catch (error) {
-      this.logger.error(`Error creating user from Supabase: ${error.message}`, error.stack);
+      this.logger.error(`❌ Error creando usuario: ${error.message}`);
       throw new BadRequestException(`Failed to create user: ${error.message}`);
     }
   }
@@ -107,10 +107,10 @@ export class AuthService {
         }
       });
 
-      this.logger.log(`User ${userData.email} synced successfully with ID: ${supabaseUserId}`);
+      this.logger.log(`✅ Usuario sincronizado: ${userData.email}`);
       return newUser;
     } catch (error) {
-      this.logger.error(`Error syncing user from Supabase: ${error.message}`, error.stack);
+      this.logger.error(`❌ Error sincronizando usuario: ${error.message}`);
       throw new BadRequestException(`Failed to sync user: ${error.message}`);
     }
   }
@@ -188,7 +188,7 @@ export class AuthService {
 
   async getUsersByRole(role: string): Promise<any[]> {
     try {
-      this.logger.log(`Getting users with role: ${role}`);
+      this.logger.log(`🔍 Obteniendo usuarios con rol: ${role}`);
 
       // Validar que el rol proporcionado sea válido y convertirlo al enum UserRole
       const upperRole = role.toUpperCase();
@@ -220,7 +220,7 @@ export class AuthService {
 
       return users;
     } catch (error) {
-      this.logger.error(`Error getting users with role ${role}:`, error.stack);
+      this.logger.error(`❌ Error obteniendo usuarios por rol: ${error.message}`);
       throw new BadRequestException(`Failed to get users with role ${role}`);
     }
   }
@@ -261,18 +261,14 @@ export class AuthService {
 
   async getAllUsers(): Promise<any[]> {
     try {
-      this.logger.debug('Starting getAllUsers method');
-      
       // Verificar la conexión a la base de datos
       try {
         await this.prisma.$queryRaw`SELECT 1`;
-        this.logger.debug('Database connection is working');
       } catch (dbError) {
-        this.logger.error('Database connection error:', dbError);
+        this.logger.error('❌ Error de conexión a BD');
         throw new Error('Database connection failed');
       }
 
-      this.logger.debug('Executing findMany query...');
       const users = await this.prisma.user.findMany({
         select: {
           id: true,
@@ -295,20 +291,18 @@ export class AuthService {
         },
       });
 
-      this.logger.debug(`Query successful. Found ${users.length} users`);
-      this.logger.debug('Sample user data:', users[0] || 'No users found');
+      this.logger.log(`✅ ${users.length} usuarios obtenidos`);
       
       return users;
     } catch (error) {
-      this.logger.error(`Error in getAllUsers:`, error);
-      this.logger.error('Stack trace:', error.stack);
+      this.logger.error(`❌ Error obteniendo usuarios: ${error.message}`);
       throw new BadRequestException(`Failed to retrieve users: ${error.message}`);
     }
   }
 
   async createStaffUser(userData: any, ownerId: string) {
     try {
-      this.logger.log(`Owner ${ownerId} creating staff user: ${userData.email}`);
+      this.logger.log(`👥 Creando usuario staff: ${userData.email}`);
 
       // Crear el usuario en nuestra base de datos
       const newUser = await this.prisma.user.create({
@@ -322,17 +316,17 @@ export class AuthService {
         }
       });
 
-      this.logger.log(`Staff user ${userData.email} created successfully with ID: ${newUser.id}`);
+      this.logger.log(`✅ Usuario staff creado: ${userData.email}`);
       return newUser;
     } catch (error) {
-      this.logger.error(`Error creating staff user: ${error.message}`, error.stack);
+      this.logger.error(`❌ Error creando staff: ${error.message}`);
       throw new BadRequestException(`Failed to create staff user: ${error.message}`);
     }
   }
 
   async updateUser(userId: string, updateData: any) {
     try {
-      this.logger.log(`Updating user ${userId} with data:`, updateData);
+      this.logger.log(`Updating user ${userId} with data: ${JSON.stringify(updateData)}`);
       
       const user = await this.prisma.user.update({
         where: { id: userId },
@@ -361,10 +355,10 @@ export class AuthService {
         },
       });
 
-      this.logger.log(`User ${userId} updated successfully`);
+      this.logger.log(`✅ Usuario actualizado: ${userId}`);
       return user;
     } catch (error) {
-      this.logger.error(`Error updating user ${userId}:`, error);
+      this.logger.error(`❌ Error actualizando usuario: ${error.message}`);
       throw new BadRequestException(`Failed to update user: ${error.message}`);
     }
   }
@@ -397,17 +391,17 @@ export class AuthService {
         },
       });
 
-      this.logger.log(`User ${userId} status updated successfully to ${isActive}`);
+      this.logger.log(`✅ Estado actualizado: ${userId} -> ${isActive}`);
       return user;
     } catch (error) {
-      this.logger.error(`Error updating user status ${userId}:`, error);
+      this.logger.error(`❌ Error actualizando estado: ${error.message}`);
       throw new BadRequestException(`Failed to update user status: ${error.message}`);
     }
   }
 
   async resetUserPassword(userId: string) {
     try {
-      this.logger.log(`Initiating password reset for user ${userId}`);
+      this.logger.log(`🔐 Reseteando contraseña: ${userId}`);
       
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
@@ -422,15 +416,15 @@ export class AuthService {
       const { data, error } = await this.supabaseAdmin.auth.resetPasswordForEmail(user.email);
 
       if (error) {
-        this.logger.error(`Supabase password reset error for user ${userId}:`, error.message);
+        this.logger.error(`❌ Error de Supabase reseteando contraseña: ${error.message}`);
         throw new BadRequestException(`Failed to initiate password reset: ${error.message}`);
       }
 
-      this.logger.log(`Password reset email sent successfully to ${user.email}`);
+      this.logger.log(`✅ Email de reset enviado: ${user.email}`);
       
       return { message: 'Password reset email sent successfully' };
     } catch (error) {
-      this.logger.error(`Error in resetUserPassword for user ${userId}:`, error);
+      this.logger.error(`❌ Error reseteando contraseña: ${error.message}`);
       if (error instanceof NotFoundException || error instanceof BadRequestException) {
         throw error;
       }

@@ -1,4 +1,4 @@
-import { Controller, Get, Param, UseGuards, Post, Body, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Param, UseGuards, Post, Body, BadRequestException, Patch } from '@nestjs/common';
 import { ChatService } from './chat.service';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -67,5 +67,18 @@ export class ChatController {
     @CurrentUser() user: User
   ) {
     return this.chatService.getMessagesForConversation(conversationId, user.id);
+  }
+
+  @Patch('conversations/:id/close')
+  async closeConversation(
+    @Param('id') conversationId: string,
+    @CurrentUser() user: User
+  ) {
+    const conversation = await this.chatService.closeConversation(conversationId, user.id);
+    return {
+      success: true,
+      data: conversation,
+      message: 'Conversación cerrada exitosamente'
+    };
   }
 }

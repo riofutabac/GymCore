@@ -30,6 +30,8 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   @WebSocketServer()
   server: Server;
 
+  private connectedUsers: Map<string, string> = new Map(); // userId -> socketId
+
   constructor(
     private readonly chatService: ChatService,
     private readonly logger: Logger,
@@ -82,6 +84,12 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
       // Unir al cliente a una sala personal
       await client.join(`user_${user.id}`);
       
+      // Registrar usuario conectado
+      this.connectedUsers.set(user.id, client.id);
+      
+      // Notificar a todos que este usuario se conectó
+      this.server.emit('userConnected', { userId: user.id });
+      
       this.logger.log(`🟢 Usuario conectado exitosamente: ${user.email} (${user.id})`);
       
       // Notificar al cliente que está conectado
@@ -103,6 +111,13 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   handleDisconnect(client: Socket) {
     const userEmail = client.data?.user?.email || 'desconocido';
     const userId = client.data?.user?.id || 'desconocido';
+    
+    // Remover usuario de la lista de conectados
+    this.connectedUsers.delete(userId);
+    
+    // Notificar a todos que este usuario se desconectó
+    this.server.emit('userDisconnected', { userId });
+    
     this.logger.log(`🔴 Usuario desconectado: ${userEmail} (${userId})`);
   }
 
@@ -221,6 +236,12 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     } else {
       this.logger.warn('⚠️ Cliente envió ready pero no tiene datos de usuario');
     }
+  }
+
+  @SubscribeMessage('getConnectedUsers')
+  async handleGetConnectedUsers(@ConnectedSocket() client: Socket) {
+    const connectedUserIds = Array.from(this.connectedUsers.keys());
+    client.emit('connectedUsersList', connectedUserIds);
   }
 
   // Método para enviar notificaciones desde el servicio

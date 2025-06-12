@@ -195,9 +195,15 @@ export interface QRData {
 }
 
 // Chat Types
+export enum ConversationStatus {
+  ACTIVE = 'ACTIVE',
+  CLOSED = 'CLOSED'
+}
+
 export interface Conversation {
   id: string;
   gymId: string;
+  status: ConversationStatus;
   participants: User[];
   messages?: Message[];
   createdAt: string;

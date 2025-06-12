@@ -13,27 +13,26 @@ export function ManagerList() {
   const { user } = useAuthStore();
   const { setActiveConversation } = useChatStore();
 
-  // Obtener TODOS los gerentes (intentar ambos endpoints)
+  // Obtener gerentes con configuración optimizada
   const { data: managers, isLoading, error } = useQuery({
-    queryKey: ['all-managers', user?.id],
+    queryKey: ['managers-list'],
     queryFn: async () => {
+      console.time('fetchManagers');
       try {
-        // Primero intentar el endpoint específico por rol
-        try {
-          return await authApi.getUsersByRole('MANAGER');
-        } catch (error) {
-          console.log('Endpoint getUsersByRole falló, intentando getMyManagers...');
-          // Si falla, intentar el endpoint de gerentes del propietario como fallback
-          return await authApi.getMyManagers();
-        }
+        const result = await authApi.getUsersByRole('MANAGER');
+        console.timeEnd('fetchManagers');
+        return result;
       } catch (error) {
-        console.error('Error fetching managers:', error);
-        return [];
+        console.timeEnd('fetchManagers');
+        console.log('Fallback to getMyManagers...');
+        return await authApi.getMyManagers();
       }
     },
     enabled: !!user && user.role === 'OWNER',
-    staleTime: 5 * 60 * 1000, // 5 minutos
-    retry: 2,
+    staleTime: 2 * 60 * 1000, // 2 minutos cache
+    cacheTime: 5 * 60 * 1000, // 5 minutos en memoria
+    retry: 1, // Solo 1 reintento
+    refetchOnWindowFocus: false, // No recargar al enfocar ventana
   });
 
   const handleStartConversation = async (managerId: string, gymId: string | null, managerName: string) => {

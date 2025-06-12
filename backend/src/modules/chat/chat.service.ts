@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
@@ -6,33 +6,69 @@ export class ChatService {
   constructor(private prisma: PrismaService) {}
 
   async getConversationsForUser(userId: string) {
-    return this.prisma.conversation.findMany({
-      where: {
-        participants: {
-          some: {
-            id: userId,
+    try {
+      console.time('getConversationsForUser');
+      
+      const conversations = await this.prisma.conversation.findMany({
+        where: {
+          participants: {
+            some: {
+              id: userId,
+            },
           },
         },
-      },
-      include: {
-        participants: {
-          select: { id: true, name: true, role: true, email: true },
+        select: {
+          id: true,
+          gymId: true,
+          status: true,
+          createdAt: true,
+          updatedAt: true,
+          participants: {
+            select: { 
+              id: true, 
+              name: true, 
+              role: true, 
+              email: true 
+            },
+          },
+          messages: {
+            select: {
+              id: true,
+              content: true,
+              createdAt: true,
+              senderId: true,
+              sender: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true
+                }
+              }
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          },
         },
-        messages: {
-          orderBy: { createdAt: 'desc' },
-          take: 1, // Obtener solo el último mensaje para la vista previa
+        orderBy: {
+          updatedAt: 'desc',
         },
-      },
-      orderBy: {
-        updatedAt: 'desc',
-      },
-    });
+        take: 20, // Limitar a 20 conversaciones más recientes
+      });
+
+      console.timeEnd('getConversationsForUser');
+      return conversations;
+    } catch (error) {
+      console.error('Error in getConversationsForUser:', error);
+      throw error;
+    }
   }
 
   async findOrCreateConversation(ownerId: string, managerId: string, gymId: string) {
+    // Primero buscar conversación activa existente
     let conversation = await this.prisma.conversation.findFirst({
       where: {
         gymId,
+        status: 'ACTIVE',
         participants: {
           every: {
             id: { in: [ownerId, managerId] },
@@ -46,28 +82,36 @@ export class ChatService {
       },
     });
 
-    if (!conversation) {
-      conversation = await this.prisma.conversation.create({
-        data: {
-          gymId,
-          participants: {
-            connect: [{ id: ownerId }, { id: managerId }],
-          },
-        },
-        include: {
-          participants: {
-            select: { id: true, name: true, role: true, email: true },
-          },
-        },
-      });
+    // Si existe una conversación activa, verificar si ya hay una
+    if (conversation) {
+      throw new ConflictException('Ya existe una conversación activa con este usuario');
     }
+
+    // Crear nueva conversación
+    conversation = await this.prisma.conversation.create({
+      data: {
+        gymId,
+        status: 'ACTIVE',
+        participants: {
+          connect: [{ id: ownerId }, { id: managerId }],
+        },
+      },
+      include: {
+        participants: {
+          select: { id: true, name: true, role: true, email: true },
+        },
+      },
+    });
+
     return conversation;
   }
 
   async findOrCreateGeneralConversation(ownerId: string, managerId: string) {
+    // Buscar conversación activa existente
     let conversation = await this.prisma.conversation.findFirst({
       where: {
-        gymId: null, // Conversación general sin gimnasio específico
+        gymId: null,
+        status: 'ACTIVE',
         participants: {
           every: {
             id: { in: [ownerId, managerId] },
@@ -81,22 +125,59 @@ export class ChatService {
       },
     });
 
-    if (!conversation) {
-      conversation = await this.prisma.conversation.create({
-        data: {
-          gymId: null, // Sin gimnasio específico
-          participants: {
-            connect: [{ id: ownerId }, { id: managerId }],
-          },
-        },
-        include: {
-          participants: {
-            select: { id: true, name: true, role: true, email: true },
-          },
-        },
-      });
+    if (conversation) {
+      throw new ConflictException('Ya existe una conversación activa con este usuario');
     }
+
+    // Crear nueva conversación
+    conversation = await this.prisma.conversation.create({
+      data: {
+        gymId: null,
+        status: 'ACTIVE',
+        participants: {
+          connect: [{ id: ownerId }, { id: managerId }],
+        },
+      },
+      include: {
+        participants: {
+          select: { id: true, name: true, role: true, email: true },
+        },
+      },
+    });
+
     return conversation;
+  }
+
+  async closeConversation(conversationId: string, userId: string) {
+    // Verificar que el usuario es owner y participante
+    const conversation = await this.prisma.conversation.findFirst({
+      where: {
+        id: conversationId,
+        participants: { 
+          some: { 
+            id: userId,
+            role: 'OWNER' 
+          } 
+        }
+      }
+    });
+
+    if (!conversation) {
+      throw new NotFoundException('Conversación no encontrada o no tienes permisos para cerrarla');
+    }
+
+    return this.prisma.conversation.update({
+      where: { id: conversationId },
+      data: { 
+        status: 'CLOSED',
+        updatedAt: new Date()
+      },
+      include: {
+        participants: {
+          select: { id: true, name: true, role: true, email: true },
+        },
+      },
+    });
   }
   
   async getMessagesForConversation(conversationId: string, userId: string) {

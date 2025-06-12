@@ -665,6 +665,17 @@ export const chatApi = {
       throw error;
     }
   },
+
+  closeConversation: async (conversationId: string): Promise<Conversation> => {
+    try {
+      const response = await axiosInstance.patch<ApiResponse<Conversation>>(`/api/chat/conversations/${conversationId}/close`);
+      const data = handleResponse(response);
+      return data;
+    } catch (error) {
+      console.error('Error al cerrar conversación:', error);
+      throw error;
+    }
+  },
 };
 
 // Exportar todos los módulos de API

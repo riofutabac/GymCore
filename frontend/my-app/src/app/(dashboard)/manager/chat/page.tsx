@@ -3,13 +3,15 @@
 import { useEffect, useState } from 'react';
 import { ChatWindow } from '@/components/modules/chat/ChatWindow';
 import { ConversationList } from '@/components/modules/chat/ConversationList';
+import { OwnerList } from '@/components/modules/chat/OwnerList';
 import { useChatStore, useGymStore, useAuthStore } from '@/lib/store';
 import { chatApi } from '@/lib/api';
-import { Loader2, AlertCircle, RefreshCw, MessageSquare, Info, UserSearch } from 'lucide-react';
+import { Loader2, AlertCircle, RefreshCw, MessageSquare, Info, UserSearch, Crown } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { socketService } from '@/lib/socket';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function ManagerChatPage() {
   const { activeGym } = useGymStore();
@@ -152,19 +154,29 @@ export default function ManagerChatPage() {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-[calc(100vh-120px)]">
-      <div className="md:col-span-1 border rounded-lg overflow-hidden">
-        <div className="p-3 border-b bg-muted/30">
-          <h3 className="font-semibold text-sm">Conversaciones</h3>
-          {activeGym ? (
-            <p className="text-xs text-muted-foreground">Gimnasio: {activeGym.name}</p>
-          ) : (
-            <div className="flex items-center gap-1 mt-1">
-              <Info className="h-3 w-3 text-amber-500" />
-              <p className="text-xs text-amber-600">Sin gimnasio asignado</p>
-            </div>
-          )}
-        </div>
-        <ConversationList />
+      <div className="md:col-span-1 border rounded-lg overflow-hidden flex flex-col">
+        <Tabs defaultValue="conversations" className="flex-1 flex flex-col">
+          <div className="border-b px-2 py-1">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="conversations" className="text-xs">
+                <MessageSquare className="h-4 w-4 mr-1" />
+                Chats
+              </TabsTrigger>
+              <TabsTrigger value="owners" className="text-xs">
+                <Crown className="h-4 w-4 mr-1" />
+                Propietarios
+              </TabsTrigger>
+            </TabsList>
+          </div>
+          
+          <TabsContent value="conversations" className="flex-1 m-0">
+            <ConversationList />
+          </TabsContent>
+          
+          <TabsContent value="owners" className="flex-1 m-0">
+            <OwnerList />
+          </TabsContent>
+        </Tabs>
       </div>
       
       <div className="md:col-span-2 border rounded-lg overflow-hidden">

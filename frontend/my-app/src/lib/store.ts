@@ -327,6 +327,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
   fetchConversations: async () => {
     const currentConversations = get().conversations;
+    const startTime = performance.now();
     
     try {
       // Solo mostrar loading si no hay conversaciones cargadas
@@ -334,21 +335,31 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         set({ isLoading: true, error: null });
       }
       
+      console.time('fetchConversations');
       const conversations = await chatApi.getConversations();
+      console.timeEnd('fetchConversations');
       
       // Verificar si hay cambios reales antes de actualizar
       const hasChanges = conversations.length !== currentConversations.length ||
-        conversations.some(conv => 
-          !currentConversations.find(curr => 
-            curr.id === conv.id && curr.updatedAt === conv.updatedAt
-          )
-        );
+        conversations.some((conv, index) => {
+          const current = currentConversations[index];
+          return !current || 
+                 current.id !== conv.id || 
+                 current.updatedAt !== conv.updatedAt ||
+                 current.status !== conv.status;
+        });
       
       if (hasChanges) {
+        console.log(`📊 Actualizando ${conversations.length} conversaciones`);
         set({ conversations, isLoading: false });
       } else {
+        console.log('📊 No hay cambios en conversaciones');
         set({ isLoading: false });
       }
+      
+      const endTime = performance.now();
+      console.log(`⏱️ fetchConversations completado en ${(endTime - startTime).toFixed(2)}ms`);
+      
     } catch (error) {
       console.error('Error fetching conversations:', error);
       set({ 
@@ -365,8 +376,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     if (currentConversationId !== conversationId) return;
     
     try {
+      console.time(`fetchMessages-${conversationId}`);
       set({ isLoading: true, error: null });
       const messages = await chatApi.getMessages(conversationId);
+      console.timeEnd(`fetchMessages-${conversationId}`);
       
       // Solo actualizar si sigue siendo la conversación activa
       if (get().activeConversationId === conversationId) {

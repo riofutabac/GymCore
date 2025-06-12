@@ -348,12 +348,13 @@ enum NotificationStatus {
 // ============= CHAT =============
 model Conversation {
   id        String   @id @default(cuid())
+  gymId     String?
+  status    ConversationStatus @default(ACTIVE)
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime @default(now()) @updatedAt
 
-  // Relación con el gimnasio al que pertenece la conversación
-  gymId String
-  gym   Gym    @relation(fields: [gymId], references: [id])
+  // Relación con el gimnasio al que pertenece la conversación (opcional para conversaciones generales)
+  gym   Gym?    @relation(fields: [gymId], references: [id])
 
   // Participantes de la conversación
   participants User[] @relation("ConversationParticipants")
@@ -362,6 +363,9 @@ model Conversation {
   messages Message[]
 
   @@index([gymId])
+  @@index([status])
+  @@index([updatedAt])
+  @@index([gymId, status])
   @@map("conversations")
 }
 
@@ -380,5 +384,11 @@ model Message {
 
   @@index([senderId])
   @@index([conversationId])
+  @@index([conversationId, createdAt])
   @@map("messages")
+}
+
+enum ConversationStatus {
+  ACTIVE
+  CLOSED
 }

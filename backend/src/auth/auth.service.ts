@@ -190,18 +190,16 @@ export class AuthService {
     try {
       this.logger.log(`🔍 Obteniendo usuarios con rol: ${role}`);
 
-      // Validar que el rol proporcionado sea válido y convertirlo al enum UserRole
       const upperRole = role.toUpperCase();
-
-      // Verificar si el rol es válido utilizando Object.values
       const validRoles = Object.values(UserRole);
       if (!validRoles.includes(upperRole as UserRole)) {
         this.logger.error(`Invalid role provided: ${role}`);
         throw new BadRequestException(`Invalid role: ${role}`);
       }
 
-      // Asignar el rol validado
       const userRole = upperRole as UserRole;
+      
+      // Consulta optimizada con solo los campos necesarios
       const users = await this.prisma.user.findMany({
         where: { 
           role: userRole,
@@ -213,11 +211,22 @@ export class AuthService {
           name: true,
           role: true,
           phone: true,
-          emailVerified: true,
           createdAt: true,
+          // Solo incluir la relación del gym si es relevante
+          workingAtGym: userRole === 'MANAGER' ? {
+            select: {
+              id: true,
+              name: true
+            }
+          } : false
+        },
+        // Ordenar por creación más reciente primero
+        orderBy: {
+          createdAt: 'desc'
         }
       });
 
+      this.logger.log(`✅ Encontrados ${users.length} usuarios con rol ${role} en ${Date.now()}ms`);
       return users;
     } catch (error) {
       this.logger.error(`❌ Error obteniendo usuarios por rol: ${error.message}`);
@@ -461,6 +470,55 @@ export class AuthService {
         throw error;
       }
       throw new BadRequestException(`Failed to reset password: ${error.message}`);
+    }
+  }
+
+  async getConversationsForUserOptimized(userId: string) {
+    try {
+      // Consulta optimizada con menos datos y mejor indexing
+      const conversations = await this.prisma.conversation.findMany({
+        where: {
+          participants: {
+            some: {
+              id: userId,
+            },
+          },
+        },
+        select: {
+          id: true,
+          gymId: true,
+          status: true,
+          createdAt: true,
+          updatedAt: true,
+          participants: {
+            select: { 
+              id: true, 
+              name: true, 
+              role: true, 
+              email: true 
+            },
+          },
+          messages: {
+            select: {
+              id: true,
+              content: true,
+              createdAt: true,
+              senderId: true
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          },
+        },
+        orderBy: {
+          updatedAt: 'desc',
+        },
+        take: 50, // Limitar a las 50 conversaciones más recientes
+      });
+
+      return conversations;
+    } catch (error) {
+      this.logger.error(`❌ Error obteniendo conversaciones optimizadas: ${error.message}`);
+      throw error;
     }
   }
 }

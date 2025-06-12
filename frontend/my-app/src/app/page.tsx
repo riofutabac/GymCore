@@ -321,7 +321,7 @@ export default function Home() {
 							<CardContent className="p-8">
 								<div className="flex items-center mb-6">
 									<Image
-										src="/assets/img/carlos.jpg"
+										src="/assets/img/Carlos_fuertote.jpg"
 										alt="Carlos Bayas"
 										width={48}
 										height={48}

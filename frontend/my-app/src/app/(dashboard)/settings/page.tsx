@@ -36,11 +36,7 @@ interface UserProfile {
 }
 
 export default function ProfilePage() {
-  const { user } = useCurrentUser();
-  
-  // Debug: verificar que la página se está cargando
-  console.log('Página de settings cargando, usuario:', user);
-  
+  const { user } = useCurrentUser();  
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -126,12 +122,7 @@ export default function ProfilePage() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      // TODO: Tu compañero implementará la llamada a la API
-      // await api.users.updateMyProfile(formData);
-      
-      console.log('Datos a guardar:', formData);
-      console.log('Rol del usuario:', user?.role);
-      
+     
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       setHasChanges(false);
@@ -212,7 +203,6 @@ export default function ProfilePage() {
   };
 
   if (isLoading) {
-    console.log('Settings página: cargando perfil...');
     return (
       <div className="container mx-auto py-10">
         <div className="h-96 flex items-center justify-center">
@@ -223,7 +213,6 @@ export default function ProfilePage() {
   }
 
   if (!profile) {
-    console.log('Settings página: no se pudo cargar el perfil');
     return (
       <div className="container mx-auto py-10">
         <div className="h-96 flex items-center justify-center">
@@ -233,8 +222,6 @@ export default function ProfilePage() {
     );
   }
 
-  console.log('Settings página: renderizando perfil correctamente');
-  
   return (
     <div className="container mx-auto py-10 space-y-8">
       <div className="flex justify-between items-center">

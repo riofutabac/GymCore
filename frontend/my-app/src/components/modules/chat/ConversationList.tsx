@@ -38,18 +38,15 @@ export function ConversationList() {
     setIsConnected(isSocketConnected);
     
     const handleConnect = () => {
-      console.log('Socket conectado en ConversationList');
       setIsConnected(true);
       loadConversations();
     };
     
     const handleDisconnect = () => {
-      console.log('Socket desconectado en ConversationList');
       setIsConnected(false);
     };
     
     const handleNewMessage = () => {
-      console.log('Nuevo mensaje recibido, recargando conversaciones');
       loadConversations();
     };
     
@@ -68,7 +65,6 @@ export function ConversationList() {
       const currentConnected = socketService.isConnected();
       
       if (currentConnected !== isConnected) {
-        console.log(`Estado de conexión actualizado: ${currentConnected ? 'conectado' : 'desconectado'}`);
         setIsConnected(currentConnected);
         
         if (currentConnected) {
@@ -84,7 +80,6 @@ export function ConversationList() {
     
     // Si no hay socket conectado, intentar conectar
     if (!isSocketConnected && user) {
-      console.log('Intentando conectar el socket desde ConversationList');
       socketService.connect().then(connected => {
         if (connected) {
           setupSocketListeners();
@@ -172,7 +167,6 @@ export function ConversationList() {
               variant="outline" 
               size="sm" 
               onClick={async () => {
-                console.log('Intentando reconectar desde ConversationList...');
                 const isAlreadyConnected = socketService.isConnected();
                 if (isAlreadyConnected) {
                   toast.info('Conexión activa', {

@@ -26,9 +26,7 @@ export function useSupabaseAuth() {
         
         // Configurar listener para cambios en la autenticación
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
-          async (event, session) => {
-            console.log('Auth state changed:', event);
-            
+          async (event, session) => {            
             if (event === 'SIGNED_IN' && session) {
               // Wait a bit to ensure the session is fully established
               await new Promise(resolve => setTimeout(resolve, 300));

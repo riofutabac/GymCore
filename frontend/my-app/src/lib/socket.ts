@@ -13,30 +13,15 @@ class SocketService {
     if (!this.socket) return;
 
     this.socket.on('connect', () => {
-      console.log('Socket conectado con ID:', this.socket?.id);
       // Emitir evento para indicar que el socket está listo para usar
       this.socket?.emit('ready');
     });
 
     this.socket.on('disconnect', (reason) => {
-      console.log('Socket desconectado:', reason);
       if (reason === 'io server disconnect') {
         // El servidor cerró la conexión, intentar reconectar manualmente
         setTimeout(() => this.connect(), 5000);
       }
-    });
-
-    // Escuchar eventos de mensajes nuevos desde el servidor
-    this.socket.on('newMessage', (data) => {
-      console.log('Nuevo mensaje recibido del servidor:', data);
-    });
-    
-    this.socket.on('message', (data) => {
-      console.log('Mensaje recibido (evento genérico):', data);
-    });
-    
-    this.socket.on('newConversation', (data) => {
-      console.log('Nueva conversación recibida:', data);
     });
   }
 
@@ -44,18 +29,14 @@ class SocketService {
     try {
       // Verificar si ya hay un socket conectado
       if (this.socket && this.socket.connected) {
-        console.log('Socket ya conectado, omitiendo reconexión');
         return true;
       }
       
       // Si hay un socket existente pero desconectado, limpiarlo antes de reconectar
       if (this.socket) {
-        console.log('Desconectando socket existente antes de reconectar');
         this.socket.disconnect();
         this.socket = null;
       }
-      
-      console.log('Iniciando conexión de socket...');
 
       // Obtener token de autenticación de Supabase
       const supabase = createSupabaseBrowserClient();

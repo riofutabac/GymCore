@@ -83,13 +83,13 @@ export default function Home() {
 				<div className="container mx-auto px-6 py-4">
 					<div className="flex items-center justify-between">
 						<div className="flex items-center space-x-2">
-							<div className="w-10 h-10 rounded-lg bg-black flex items-center justify-center overflow-hidden">
+							<div className="w-15 h-15 rounded-lg bg-black flex items-center justify-center overflow-hidden">
 								<Image
 									src="/assets/img/logo.png"
 									alt="GymCore Logo"
-									width={32}
-									height={32}
-									className="w-8 h-8 object-contain"
+									width={40}
+									height={40}
+									className="w-15 h-15 object-contain"
 								/>
 							</div>
 							<span className="text-2xl font-bold text-gray-800">
@@ -443,13 +443,13 @@ export default function Home() {
 							style={{ transitionDelay: "0.1s" }}
 						>
 							<div className="flex items-center space-x-2 mb-4">
-								<div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center overflow-hidden">
+								<div className="w-12 h-12 rounded-lg bg-white flex items-center justify-center overflow-hidden">
 									<Image
 										src="/assets/img/logo.png"
 										alt="GymCore Logo"
-										width={32}
-										height={32}
-										className="w-8 h-8 object-contain"
+										width={36}
+										height={36}
+										className="w-9 h-9 object-contain"
 									/>
 								</div>
 								<span className="text-2xl font-bold text-white">GymCore</span>

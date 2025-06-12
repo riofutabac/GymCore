@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/lib/store';
@@ -97,6 +98,15 @@ export function Sidebar() {
     <div className="flex h-full w-64 flex-col border-r bg-background">
       <div className="flex h-14 items-center border-b px-4">
         <Link href="/" className="flex items-center space-x-2">
+          <div className="w-18 h-18 rounded-lg flex items-center justify-center overflow-hidden">
+            <Image
+              src="/assets/img/logo.png"
+              alt="GymCore Logo"
+              width={60}
+              height={60}
+              className="w-18 h-18 object-contain"
+            />
+          </div>
           <span className="text-xl font-bold">GymCore</span>
         </Link>
       </div>

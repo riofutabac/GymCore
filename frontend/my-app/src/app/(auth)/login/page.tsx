@@ -114,13 +114,13 @@ export default function LoginPage() {
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <Link href="/" className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-black to-gray-800 flex items-center justify-center shadow-lg overflow-hidden">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-black to-gray-800 flex items-center justify-center shadow-lg overflow-hidden">
                 <Image
                   src="/assets/img/logo.png"
                   alt="GymCore Logo"
-                  width={32}
-                  height={32}
-                  className="w-8 h-8 object-contain"
+                  width={36}
+                  height={36}
+                  className="w-9 h-9 object-contain"
                 />
               </div>
               <span className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
@@ -143,13 +143,13 @@ export default function LoginPage() {
         <div className="w-full max-w-md">
           <Card className="login-card border-0 shadow-2xl">
             <CardHeader className="space-y-4 text-center pb-8">
-              <div className="mx-auto w-16 h-16 rounded-2xl bg-gradient-to-br from-black to-gray-800 flex items-center justify-center shadow-lg overflow-hidden">
+              <div className="mx-auto w-20 h-20 rounded-2xl bg-gradient-to-br from-black to-gray-800 flex items-center justify-center shadow-lg overflow-hidden">
                 <Image
                   src="/assets/img/logo.png"
                   alt="GymCore Logo"
-                  width={60}
-                  height={60}
-                  className="w-12 h-12 object-contain"
+                  width={64}
+                  height={64}
+                  className="w-14 h-14 object-contain"
                 />
               </div>
               <div className="space-y-2">

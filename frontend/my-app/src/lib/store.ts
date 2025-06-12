@@ -7,6 +7,7 @@ import { createSupabaseBrowserClient } from './supabase';
 import { useEffect } from 'react';
 
 import { authApi, chatApi } from './api';
+import api from './api';
 import { socketService } from './socket';
 
 type AuthState = {
@@ -27,9 +28,10 @@ type GymState = {
   isLoading: boolean;
   error: string | null;
   fetchCurrentGym: () => Promise<void>;
+  clearCurrentGym: () => void;
 };
 
-const authStore = create<AuthState>(
+const authStore = create<AuthState>()(
   persist(
     (set, get) => ({
       user: null,
@@ -84,8 +86,7 @@ const authStore = create<AuthState>(
           });
           
           // Conectar al socket después de autenticar
-          socketService.connect();
-        } catch (error) {
+          socketService.connect();        } catch (error: any) {
           console.error('Error al obtener perfil del usuario:', error);
 
           // If it's a 401, it might be that the user exists in Supabase but not in our DB
@@ -95,6 +96,8 @@ const authStore = create<AuthState>(
               const { data: { session } } = await supabase.auth.getSession();
 
               if (session?.user) {
+                // Try to sync the user to our database
+                console.log('Attempting to sync user to database...');
                 // For now, just sign out and let them try again
                 await supabase.auth.signOut();
                 set({
@@ -226,11 +229,10 @@ const authStore = create<AuthState>(
 const gymStore = create<GymState>((set) => ({
   currentGym: null,
   isLoading: false,
-  error: null,
-  fetchCurrentGym: async () => {
+  error: null,  fetchCurrentGym: async () => {
     set({ isLoading: true, error: null });
     try {
-      const gym = await authApi.gyms.getMyGym();
+      const gym = await api.gyms.getMyGym();
       set({ currentGym: gym, isLoading: false });
     } catch (error) {
       set({
@@ -238,6 +240,9 @@ const gymStore = create<GymState>((set) => ({
         error: error instanceof Error ? error.message : 'Error al obtener el gimnasio'
       });
     }
+  },
+  clearCurrentGym: () => {
+    set({ currentGym: null, isLoading: false, error: null });
   }
 }));
 
@@ -249,7 +254,7 @@ export function useSyncSupabaseAuth() {
     // Escuchar cambios en la sesión
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event: string, session: any) => {
       if (event === 'SIGNED_IN') {
         await authStore.getState().refreshUser();
       } else if (event === 'SIGNED_OUT') {
@@ -301,6 +306,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
            msg.content === message.content && 
            Math.abs(new Date(msg.createdAt).getTime() - new Date(message.createdAt).getTime()) < 5000)
         );
+        
+        if (messageExists) {
+          console.log('Mensaje duplicado, no se agregará:', message);
+          return { messages: state.messages };
+        }
+        
+        console.log('Agregando nuevo mensaje al estado:', message);
         return { messages: [...state.messages, message] };
       });
     }
@@ -320,4 +332,3 @@ export const useChatStore = create<ChatState>((set, get) => ({
 // Exportar los stores
 export const useAuthStore = authStore;
 export const useGymStore = gymStore;
-export { useChatStore };

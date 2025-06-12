@@ -5,7 +5,7 @@ import { ChatWindow } from '@/components/modules/chat/ChatWindow';
 import { ConversationList } from '@/components/modules/chat/ConversationList';
 import { useChatStore, useGymStore, useAuthStore } from '@/lib/store';
 import { chatApi } from '@/lib/api';
-import { Loader2, AlertCircle, RefreshCw, MessageSquare } from 'lucide-react';
+import { Loader2, AlertCircle, RefreshCw, MessageSquare, Info, UserSearch } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -37,16 +37,16 @@ export default function ManagerChatPage() {
     };
   }, []);
 
-  // Iniciar conexión del socket y conversación automática
+  // Inicializar chat automáticamente cuando hay usuario
   useEffect(() => {
-    if (activeGym && user) {
+    if (user) {
       initializeChatForManager();
     }
-  }, [activeGym, user]);
+  }, [user]);
 
   const initializeChatForManager = async () => {
-    if (!activeGym || !user) {
-      console.log('⚠️ No hay gimnasio activo o usuario');
+    if (!user) {
+      console.log('⚠️ No hay usuario autenticado');
       return;
     }
 
@@ -54,7 +54,7 @@ export default function ManagerChatPage() {
     setError(null);
     
     try {
-      console.log(`🔧 Inicializando chat para manager en gimnasio: ${activeGym.name}`);
+      console.log(`🔧 Inicializando chat para manager: ${user.name || user.email}`);
       
       // Conectar socket si no está conectado
       if (!socketService.isConnected()) {
@@ -71,23 +71,13 @@ export default function ManagerChatPage() {
       console.log('📂 Cargando conversaciones existentes...');
       await fetchConversations();
       
-      // Iniciar o encontrar conversación con el propietario
-      console.log('💬 Iniciando conversación con el propietario...');
-      const conversation = await chatApi.initiateConversation(activeGym.id);
-      
-      // Establecer como conversación activa
-      setActiveConversation(conversation.id);
-      
-      console.log(`✅ Conversación establecida: ${conversation.id}`);
-      toast.success('Chat iniciado', {
-        description: `Conversación con el propietario de ${activeGym.name} establecida`
-      });
+      console.log(`✅ Chat inicializado correctamente`);
       
     } catch (error: any) {
       console.error('❌ Error al inicializar chat:', error);
-      setError(error?.message || 'No se pudo iniciar la conversación con el propietario');
+      setError(error?.message || 'No se pudo inicializar el sistema de chat');
       toast.error('Error de conexión', {
-        description: 'No se pudo iniciar la conversación con el propietario'
+        description: 'Problema al conectar con el sistema de chat'
       });
     } finally {
       setIsInitiating(false);
@@ -112,10 +102,8 @@ export default function ManagerChatPage() {
           description: 'Conexión establecida exitosamente'
         });
         
-        // Si hay un gimnasio, intentar inicializar el chat
-        if (activeGym) {
-          await initializeChatForManager();
-        }
+        // Cargar conversaciones
+        await fetchConversations();
       } else {
         toast.error('Error de conexión', {
           description: 'No se pudo conectar al servidor'
@@ -129,26 +117,52 @@ export default function ManagerChatPage() {
     }
   };
 
-  if (!activeGym) {
-    return (
-      <div className="flex h-full items-center justify-center flex-col p-4">
-        <Alert className="max-w-md mb-4">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>No hay gimnasio activo</AlertTitle>
-          <AlertDescription>
-            Necesitas estar asignado a un gimnasio para poder acceder al chat con el propietario.
-          </AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
+  const initiateChatWithOwner = async () => {
+    try {
+      setIsInitiating(true);
+      
+      // Si tiene gimnasio asignado, usar ese gymId, si no usar 'general'
+      const gymId = activeGym?.id || 'general';
+      
+      if (gymId === 'general') {
+        toast.info('Iniciando chat general', {
+          description: 'Sin gimnasio asignado, iniciando conversación general con propietarios'
+        });
+      }
+      
+      const conversation = await chatApi.initiateConversation(gymId);
+      setActiveConversation(conversation.id);
+      
+      const successMessage = activeGym 
+        ? `Conversación con propietario de ${activeGym.name} iniciada`
+        : 'Conversación general con propietarios iniciada';
+        
+      toast.success('Chat iniciado', {
+        description: successMessage
+      });
+    } catch (error) {
+      console.error('Error al iniciar chat:', error);
+      toast.error('Error', {
+        description: 'No se pudo iniciar la conversación'
+      });
+    } finally {
+      setIsInitiating(false);
+    }
+  };
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-[calc(100vh-120px)]">
       <div className="md:col-span-1 border rounded-lg overflow-hidden">
         <div className="p-3 border-b bg-muted/30">
           <h3 className="font-semibold text-sm">Conversaciones</h3>
-          <p className="text-xs text-muted-foreground">Gimnasio: {activeGym.name}</p>
+          {activeGym ? (
+            <p className="text-xs text-muted-foreground">Gimnasio: {activeGym.name}</p>
+          ) : (
+            <div className="flex items-center gap-1 mt-1">
+              <Info className="h-3 w-3 text-amber-500" />
+              <p className="text-xs text-amber-600">Sin gimnasio asignado</p>
+            </div>
+          )}
         </div>
         <ConversationList />
       </div>
@@ -157,8 +171,8 @@ export default function ManagerChatPage() {
         {isInitiating ? (
           <div className="flex h-full items-center justify-center flex-col">
             <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
-            <span className="font-medium">Conectando con el propietario...</span>
-            <p className="text-sm text-muted-foreground mt-1">Estableciendo canal de comunicación</p>
+            <span className="font-medium">Inicializando sistema de chat...</span>
+            <p className="text-sm text-muted-foreground mt-1">Conectando con el servidor</p>
           </div>
         ) : error ? (
           <div className="flex h-full items-center justify-center flex-col p-4">
@@ -195,17 +209,43 @@ export default function ManagerChatPage() {
             </Button>
           </div>
         ) : !activeConversationId ? (
-          <div className="flex h-full items-center justify-center flex-col">
-            <MessageSquare className="h-8 w-8 text-muted-foreground mb-2" />
-            <p className="text-muted-foreground">Selecciona una conversación para comenzar</p>
+          <div className="flex h-full items-center justify-center flex-col p-6">
+            <MessageSquare className="h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-muted-foreground text-center mb-2 font-medium">
+              Sistema de chat disponible
+            </p>
+            <p className="text-sm text-muted-foreground text-center mb-4 max-w-md">
+              Selecciona una conversación existente para continuar o inicia una nueva
+            </p>
+            
             <Button 
-              onClick={handleRetry} 
+              onClick={initiateChatWithOwner} 
               variant="outline" 
               className="mt-4"
               size="sm"
+              disabled={isInitiating}
             >
-              Iniciar chat con propietario
+              {isInitiating ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : activeGym ? (
+                <MessageSquare className="mr-2 h-4 w-4" />
+              ) : (
+                <UserSearch className="mr-2 h-4 w-4" />
+              )}
+              {activeGym 
+                ? `Chat con propietario de ${activeGym.name}`
+                : 'Iniciar chat general con propietarios'
+              }
             </Button>
+
+            {!activeGym && (
+              <Alert className="max-w-md mt-4">
+                <Info className="h-4 w-4" />
+                <AlertDescription>
+                  Sin gimnasio asignado. Puedes iniciar conversaciones generales con propietarios o ver conversaciones existentes.
+                </AlertDescription>
+              </Alert>
+            )}
           </div>
         ) : (
           <ChatWindow />

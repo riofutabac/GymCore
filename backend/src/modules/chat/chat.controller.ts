@@ -16,18 +16,46 @@ export class ChatController {
 
   @Post('conversations/initiate')
   async initiateConversation(@CurrentUser() user: User, @Body() body: { gymId: string, managerId?: string }) {
-    // Obtener el gimnasio y su propietario
-    const gym = await this.chatService.getGymWithOwner(body.gymId);
-    
-    // Dependiendo del rol, iniciar conversación entre manager y owner
-    if (user.role === 'MANAGER') {
-      return this.chatService.findOrCreateConversation(gym.ownerId, user.id, body.gymId);
-    } else if (user.role === 'OWNER') {
-      // Si es el owner quien inicia, necesitamos el ID del manager
-      if (!body.managerId) {
-        throw new BadRequestException('Se requiere el ID del manager para iniciar la conversación');
+    // Permitir gymId 'general' para conversaciones sin gimnasio específico
+    if (body.gymId === 'general') {
+      // Para conversaciones generales entre owner y manager
+      if (user.role === 'MANAGER') {
+        // El manager inicia conversación general, necesitamos encontrar un owner
+        const firstOwner = await this.chatService.getAnyActiveOwner();
+        if (!firstOwner) {
+          throw new BadRequestException('No hay propietarios disponibles para chat');
+        }
+        return this.chatService.findOrCreateGeneralConversation(firstOwner.id, user.id);
+      } else if (user.role === 'OWNER') {
+        if (!body.managerId) {
+          throw new BadRequestException('Se requiere el ID del manager para iniciar la conversación');
+        }
+        return this.chatService.findOrCreateGeneralConversation(user.id, body.managerId);
       }
-      return this.chatService.findOrCreateConversation(user.id, body.managerId, body.gymId);
+    } else {
+      // Flujo normal con gimnasio específico
+      try {
+        const gym = await this.chatService.getGymWithOwner(body.gymId);
+        
+        if (user.role === 'MANAGER') {
+          return this.chatService.findOrCreateConversation(gym.ownerId, user.id, body.gymId);
+        } else if (user.role === 'OWNER') {
+          if (!body.managerId) {
+            throw new BadRequestException('Se requiere el ID del manager para iniciar la conversación');
+          }
+          return this.chatService.findOrCreateConversation(user.id, body.managerId, body.gymId);
+        }
+      } catch (error) {
+        // Si el gym no existe, crear conversación general
+        if (user.role === 'MANAGER') {
+          const firstOwner = await this.chatService.getAnyActiveOwner();
+          if (!firstOwner) {
+            throw new BadRequestException('No hay propietarios disponibles para chat');
+          }
+          return this.chatService.findOrCreateGeneralConversation(firstOwner.id, user.id);
+        }
+        throw error;
+      }
     }
     
     throw new BadRequestException('Rol no autorizado para iniciar conversaciones');

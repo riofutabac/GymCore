@@ -90,12 +90,20 @@ export class AuthController {
   }
 
   @Get('users/role/:role')
-  @UseGuards(new AuthGuard())
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles([Role.OWNER])
   async getUsersByRole(@Param('role') role: string) {
-    return {
-      success: true,
-      data: await this.authService.getUsersByRole(role)
-    };
+    try {
+      const users = await this.authService.getUsersByRole(role);
+      this.logger.log(`👥 Obtenidos ${users.length} usuarios con rol ${role}`);
+      return {
+        success: true,
+        data: users
+      };
+    } catch (error) {
+      this.logger.error(`❌ Error obteniendo usuarios por rol: ${error.message}`);
+      throw error;
+    }
   }
 
   @Get('managers')

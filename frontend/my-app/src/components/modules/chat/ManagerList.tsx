@@ -6,19 +6,26 @@ import { authApi, chatApi } from '@/lib/api';
 import { useChatStore, useAuthStore } from '@/lib/store';
 import { Button } from '@/components/ui/button';
 import { User } from '@/lib/types';
-import { Loader2, UserCheck, MessageSquarePlus } from 'lucide-react';
+import { Loader2, UserCheck, MessageSquarePlus, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function ManagerList() {
   const { user } = useAuthStore();
   const { setActiveConversation } = useChatStore();
 
-  // Obtener los gerentes para el propietario
+  // Obtener TODOS los gerentes (intentar ambos endpoints)
   const { data: managers, isLoading, error } = useQuery({
-    queryKey: ['owner-managers', user?.id],
+    queryKey: ['all-managers', user?.id],
     queryFn: async () => {
       try {
-        return await authApi.getMyManagers();
+        // Primero intentar el endpoint específico por rol
+        try {
+          return await authApi.getUsersByRole('MANAGER');
+        } catch (error) {
+          console.log('Endpoint getUsersByRole falló, intentando getMyManagers...');
+          // Si falla, intentar el endpoint de gerentes del propietario como fallback
+          return await authApi.getMyManagers();
+        }
       } catch (error) {
         console.error('Error fetching managers:', error);
         return [];
@@ -29,10 +36,20 @@ export function ManagerList() {
     retry: 2,
   });
 
-  const handleStartConversation = async (managerId: string, gymId: string, managerName: string) => {
+  const handleStartConversation = async (managerId: string, gymId: string | null, managerName: string) => {
     try {
-      console.log(`Iniciando conversación con manager ${managerId} en gym ${gymId}`);
-      const conversation = await chatApi.initiateConversation(gymId, managerId);
+      console.log(`Iniciando conversación con manager ${managerId} - gymId: ${gymId || 'Sin gym'}`);
+      
+      // Si no tiene gym asignado, usar 'general' para conversaciones generales
+      let conversationGymId = gymId || 'general';
+      
+      if (conversationGymId === 'general') {
+        toast.info('Iniciando chat general', {
+          description: `${managerName} no tiene gimnasio asignado, iniciando conversación general`
+        });
+      }
+      
+      const conversation = await chatApi.initiateConversation(conversationGymId, managerId);
       setActiveConversation(conversation.id);
       toast.success('Conversación iniciada', {
         description: `Chat con ${managerName} establecido`
@@ -69,8 +86,8 @@ export function ManagerList() {
     return (
       <div className="p-4 text-center text-muted-foreground">
         <UserCheck className="h-6 w-6 mx-auto mb-2 opacity-50" />
-        <p className="text-sm">No hay gerentes disponibles</p>
-        <p className="text-xs mt-1">Asigna gerentes a tus gimnasios para poder chatear con ellos</p>
+        <p className="text-sm">No hay gerentes registrados</p>
+        <p className="text-xs mt-1">Los gerentes aparecerán aquí cuando se registren en el sistema</p>
       </div>
     );
   }
@@ -80,8 +97,9 @@ export function ManagerList() {
       <div className="p-3 border-b bg-muted/30">
         <h3 className="font-semibold text-sm flex items-center gap-2">
           <MessageSquarePlus className="h-4 w-4" />
-          Iniciar Chat con Gerentes
+          Chatear con Gerentes
         </h3>
+        <p className="text-xs text-muted-foreground mt-1">Todos los gerentes del sistema</p>
       </div>
       <div className="max-h-48 overflow-y-auto">
         {managers.map((manager: User & { workingAtGym?: any }) => (
@@ -91,19 +109,26 @@ export function ManagerList() {
               className="w-full justify-start text-left h-auto p-3"
               onClick={() => handleStartConversation(
                 manager.id, 
-                manager.workingAtGym?.id, 
-                manager.name
+                manager.workingAtGym?.id || null, 
+                manager.name || manager.email
               )}
-              disabled={!manager.workingAtGym?.id}
             >
               <div className="flex flex-col items-start w-full">
                 <div className="flex items-center gap-2 w-full">
                   <UserCheck className="h-4 w-4 text-primary flex-shrink-0" />
-                  <span className="font-medium truncate">{manager.name}</span>
+                  <span className="font-medium truncate">{manager.name || manager.email}</span>
+                  {!manager.workingAtGym?.id && (
+                    <AlertTriangle className="h-3 w-3 text-amber-500 flex-shrink-0" />
+                  )}
                 </div>
                 <span className="text-xs text-muted-foreground mt-1">
                   {manager.workingAtGym?.name || 'Sin gimnasio asignado'}
                 </span>
+                {manager.email && (
+                  <span className="text-xs text-muted-foreground opacity-75">
+                    {manager.email}
+                  </span>
+                )}
               </div>
             </Button>
           </div>

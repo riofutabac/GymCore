@@ -89,7 +89,7 @@ export const authApi = {
   // Método para obtener usuarios por rol (para administradores)
   getUsersByRole: async (role: UserRole): Promise<User[]> => {
     try {
-      const response = await axiosInstance.get<ApiResponse<User[]>>(`/api/auth/users/${role}`);
+      const response = await axiosInstance.get<ApiResponse<User[]>>(`/api/auth/users/role/${role}`);
       return handleResponse(response);
     } catch (error) {
       console.error(`Error al obtener usuarios con rol ${role}:`, error);

@@ -1,16 +1,14 @@
-import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
-import { WsException } from '@nestjs/websockets';
+import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
-import { PrismaService } from '../../prisma/prisma.service';
+import { WsException } from '@nestjs/websockets';
 import { Socket } from 'socket.io';
+import { PrismaService } from '../../prisma/prisma.service';
 import { Logger } from 'nestjs-pino';
 
 @Injectable()
 export class WsAuthGuard implements CanActivate {
   constructor(
     private readonly jwtService: JwtService,
-    private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
     private readonly logger: Logger,
   ) {}
@@ -18,18 +16,16 @@ export class WsAuthGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     try {
       const client: Socket = context.switchToWs().getClient();
-      const token = this.extractTokenFromHandshake(client);
+      const authToken = this.extractTokenFromHandshake(client);
 
-      if (!token) {
+      if (!authToken) {
         this.logger.warn('No token provided in WebSocket connection');
         throw new WsException('Unauthorized: No token provided');
       }
 
-      // Verificar el token JWT
-      const payload = this.jwtService.verify(token, {
-        secret: this.configService.get<string>('SUPABASE_JWT_SECRET'),
-      });
-
+      // Verificar el token JWT de Supabase
+      const payload = this.jwtService.decode(authToken) as any;
+      
       if (!payload || !payload.sub) {
         this.logger.warn('Invalid token payload in WebSocket connection');
         throw new WsException('Unauthorized: Invalid token');

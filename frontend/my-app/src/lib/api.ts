@@ -106,6 +106,16 @@ export const authApi = {
       throw error;
     }
   },
+  
+  getMyManagers: async (): Promise<User[]> => {
+    try {
+      const response = await axiosInstance.get<ApiResponse<User[]>>('/api/auth/managers');
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error al obtener gerentes:', error);
+      throw error;
+    }
+  },
 };
 
 // Módulo de gimnasios

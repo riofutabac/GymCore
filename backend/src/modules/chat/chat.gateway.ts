@@ -13,6 +13,11 @@ import { ChatService } from './chat.service';
 import { UseGuards } from '@nestjs/common';
 import { WsAuthGuard } from '../../common/guards/ws-auth.guard';
 import { Logger } from 'nestjs-pino';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { User } from '@prisma/client';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import { PrismaService } from '../../prisma/prisma.service';
 
 @WebSocketGateway({
   cors: {
@@ -28,6 +33,9 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   constructor(
     private readonly chatService: ChatService,
     private readonly logger: Logger,
+    private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
+    private readonly prisma: PrismaService,
   ) {}
 
   afterInit(server: Server) {
@@ -36,85 +44,145 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
 
   async handleConnection(client: Socket) {
     try {
-      // Verificar autenticación manualmente
-      const token = client.handshake.auth?.token || 
-                   client.handshake.headers?.authorization?.replace('Bearer ', '');
+      this.logger.log(`🔌 Nueva conexión WebSocket intentando autenticarse`);
       
-      if (!token) {
-        this.logger.warn('⚠️  Cliente sin token de autenticación');
-        client.emit('error', { message: 'Token de autenticación requerido' });
+      // Usar WsAuthGuard directamente
+      const wsAuthGuard = new WsAuthGuard(
+        this.jwtService,
+        this.configService,
+        this.prisma,
+        this.logger
+      );
+
+      // Simular el contexto de ejecución para el guard
+      const mockContext = {
+        switchToWs: () => ({
+          getClient: () => client
+        }),
+        getType: () => 'ws'
+      };
+
+      // Intentar autenticar
+      const isAuthenticated = await wsAuthGuard.canActivate(mockContext as any);
+      
+      if (!isAuthenticated) {
+        this.logger.warn('⚠️ Autenticación fallida, desconectando cliente');
         client.disconnect();
         return;
       }
 
-      // Aquí podrías verificar el token y obtener el usuario
-      // Por simplicidad, asumimos que el token es válido
-      this.logger.log(`🟢 Cliente conectado: ${client.id}`);
+      const user = client.data.user;
       
-      // Enviar confirmación de conexión
-      client.emit('connected', { message: 'Conectado al chat' });
+      if (!user) {
+        this.logger.warn('⚠️ Cliente sin datos de usuario válidos después de autenticación');
+        client.disconnect();
+        return;
+      }
+
+      // Unir al cliente a una sala personal
+      await client.join(`user_${user.id}`);
+      
+      this.logger.log(`🟢 Usuario conectado exitosamente: ${user.email} (${user.id})`);
+      
+      // Notificar al cliente que está conectado
+      client.emit('connected', { 
+        message: 'Conectado exitosamente al chat',
+        userId: user.id 
+      });
       
     } catch (error) {
-      this.logger.error('❌ Error en conexión:', error);
-      client.emit('error', { message: 'Error de autenticación' });
+      this.logger.error('❌ Error en conexión WebSocket:', error.message);
+      client.emit('error', { 
+        message: 'Error de autenticación',
+        details: error.message 
+      });
       client.disconnect();
     }
   }
 
   handleDisconnect(client: Socket) {
-    this.logger.log(`🔴 Cliente desconectado: ${client.id}`);
+    const userEmail = client.data?.user?.email || 'desconocido';
+    const userId = client.data?.user?.id || 'desconocido';
+    this.logger.log(`🔴 Usuario desconectado: ${userEmail} (${userId})`);
   }
 
-  @SubscribeMessage('ready')
-  async handleReady(@ConnectedSocket() client: Socket) {
-    // El cliente está listo para recibir eventos
-    this.logger.log(`✅ Cliente listo: ${client.id}`);
-    client.emit('ready_confirmed', { status: 'ready' });
-  }
-
+  @UseGuards(WsAuthGuard)
   @SubscribeMessage('joinConversation')
   async handleJoinConversation(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { conversationId: string }
+    @MessageBody() data: string | { conversationId: string }
   ) {
     try {
-      await client.join(`conversation_${data.conversationId}`);
-      this.logger.log(`💬 Cliente ${client.id} se unió a conversación: ${data.conversationId}`);
-      client.emit('joinedConversation', { conversationId: data.conversationId });
+      const conversationId = typeof data === 'string' ? data : data.conversationId;
+      
+      if (!conversationId) {
+        client.emit('error', { message: 'ID de conversación requerido' });
+        return;
+      }
+
+      await client.join(`conversation_${conversationId}`);
+      this.logger.log(`💬 Usuario ${client.data?.user?.email} se unió a conversación: ${conversationId}`);
+      
+      client.emit('joinedConversation', { conversationId });
     } catch (error) {
       this.logger.error('❌ Error al unirse a conversación:', error);
       client.emit('error', { message: 'Error al unirse a la conversación' });
     }
   }
 
+  @UseGuards(WsAuthGuard)
   @SubscribeMessage('sendMessage')
   async handleSendMessage(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { conversationId: string; content: string }
+    @MessageBody() data: { conversationId: string; content: string },
+    @CurrentUser() user: User
   ) {
     try {
-      // Por ahora, simplemente reenviar el mensaje a la conversación
-      // En una implementación completa, aquí guardarías en la BD
-      const messageData = {
-        id: Date.now().toString(), // ID temporal
-        content: data.content,
-        senderId: 'temp-user-id', // ID temporal
-        sender: {
-          id: 'temp-user-id',
-          name: 'Usuario Temporal',
-          email: 'temp@example.com',
-        },
-        createdAt: new Date(),
-      };
+      if (!user) {
+        throw new Error('Usuario no autenticado');
+      }
 
-      // Emitir a todos los participantes de la conversación
-      this.server.to(`conversation_${data.conversationId}`).emit('newMessage', messageData);
+      if (!data.conversationId || !data.content?.trim()) {
+        client.emit('error', { message: 'Datos del mensaje incompletos' });
+        return;
+      }
+
+      this.logger.log(`📝 Enviando mensaje de ${user.email} a conversación ${data.conversationId}`);
+
+      // Crear el mensaje en la base de datos
+      const message = await this.chatService.createMessage(
+        user.id,
+        data.conversationId,
+        data.content.trim()
+      );
+
+      this.logger.log(`💾 Mensaje guardado en BD: ${message.id}`);
+
+      // Emitir el mensaje a todos en la sala de la conversación
+      this.server.to(`conversation_${data.conversationId}`).emit('newMessage', message);
+
+      this.logger.log(`📤 Mensaje de ${user.email} enviado a conversación: ${data.conversationId}`);
       
-      this.logger.log(`📤 Mensaje enviado en conversación: ${data.conversationId}`);
+      // Confirmar al emisor que el mensaje se envió
+      client.emit('messageSent', { messageId: message.id, conversationId: data.conversationId });
       
     } catch (error) {
       this.logger.error('❌ Error al enviar mensaje:', error);
-      client.emit('error', { message: 'Error al enviar mensaje' });
+      client.emit('error', { 
+        message: 'Error al enviar mensaje',
+        details: error.message 
+      });
+    }
+  }
+
+  @SubscribeMessage('ready')
+  async handleReady(@ConnectedSocket() client: Socket) {
+    const user = client.data?.user;
+    if (user) {
+      this.logger.log(`✅ Cliente listo: ${user.email}`);
+      client.emit('ready', { status: 'ready', userId: user.id });
+    } else {
+      this.logger.warn('⚠️ Cliente envió ready pero no tiene datos de usuario');
     }
   }
 

@@ -1,13 +1,12 @@
 'use client';
 
+import React, { useEffect, useState } from 'react';
 import { useChatStore, useAuthStore } from '@/lib/store';
-import { cn } from '@/lib/utils';
-import { useEffect, useState } from 'react';
-import { Loader2, MessageSquare, RefreshCw, UserCircle, WifiOff } from 'lucide-react';
-import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import { Conversation } from '@/lib/types';
 import { socketService } from '@/lib/socket';
+import { Button } from '@/components/ui/button';
+import { Loader2, MessageSquare, RefreshCw, UserCircle, WifiOff, Clock } from 'lucide-react';
+import { toast } from 'sonner';
+import { Conversation } from '@/lib/types';
 
 export function ConversationList() {
   const { conversations, activeConversationId, setActiveConversation, fetchConversations } = useChatStore();
@@ -102,6 +101,26 @@ export function ConversationList() {
     };
   }, [fetchConversations, user, isConnected]);
   
+  const handleSelectConversation = (conversationId: string) => {
+    setActiveConversation(conversationId);
+    
+    // Unirse a la conversación en el socket
+    if (socketService.isConnected()) {
+      socketService.joinConversation(conversationId);
+    }
+  };
+
+  const getOtherParticipant = (conversation: Conversation) => {
+    return conversation.participants.find(p => p.id !== user?.id);
+  };
+
+  const getLastMessage = (conversation: Conversation) => {
+    if (conversation.messages && conversation.messages.length > 0) {
+      return conversation.messages[0]; // Asumiendo que están ordenados desc
+    }
+    return null;
+  };
+
   // Formatear la fecha del último mensaje para mostrarla en la lista
   const formatLastMessageTime = (conversation: Conversation) => {
     if (!conversation.messages || conversation.messages.length === 0) {
@@ -126,6 +145,16 @@ export function ConversationList() {
       return date.toLocaleDateString([], { day: '2-digit', month: '2-digit' });
     }
   };
+
+  if (conversations.length === 0) {
+    return (
+      <div className="p-4 text-center text-muted-foreground">
+        <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
+        <p className="text-sm">No hay conversaciones</p>
+        <p className="text-xs mt-1">Inicia una nueva conversación</p>
+      </div>
+    );
+  }
 
   return (
     <div className="border-r h-full flex flex-col">
@@ -193,47 +222,42 @@ export function ConversationList() {
               Reconectar
             </Button>
           </div>
-        ) : conversations.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-32 text-muted-foreground p-4">
-            <MessageSquare className="h-8 w-8 mb-2" />
-            <p>No hay conversaciones activas</p>
-          </div>
         ) : (
           <div className="flex flex-col p-2 space-y-1">
             {conversations.map((conv) => {
               const otherParticipant = conv.participants.find(p => p.id !== user?.id);
               const lastMessage = conv.messages[0];
+              const isActive = conv.id === activeConversationId;
+
               return (
-                <button
+                <Button
                   key={conv.id}
-                  onClick={() => setActiveConversation(conv.id)}
-                  className={cn(
-                    "flex flex-col items-start p-3 rounded-lg text-left transition-colors",
-                    activeConversationId === conv.id ? 'bg-muted' : 'hover:bg-muted/50'
-                  )}
+                  variant={isActive ? "secondary" : "ghost"}
+                  className="w-full justify-start text-left h-auto p-3"
+                  onClick={() => handleSelectConversation(conv.id)}
                 >
-                  <div className="flex items-center justify-between w-full">
-                    <div className="flex items-center">
+                  <div className="flex flex-col items-start w-full">
+                    <div className="flex items-center gap-2 w-full">
                       <UserCircle className="h-5 w-5 mr-2 text-muted-foreground" />
                       <p className="font-medium">
                         {otherParticipant?.name || 'Usuario'}
                       </p>
                     </div>
                     {lastMessage && (
-                      <span className="text-xs text-muted-foreground">
-                        {formatLastMessageTime(conv)}
-                      </span>
+                      <div className="mt-1 w-full">
+                        <p className="text-xs text-muted-foreground truncate">
+                          {lastMessage.content}
+                        </p>
+                        <div className="flex items-center gap-1 mt-1">
+                          <Clock className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(lastMessage.createdAt).toLocaleTimeString()}
+                          </span>
+                        </div>
+                      </div>
                     )}
                   </div>
-                  <p className="text-sm text-muted-foreground truncate w-full mt-1 pl-7">
-                    {lastMessage ? (
-                      lastMessage.senderId === user?.id ? (
-                        <span className="opacity-70">Tú: </span>
-                      ) : null
-                    ) : null}
-                    {lastMessage?.content || 'Sin mensajes...'}
-                  </p>
-                </button>
+                </Button>
               );
             })}
           </div>

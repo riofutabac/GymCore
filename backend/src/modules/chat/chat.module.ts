@@ -1,31 +1,32 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
-import { ChatGateway } from './chat.gateway';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ChatService } from './chat.service';
 import { ChatController } from './chat.controller';
+import { ChatGateway } from './chat.gateway';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { WsAuthGuard } from '../../common/guards/ws-auth.guard';
 
 @Module({
   imports: [
     PrismaModule,
+    ConfigModule,
     JwtModule.registerAsync({
-      inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
+      imports: [ConfigModule],
+      useFactory: async (configService: ConfigService) => ({
         secret: configService.get<string>('SUPABASE_JWT_SECRET'),
-        signOptions: {
-          expiresIn: configService.get<string>('JWT_EXPIRES_IN', '7d'),
-        },
+        signOptions: { expiresIn: '1h' },
       }),
+      inject: [ConfigService],
     }),
   ],
-  providers: [
-    ChatGateway,
-    ChatService,
-    WsAuthGuard,
-  ],
   controllers: [ChatController],
-  exports: [ChatService],
+  providers: [
+    ChatService, 
+    ChatGateway, 
+    WsAuthGuard,
+    ConfigService, // Asegurar que ConfigService esté disponible
+  ],
+  exports: [ChatService, WsAuthGuard],
 })
 export class ChatModule {}

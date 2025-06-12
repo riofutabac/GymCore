@@ -4,27 +4,47 @@ import { useChatStore, useAuthStore } from '@/lib/store';
 import { socketService } from '@/lib/socket';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { AlertCircle, CheckCircle, Send, Loader2 } from 'lucide-react';
+import { AlertCircle, Send, Loader2, WifiOff, Wifi } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Message } from '@/lib/types';
 import { toast } from 'sonner';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export function ChatWindow() {
-  const { activeConversationId, messages, fetchMessages } = useChatStore();
+  const { activeConversationId, messages, fetchMessages, addMessage } = useChatStore();
   const { user } = useAuthStore();
   const [content, setContent] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
-  // Usar directamente isConnected() para obtener el estado real de conexión
-  const [isSocketConnected, setIsSocketConnected] = useState<boolean>(
-    socketService.isConnected()
-  );
+  const [isSocketConnected, setIsSocketConnected] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
+  // Verificar conexión del socket
+  useEffect(() => {
+    const checkConnection = () => {
+      const connected = socketService.isConnected();
+      setIsSocketConnected(connected);
+      return connected;
+    };
+
+    // Verificar inmediatamente
+    checkConnection();
+
+    // Verificar cada 2 segundos
+    const interval = setInterval(checkConnection, 2000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Cargar mensajes cuando cambia la conversación
   useEffect(() => {
     if (activeConversationId) {
       setIsLoading(true);
       fetchMessages(activeConversationId)
+        .then(() => {
+          console.log(`✅ Mensajes cargados para conversación: ${activeConversationId}`);
+        })
         .catch(error => {
           console.error('Error al cargar mensajes:', error);
           toast.error('No se pudieron cargar los mensajes', {
@@ -32,24 +52,65 @@ export function ChatWindow() {
           });
         })
         .finally(() => setIsLoading(false));
-      
-      // Unirse a la sala de chat cuando cambia la conversación activa
-      const socket = socketService.getSocket();
-      if (socket?.connected) {
-        socketService.joinConversation(activeConversationId);
-      }
     }
   }, [activeConversationId, fetchMessages]);
 
+  // Configurar socket y listeners
+  useEffect(() => {
+    if (!activeConversationId) return;
+
+    // Asegurar conexión del socket
+    if (!socketService.isConnected()) {
+      console.log('🔌 Conectando socket para la conversación...');
+      socketService.connect().then(() => {
+        if (socketService.isConnected()) {
+          socketService.joinConversation(activeConversationId);
+        }
+      });
+    } else {
+      // Ya conectado, unirse directamente
+      socketService.joinConversation(activeConversationId);
+    }
+
+    // Configurar listener para nuevos mensajes
+    const unsubscribeNewMessage = socketService.onNewMessage((message: Message) => {
+      console.log('📨 Nuevo mensaje recibido:', message);
+      
+      if (message.conversationId === activeConversationId) {
+        // Verificar si el mensaje ya existe para evitar duplicados
+        const existingMessage = useChatStore.getState().messages.find(m => m.id === message.id);
+        if (!existingMessage) {
+          addMessage(message);
+        }
+      }
+    });
+
+    // Configurar listener para errores
+    const unsubscribeError = socketService.onError((error) => {
+      console.error('❌ Error en socket:', error);
+      toast.error('Error de conexión', {
+        description: error?.message || 'Problema con la conexión de chat'
+      });
+    });
+
+    return () => {
+      unsubscribeNewMessage();
+      unsubscribeError();
+    };
+  }, [activeConversationId, addMessage]);
+
+  // Scroll automático al final
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!content.trim() || !activeConversationId) return;
     
-    // Verificar que el socket esté conectado
+    if (!content.trim() || !activeConversationId) {
+      return;
+    }
+    
     if (!isSocketConnected) {
       toast.error('Sin conexión', {
         description: 'No se puede enviar el mensaje porque no hay conexión con el servidor.'
@@ -57,209 +118,133 @@ export function ChatWindow() {
       return;
     }
     
-    const tempId = `temp-${Date.now()}`;
-    const tempMessage = {
-      id: tempId,
-      content: content.trim(),
-      senderId: user?.id || '',
-      conversationId: activeConversationId,
-      createdAt: new Date().toISOString(),
-      sender: user,
-      _status: 'sending' as 'sending' | 'error' | undefined
-    };
-    
-    // Agregar mensaje temporal al estado local
-    useChatStore.getState().addMessage(tempMessage);
-    
-    setIsSending(true);
     const messageContent = content.trim();
     setContent('');
+    setIsSending(true);
     
     try {
+      console.log(`📤 Enviando mensaje: "${messageContent}" a conversación: ${activeConversationId}`);
       socketService.sendMessage(activeConversationId, messageContent);
-      // El mensaje real será agregado por el listener de newMessage
+      
+      // Enfocar de nuevo el input
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+      
     } catch (error) {
-      console.error('Error al enviar mensaje:', error);
+      console.error('❌ Error al enviar mensaje:', error);
       toast.error('No se pudo enviar el mensaje', {
         description: 'Intenta nuevamente en unos momentos'
       });
-      
-      // Marcar el mensaje temporal como error
-      const updatedMessages = useChatStore.getState().messages.map(msg => 
-        msg.id === tempId ? { ...msg, _status: 'error' } : msg
-      );
-      useChatStore.setState({ messages: updatedMessages });
+      // Restaurar el contenido si hay error
+      setContent(messageContent);
     } finally {
       setIsSending(false);
     }
   };
 
-  // Configurar listeners para el socket
-  useEffect(() => {
-    const socket = socketService.getSocket();
-    
-    // Forzar una verificación directa del estado actual del socket
-    const checkSocketConnection = () => {
-      const isConnected = socketService.isConnected();
-      setIsSocketConnected(isConnected);
-      return isConnected;
-    };
-    
-    // Verificar estado inicial
-    checkSocketConnection();
-    
-    // Configurar listeners para cambios de estado de conexión
-    const handleConnect = () => {
-      setIsSocketConnected(true);
-      
-      // Si hay una conversación activa, unirse a ella
-      if (activeConversationId) {
-        socketService.joinConversation(activeConversationId);
-      }
-    };
-    
-    const handleDisconnect = () => {
-      setIsSocketConnected(false);
-    };
-    
-    // Manejar nuevos mensajes recibidos del servidor
-    const handleNewMessage = (message: Message) => {      
-      // Si el mensaje es para la conversación activa, agregarlo al estado
-      if (message.conversationId === activeConversationId) {
-        // Reemplazar mensaje temporal si existe
-        const existingTempIndex = useChatStore.getState().messages.findIndex(
-          m => m._status === 'sending' && m.content === message.content
-        );
-        
-        if (existingTempIndex >= 0) {
-          // Reemplazar mensaje temporal con el real
-          const updatedMessages = [...useChatStore.getState().messages];
-          updatedMessages[existingTempIndex] = message;
-          useChatStore.setState({ messages: updatedMessages });
-        } else {
-          // Agregar nuevo mensaje
-          useChatStore.getState().addMessage(message);
-        }
-      } else {
-        // Notificar al usuario sobre mensaje en otra conversación
-        toast.info('Nuevo mensaje', {
-          description: `Has recibido un mensaje en otra conversación`
-        });
-        // Actualizar lista de conversaciones
-        useChatStore.getState().fetchConversations();
-      }
-    };
-    
-    // Verificar estado de conexión cada 2 segundos
-    const checkConnectionInterval = setInterval(() => {
-      const currentSocket = socketService.getSocket();
-      const currentConnected = !!currentSocket?.connected;
-      
-      if (currentConnected !== isSocketConnected) {
-        setIsSocketConnected(currentConnected);
-        
-        // Si acabamos de conectar y hay una conversación activa, unirse a ella
-        if (currentConnected && activeConversationId) {
-          socketService.joinConversation(activeConversationId);
-        }
-      }
-    }, 2000);
-    
-    // Configurar listener para errores
-    const unsubscribeError = socketService.onError((error) => {
-      console.error('Error en socket:', error);
-      toast.error('Error de conexión', {
-        description: 'Ocurrió un problema con la conexión de chat'
+  const handleReconnect = async () => {
+    try {
+      toast.info('Reconectando...', {
+        description: 'Intentando establecer conexión con el servidor'
       });
-    });
-    
-    // Suscribirse a eventos de conexión/desconexión
-    socket?.on('connect', handleConnect);
-    socket?.on('disconnect', handleDisconnect);
-    socket?.on('newMessage', handleNewMessage);
-    
-    // Si no hay conexión, intentar conectar
-    if (!initialConnected) {
-      socketService.connect();
-    } else if (activeConversationId) {
-      // Si ya estamos conectados y hay una conversación activa, unirse a ella
-      socketService.joinConversation(activeConversationId);
+      
+      const connected = await socketService.connect();
+      if (connected && activeConversationId) {
+        socketService.joinConversation(activeConversationId);
+        toast.success('Reconectado', {
+          description: 'Conexión restablecida exitosamente'
+        });
+      }
+    } catch (error) {
+      toast.error('Error al reconectar', {
+        description: 'No se pudo restablecer la conexión'
+      });
     }
-    
-    return () => {
-      // Limpiar todos los listeners
-      socket?.off('connect', handleConnect);
-      socket?.off('disconnect', handleDisconnect);
-      socket?.off('newMessage', handleNewMessage);
-      unsubscribeError();
-      clearInterval(checkConnectionInterval);
-    };
-  }, [activeConversationId, isSocketConnected]);
+  };
 
   if (!activeConversationId) {
-    return <div className="flex h-full items-center justify-center text-muted-foreground">Selecciona una conversación</div>
+    return (
+      <div className="flex h-full items-center justify-center text-muted-foreground">
+        <div className="text-center">
+          <Send className="h-12 w-12 mx-auto mb-4 opacity-50" />
+          <p>Selecciona una conversación para comenzar</p>
+        </div>
+      </div>
+    );
   }
 
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <span className="ml-2">Cargando mensajes...</span>
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
+          <span className="text-muted-foreground">Cargando mensajes...</span>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="flex flex-col h-full">
-      {/* Mostrar estado de conexión solo si hay una conversación activa y no hay conexión */}
-      {!isSocketConnected && activeConversationId && (
-        <div className="bg-destructive/15 text-destructive text-sm p-2 rounded-md mb-2 flex items-center gap-2">
-          <AlertCircle className="h-4 w-4" />
-          <span className="font-medium">Sin conexión</span>
-          <p className="text-xs text-muted-foreground ml-1">No hay conexión con el servidor. Los mensajes no podrán enviarse hasta que se restablezca.</p>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="ml-auto" 
-            onClick={() => {
-              const isAlreadyConnected = socketService.getSocket()?.connected;
-              if (isAlreadyConnected) {
-                toast.info('Conexión activa', {
-                  description: 'Ya hay una conexión activa con el servidor.'
-                });
-                setIsSocketConnected(true);
-              } else {
-                socketService.connect();
-                toast.info('Reconectando', {
-                  description: 'Intentando establecer conexión con el servidor...'
-                });
-              }
-            }}
-          >
-            Reconectar
-          </Button>
+      {/* Header con estado de conexión */}
+      <div className="p-3 border-b bg-muted/30">
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold">Chat</h3>
+          <div className="flex items-center gap-2 text-xs">
+            {isSocketConnected ? (
+              <>
+                <Wifi className="h-3 w-3 text-green-500" />
+                <span className="text-green-600">Conectado</span>
+              </>
+            ) : (
+              <>
+                <WifiOff className="h-3 w-3 text-red-500" />
+                <span className="text-red-600">Desconectado</span>
+              </>
+            )}
+          </div>
         </div>
+      </div>
+
+      {/* Alerta de conexión */}
+      {!isSocketConnected && (
+        <Alert className="m-2 border-destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription className="flex items-center justify-between">
+            <span>Sin conexión con el servidor</span>
+            <Button variant="outline" size="sm" onClick={handleReconnect}>
+              Reconectar
+            </Button>
+          </AlertDescription>
+        </Alert>
       )}
+
+      {/* Área de mensajes */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 ? (
           <div className="flex h-full items-center justify-center text-muted-foreground">
-            No hay mensajes. Envía el primero.
+            <div className="text-center">
+              <Send className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p>No hay mensajes. Envía el primero.</p>
+            </div>
           </div>
         ) : (
           messages.map((msg) => (
             <div key={msg.id} className={`flex ${msg.senderId === user?.id ? 'justify-end' : 'justify-start'}`}>
-              <div className={`p-3 rounded-lg max-w-xs ${msg.senderId === user?.id ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                <p className="text-sm">{msg.content}</p>
-                <div className="flex items-center justify-end gap-1 mt-1">
-                  {msg._status === 'sending' && (
-                    <Loader2 className="h-3 w-3 animate-spin opacity-70" />
-                  )}
-                  {msg._status === 'error' && (
-                    <span className="text-xs text-red-500">Error</span>
-                  )}
-                  <p className="text-xs opacity-70">
+              <div className={`p-3 rounded-lg max-w-xs lg:max-w-md ${
+                msg.senderId === user?.id 
+                  ? 'bg-primary text-primary-foreground' 
+                  : 'bg-muted'
+              }`}>
+                <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
+                <div className="flex items-center justify-between gap-2 mt-2">
+                  <span className="text-xs opacity-70 font-medium">
+                    {msg.sender?.name || 'Usuario'}
+                  </span>
+                  <span className="text-xs opacity-70">
                     {new Date(msg.createdAt).toLocaleTimeString()}
-                  </p>
+                  </span>
                 </div>
               </div>
             </div>
@@ -267,26 +252,37 @@ export function ChatWindow() {
         )}
         <div ref={messagesEndRef} />
       </div>
-      <form onSubmit={handleSendMessage} className="p-4 border-t flex gap-2">
-        <Input 
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          placeholder={isSocketConnected ? "Escribe un mensaje..." : "Reconectando..."}
-          disabled={isSending || !isSocketConnected}
-          className={!isSocketConnected ? "opacity-50" : ""}
-        />
-        <Button 
-          type="submit" 
-          size="icon" 
-          disabled={isSending || !isSocketConnected || !content.trim()}
-          className={!isSocketConnected ? "opacity-50" : ""}
-        >
-          {isSending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Send className="h-4 w-4" />
-          )}
-        </Button>
+
+      {/* Formulario de envío */}
+      <form onSubmit={handleSendMessage} className="p-4 border-t bg-background">
+        <div className="flex gap-2">
+          <Input 
+            ref={inputRef}
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            placeholder={isSocketConnected ? "Escribe un mensaje..." : "Reconectando..."}
+            disabled={isSending || !isSocketConnected}
+            className={`flex-1 ${!isSocketConnected ? "opacity-50" : ""}`}
+            maxLength={1000}
+          />
+          <Button 
+            type="submit" 
+            size="icon" 
+            disabled={isSending || !isSocketConnected || !content.trim()}
+            className={!isSocketConnected ? "opacity-50" : ""}
+          >
+            {isSending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
+        {content.length > 800 && (
+          <p className="text-xs text-muted-foreground mt-1">
+            {content.length}/1000 caracteres
+          </p>
+        )}
       </form>
     </div>
   );

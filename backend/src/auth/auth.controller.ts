@@ -98,6 +98,23 @@ export class AuthController {
     };
   }
 
+  @Get('managers')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles([Role.OWNER])
+  async getMyManagers(@CurrentUser() user: any) {
+    try {
+      const managers = await this.authService.getUsersByRoleAndOwner('MANAGER', user.id);
+      this.logger.log(`👥 Obtenidos ${managers.length} gerentes para el propietario ${user.email}`);
+      return {
+        success: true,
+        data: managers
+      };
+    } catch (error) {
+      this.logger.error(`❌ Error obteniendo gerentes: ${error.message}`);
+      throw error;
+    }
+  }
+
   @Post('sync-user-legacy')
   async syncUserLegacy(@Body() body: { userId: string; email: string; name?: string; role?: string }) {
     try {

@@ -224,6 +224,38 @@ export class AuthService {
       throw new BadRequestException(`Failed to get users with role ${role}`);
     }
   }
+  
+  async getUsersByRoleAndOwner(role: UserRole, ownerId: string): Promise<any[]> {
+    try {
+      this.logger.log(`🔍 Obteniendo usuarios con rol ${role} para propietario ${ownerId}`);
+      
+      const users = await this.prisma.user.findMany({
+        where: {
+          role: role,
+          isActive: true,
+          workingAtGym: {
+            ownerId: ownerId,
+          },
+        },
+        include: {
+          workingAtGym: {
+            select: { 
+              id: true, 
+              name: true,
+              address: true,
+              ownerId: true
+            }
+          }
+        }
+      });
+      
+      this.logger.log(`✅ Encontrados ${users.length} usuarios con rol ${role} para el propietario ${ownerId}`);
+      return users;
+    } catch (error) {
+      this.logger.error(`❌ Error obteniendo usuarios por rol y propietario: ${error.message}`);
+      throw new BadRequestException(`Failed to get users by role and owner: ${error.message}`);
+    }
+  }
 
   async syncUserFromSupabaseV1(userId: string, email: string, name?: string, role?: string): Promise<any> {
     try {

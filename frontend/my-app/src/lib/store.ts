@@ -29,6 +29,7 @@ type GymState = {
   error: string | null;
   fetchCurrentGym: () => Promise<void>;
   clearCurrentGym: () => void;
+  setCurrentGym: (gym: any) => void;
 };
 
 const authStore = create<AuthState>()(
@@ -243,6 +244,9 @@ const gymStore = create<GymState>((set) => ({
   },
   clearCurrentGym: () => {
     set({ currentGym: null, isLoading: false, error: null });
+  },
+  setCurrentGym: (gym) => {
+    set({ currentGym: gym, isLoading: false, error: null });
   }
 }));
 

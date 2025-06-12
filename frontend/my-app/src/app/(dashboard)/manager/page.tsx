@@ -31,18 +31,38 @@ export default function ManagerDashboard() {
 
   useEffect(() => {
     const fetchDashboardData = async () => {
-      if (!currentGym?.id) {
-        setError('No hay un gimnasio seleccionado');
-        setIsLoading(false);
-        return;
-      }
-
       try {
         setIsLoading(true);
         setError(null);
         
+        // Primero obtenemos el gimnasio del manager si no está disponible
+        let gymId = currentGym?.id;
+        
+        if (!gymId) {
+          // Intentamos obtener el gimnasio del manager desde la API
+          try {
+            const myGym = await api.manager.getMyGym();
+            if (myGym && myGym.id) {
+              gymId = myGym.id;
+              // Actualizamos el store con el gimnasio obtenido
+              useGymStore.getState().setCurrentGym(myGym);
+            }
+          } catch (gymError) {
+            console.error('Error al obtener el gimnasio del manager:', gymError);
+            setError('No se pudo obtener información del gimnasio');
+            setIsLoading(false);
+            return;
+          }
+        }
+        
+        if (!gymId) {
+          setError('No hay un gimnasio asociado a tu cuenta de manager');
+          setIsLoading(false);
+          return;
+        }
+        
         // Obtener métricas del dashboard para el manager
-        const dashboardData = await api.manager.getDashboardMetrics(currentGym.id);
+        const dashboardData = await api.manager.getDashboardMetrics(gymId);
         setMetrics(dashboardData);
       } catch (err) {
         console.error('Error al cargar datos del dashboard:', err);
@@ -85,20 +105,23 @@ export default function ManagerDashboard() {
           icon={<Users className="h-4 w-4 text-muted-foreground" />}
           loading={isLoading}
         />
+        {/* Ocultamos las métricas de ventas ya que no tenemos datos reales */}
+        {/*
         <MetricCard
           title="Ventas del Mes"
-          value={`$${metrics.monthlySales.toLocaleString()}`}
+          value={metrics.monthlySales > 0 ? `$${metrics.monthlySales.toLocaleString()}` : 'No disponible'}
           description="Ingresos del mes actual"
           icon={<DollarSign className="h-4 w-4 text-green-500" />}
           loading={isLoading}
         />
         <MetricCard
           title="Ventas Totales"
-          value={`$${metrics.totalSales.toLocaleString()}`}
+          value={metrics.totalSales > 0 ? `$${metrics.totalSales.toLocaleString()}` : 'No disponible'}
           description="Ingresos acumulados"
           icon={<DollarSign className="h-4 w-4 text-muted-foreground" />}
           loading={isLoading}
         />
+        */}
         <MetricCard
           title="Productos en Inventario"
           value={metrics.totalProducts}
@@ -113,6 +136,17 @@ export default function ManagerDashboard() {
           icon={<Package className="h-4 w-4 text-red-500" />}
           loading={isLoading}
         />
+        {/* Mensaje informativo sobre métricas de ventas */}
+        <Card className="col-span-2">
+          <CardHeader>
+            <CardTitle>Métricas de Ventas</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-center h-24 text-muted-foreground">
+              <p>Las métricas de ventas estarán disponibles próximamente</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -122,11 +156,14 @@ export default function ManagerDashboard() {
             <CardDescription>Últimas transacciones registradas</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-80 flex items-center justify-center text-muted-foreground">
+            <div className="h-80 flex flex-col items-center justify-center text-muted-foreground">
               {isLoading ? (
                 <p>Cargando datos...</p>
               ) : (
-                <p>Lista de ventas recientes (implementación pendiente)</p>
+                <>
+                  <p className="mb-2">No hay datos de ventas disponibles</p>
+                  <p className="text-sm text-center">El módulo de ventas está en desarrollo y estará disponible próximamente</p>
+                </>
               )}
             </div>
           </CardContent>
@@ -137,11 +174,19 @@ export default function ManagerDashboard() {
             <CardDescription>Próximas a expirar en los siguientes 7 días</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-80 flex items-center justify-center text-muted-foreground">
+            <div className="h-80 flex flex-col items-center justify-center text-muted-foreground">
               {isLoading ? (
                 <p>Cargando datos...</p>
+              ) : metrics.totalMembers > 0 ? (
+                <>
+                  <p className="mb-2">No hay membresías próximas a vencer</p>
+                  <p className="text-sm text-center">Cuando haya membresías por vencer en los próximos 7 días, aparecerán aquí</p>
+                </>
               ) : (
-                <p>Lista de membresías por vencer (implementación pendiente)</p>
+                <>
+                  <p className="mb-2">No hay miembros registrados</p>
+                  <p className="text-sm text-center">Registra miembros en tu gimnasio para ver información sobre sus membresías</p>
+                </>
               )}
             </div>
           </CardContent>

@@ -678,6 +678,54 @@ export const chatApi = {
   },
 };
 
+// Módulo de manager
+export const managerApi = {
+  getMyGym: async (): Promise<Gym> => {
+    try {
+      const response = await axiosInstance.get<ApiResponse<Gym>>('/api/gyms/my');
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error al obtener gimnasio del manager:', error);
+      throw error;
+    }
+  },
+
+  getDashboardMetrics: async (gymId: string): Promise<{
+    totalMembers: number;
+    activeMembers: number;
+    totalSales: number;
+    monthlySales: number;
+    totalProducts: number;
+    lowStockProducts: number;
+  }> => {
+    try {
+      // Obtenemos los datos reales del gimnasio
+      const response = await axiosInstance.get<ApiResponse<Gym>>(`/api/gyms/${gymId}`);
+      const gym = handleResponse(response);
+      
+      // Solo usamos datos reales que vienen de la base de datos
+      return {
+        totalMembers: gym._count?.members || 0,
+        activeMembers: gym._count?.activeMembers || 0, // Usamos el valor real si existe
+        totalSales: 0, // No mostramos datos simulados
+        monthlySales: 0, // No mostramos datos simulados
+        totalProducts: gym._count?.products || 0,
+        lowStockProducts: gym._count?.lowStockProducts || 0 // Usamos el valor real si existe
+      };
+    } catch (error) {
+      console.error(`Error al obtener métricas del dashboard para gimnasio ${gymId}:`, error);
+      return {
+        totalMembers: 0,
+        activeMembers: 0,
+        totalSales: 0,
+        monthlySales: 0,
+        totalProducts: 0,
+        lowStockProducts: 0
+      };
+    }
+  },
+};
+
 // Exportar todos los módulos de API
 const api = {
   auth: authApi,
@@ -688,6 +736,7 @@ const api = {
   access: accessApi,
   settings: settingsApi,
   chat: chatApi,
+  manager: managerApi,
 };
 
 export default api;

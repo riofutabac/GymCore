@@ -16,7 +16,7 @@ interface DashboardMetrics {
 }
 
 export default function OwnerDashboard() {
-  const { data: metrics, isLoading, error } = useQuery<DashboardMetrics>({
+  const { data: metrics, isLoading, error, refetch } = useQuery<DashboardMetrics>({
     queryKey: ['owner-dashboard'],
     queryFn: async () => {
       try {

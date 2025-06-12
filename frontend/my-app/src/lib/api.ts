@@ -186,12 +186,18 @@ export const gymsApi = {
     activeGyms: number;
   }> => {
     try {
-      const response = await axiosInstance.get<ApiResponse<Gym[]>>('/api/gyms');
-      const gyms = handleResponse(response);
+      // Obtenemos los gimnasios
+      const gymsResponse = await axiosInstance.get<ApiResponse<Gym[]>>('/api/gyms');
+      const gyms = handleResponse(gymsResponse);
+      
+      // Obtenemos todos los usuarios
+      const usersResponse = await axiosInstance.get<ApiResponse<User[]>>('/api/auth/users');
+      const users = handleResponse(usersResponse);
+      
       return {
         totalGyms: gyms.length,
-        activeGyms: gyms.filter(gym => gym.active).length,
-        totalUsers: gyms.reduce((acc, gym) => acc + (gym.memberCount || 0), 0),
+        activeGyms: gyms.filter(gym => gym.isActive).length,
+        totalUsers: users.length,
         totalRevenue: gyms.reduce((acc, gym) => acc + (gym.revenue || 0), 0)
       };
     } catch (error) {

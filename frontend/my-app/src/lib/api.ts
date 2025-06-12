@@ -657,29 +657,38 @@ export const settingsApi = {
 export const chatApi = {
   getConversations: async (): Promise<Conversation[]> => {
     try {
+      console.log('Fetching conversations...');
       const response = await axiosInstance.get<ApiResponse<Conversation[]>>('/api/chat/conversations');
-      return handleResponse(response);
+      const data = handleResponse(response);
+      console.log('Conversations fetched:', data);
+      return data;
     } catch (error) {
       console.error('Error al obtener conversaciones:', error);
-      throw error;
+      return []; // Devolver array vacío en lugar de lanzar error para evitar bloquear la UI
     }
   },
 
   getMessages: async (conversationId: string): Promise<Message[]> => {
     try {
+      console.log(`Fetching messages for conversation ${conversationId}...`);
       const response = await axiosInstance.get<ApiResponse<Message[]>>(`/api/chat/conversations/${conversationId}/messages`);
-      return handleResponse(response);
+      const data = handleResponse(response);
+      console.log(`Messages fetched for conversation ${conversationId}:`, data.length);
+      return data;
     } catch (error) {
       console.error(`Error al obtener mensajes de la conversación ${conversationId}:`, error);
-      throw error;
+      return []; // Devolver array vacío en lugar de lanzar error
     }
   },
 
   initiateConversation: async (gymId: string, managerId?: string): Promise<Conversation> => {
     try {
       const payload = managerId ? { gymId, managerId } : { gymId };
+      console.log('Initiating conversation with payload:', payload);
       const response = await axiosInstance.post<ApiResponse<Conversation>>('/api/chat/conversations/initiate', payload);
-      return handleResponse(response);
+      const data = handleResponse(response);
+      console.log('Conversation initiated:', data);
+      return data;
     } catch (error) {
       console.error('Error al iniciar conversación:', error);
       throw error;

@@ -33,9 +33,9 @@ export function ConversationList() {
   };
 
   useEffect(() => {
-    // Verificar si hay conexión con el socket
-    const socket = socketService.getSocket();
-    setIsConnected(!!socket?.connected);
+    // Verificar si hay conexión con el socket usando el método isConnected()
+    const isSocketConnected = socketService.isConnected();
+    setIsConnected(isSocketConnected);
     
     const handleConnect = () => {
       console.log('Socket conectado en ConversationList');
@@ -48,21 +48,64 @@ export function ConversationList() {
       setIsConnected(false);
     };
     
-    if (socket) {
-      socket.on('connect', handleConnect);
-      socket.on('disconnect', handleDisconnect);
+    const handleNewMessage = () => {
+      console.log('Nuevo mensaje recibido, recargando conversaciones');
+      loadConversations();
+    };
+    
+    // Configurar listeners para eventos del socket
+    const setupSocketListeners = () => {
+      const socket = socketService.getSocket();
+      if (socket) {
+        socket.on('connect', handleConnect);
+        socket.on('disconnect', handleDisconnect);
+        socket.on('newMessage', handleNewMessage);
+      }
+    };
+    
+    // Verificar estado de conexión cada 2 segundos
+    const checkConnectionInterval = setInterval(() => {
+      const currentConnected = socketService.isConnected();
+      
+      if (currentConnected !== isConnected) {
+        console.log(`Estado de conexión actualizado: ${currentConnected ? 'conectado' : 'desconectado'}`);
+        setIsConnected(currentConnected);
+        
+        if (currentConnected) {
+          // Si acabamos de conectar, cargar conversaciones y configurar listeners
+          loadConversations();
+          setupSocketListeners();
+        }
+      }
+    }, 2000);
+    
+    // Configurar listeners iniciales
+    setupSocketListeners();
+    
+    // Si no hay socket conectado, intentar conectar
+    if (!isSocketConnected && user) {
+      console.log('Intentando conectar el socket desde ConversationList');
+      socketService.connect().then(connected => {
+        if (connected) {
+          setupSocketListeners();
+          loadConversations();
+        }
+      });
+    } else if (isSocketConnected) {
+      // Cargar conversaciones iniciales si ya hay conexión
+      loadConversations();
     }
     
-    // Cargar conversaciones iniciales
-    loadConversations();
-    
     return () => {
+      const socket = socketService.getSocket();
       if (socket) {
         socket.off('connect', handleConnect);
         socket.off('disconnect', handleDisconnect);
+        socket.off('newMessage', handleNewMessage);
       }
+      clearInterval(checkConnectionInterval);
     };
-  }, [fetchConversations]);
+  }, [fetchConversations, user, isConnected]);
   
   // Formatear la fecha del último mensaje para mostrarla en la lista
   const formatLastMessageTime = (conversation: Conversation) => {
@@ -128,7 +171,29 @@ export function ConversationList() {
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={() => socketService.connect()}
+              onClick={async () => {
+                console.log('Intentando reconectar desde ConversationList...');
+                const isAlreadyConnected = socketService.isConnected();
+                if (isAlreadyConnected) {
+                  toast.info('Conexión activa', {
+                    description: 'Ya hay una conexión activa con el servidor.'
+                  });
+                  setIsConnected(true);
+                } else {
+                  const connected = await socketService.connect();
+                  if (connected) {
+                    toast.success('Conectado', {
+                      description: 'Conexión establecida correctamente.'
+                    });
+                    setIsConnected(true);
+                    loadConversations();
+                  } else {
+                    toast.error('Error de conexión', {
+                      description: 'No se pudo conectar al servidor.'
+                    });
+                  }
+                }
+              }}
               className="mt-2"
             >
               Reconectar

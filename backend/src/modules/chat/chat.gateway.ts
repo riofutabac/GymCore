@@ -1,19 +1,20 @@
 import {
-    WebSocketGateway,
-    SubscribeMessage,
-    MessageBody,
-    WebSocketServer,
-    ConnectedSocket,
-    OnGatewayConnection,
-    OnGatewayDisconnect,
-  } from '@nestjs/websockets';
-  import { Server, Socket } from 'socket.io';
-  import { Logger, UseGuards } from '@nestjs/common';
-  import { ChatService } from './chat.service';
-  import { AuthGuard } from '../../common/guards/auth.guard';
-  import { AuthService } from '../../auth/auth.service';
+  WebSocketGateway,
+  SubscribeMessage,
+  MessageBody,
+  WebSocketServer,
+  ConnectedSocket,
+  OnGatewayConnection,
+  OnGatewayDisconnect,
+  WsException,
+} from '@nestjs/websockets';
+import { Server, Socket } from 'socket.io';
+import { Logger } from '@nestjs/common';
+import { ChatService } from './chat.service';
+import { AuthService } from '../../auth/auth.service';
+import { ConfigService } from '@nestjs/config';
+import { verify } from 'jsonwebtoken';
   
-  @UseGuards(AuthGuard)
   @WebSocketGateway({
     cors: {
       origin: process.env.FRONTEND_URL || 'http://localhost:3000',
@@ -28,7 +29,8 @@ import {
   
     constructor(
       private readonly chatService: ChatService,
-      private readonly authService: AuthService
+      private readonly authService: AuthService,
+      private readonly configService: ConfigService
     ) {}
   
     async handleConnection(client: Socket) {
@@ -36,26 +38,40 @@ import {
         // Obtener token de la autenticación
         const token = client.handshake.auth?.token;
         if (!token) {
-          throw new Error('No se proporcionó token de autenticación');
+          throw new WsException('No se proporcionó token de autenticación');
         }
         
-        // Validar el token y obtener el usuario
-        const userId = client.handshake.auth?.userId;
-        if (!userId) {
-          throw new Error('No se proporcionó ID de usuario');
-        }
-        
-        // Verificar que el usuario existe
-        const user = await this.authService.getProfile(userId);
-        if (!user) {
-          throw new Error('Usuario no encontrado');
+        // Obtener el JWT secret
+        const jwtSecret = this.configService.get<string>('SUPABASE_JWT_SECRET');
+        if (!jwtSecret) {
+          throw new WsException('Configuración de JWT faltante en el servidor');
         }
 
-        // Guardar el usuario en el objeto de socket para uso posterior
-        client.data.user = user;
-        this.logger.log(`Cliente conectado: ${client.id} - Usuario: ${user.name} (${user.id})`);
+        try {
+          // Validar el token y obtener el payload
+          const payload = verify(token, jwtSecret);
+          const userId = payload.sub as string;
+          
+          if (!userId) {
+            throw new WsException('Token inválido: no se encontró ID de usuario');
+          }
+          
+          // Verificar que el usuario existe
+          const user = await this.authService.getProfile(userId);
+          if (!user) {
+            throw new WsException('Usuario no encontrado');
+          }
+
+          // Guardar el usuario en el objeto de socket para uso posterior
+          client.data.user = user;
+          this.logger.log(`Cliente conectado: ${client.id} - Usuario: ${user.name} (${user.id})`);
+        } catch (jwtError) {
+          this.logger.error(`Error al validar token JWT: ${jwtError.message}`);
+          throw new WsException('Token de autenticación inválido');
+        }
       } catch (error) {
         this.logger.error(`Conexión fallida: ${error.message}`);
+        client.emit('error', error.message);
         client.disconnect();
       }
     }

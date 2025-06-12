@@ -9,21 +9,46 @@ const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 class SocketService {
   private socket: Socket | null = null;
 
-  async connect(): Promise<void> {
+  private setupEventListeners() {
+    if (!this.socket) return;
+
+    this.socket.on('connect', () => {
+      console.log('Socket conectado con ID:', this.socket?.id);
+      // Emitir evento para indicar que el socket está listo para usar
+      this.socket?.emit('ready');
+    });
+
+    this.socket.on('disconnect', (reason) => {
+      console.log('Socket desconectado:', reason);
+      if (reason === 'io server disconnect') {
+        // El servidor cerró la conexión, intentar reconectar manualmente
+        setTimeout(() => this.connect(), 5000);
+      }
+    });
+
+    // Escuchar eventos de mensajes nuevos desde el servidor
+    this.socket.on('newMessage', (data) => {
+      console.log('Nuevo mensaje recibido del servidor:', data);
+    });
+    
+    this.socket.on('message', (data) => {
+      console.log('Mensaje recibido (evento genérico):', data);
+    });
+    
+    this.socket.on('newConversation', (data) => {
+      console.log('Nueva conversación recibida:', data);
+    });
+  }
+
+  async connect(): Promise<boolean> {
     try {
-      const user = useAuthStore.getState().user;
-      if (!user) {
-        console.warn('Intento de conexión sin usuario autenticado');
-        return;
-      }
-      
-      // Si ya hay una conexión activa, no hacer nada
-      if (this.socket?.connected) {
+      // Verificar si ya hay un socket conectado
+      if (this.socket && this.socket.connected) {
         console.log('Socket ya conectado, omitiendo reconexión');
-        return;
+        return true;
       }
       
-      // Desconectar socket anterior si existe
+      // Si hay un socket existente pero desconectado, limpiarlo antes de reconectar
       if (this.socket) {
         console.log('Desconectando socket existente antes de reconectar');
         this.socket.disconnect();
@@ -42,32 +67,22 @@ class SocketService {
         toast.error('Error de autenticación', {
           description: 'No se pudo establecer la conexión de chat'
         });
-        return;
+        return false;
       }
 
       this.socket = io(SOCKET_URL, {
         transports: ['websocket'],
         auth: {
-          token,
-          userId: user.id
+          token // Solo enviamos el token, el backend extraerá el userId
         },
         reconnectionAttempts: 5,
         reconnectionDelay: 1000,
         timeout: 10000
       });
 
-      this.socket.on('connect', () => {
-        console.log('Socket.IO conectado con ID:', this.socket?.id);
-      });
+      this.setupEventListeners();
 
-      this.socket.on('disconnect', (reason) => {
-        console.log('Socket.IO desconectado. Razón:', reason);
-        if (reason === 'io server disconnect') {
-          // El servidor cerró la conexión, intentar reconectar manualmente
-          setTimeout(() => this.connect(), 5000);
-        }
-      });
-
+      // Configurar el manejo de errores
       this.socket.on('connect_error', (error) => {
         console.error('Error de conexión Socket.IO:', error.message);
         toast.error('Error de conexión', {
@@ -81,11 +96,17 @@ class SocketService {
           description: error?.message || 'Se produjo un error en la conexión de chat'
         });
       });
+      
+      // Esperar brevemente para ver si la conexión se establece
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      return !!this.socket?.connected;
     } catch (error) {
       console.error('Error al conectar con Socket.IO:', error);
       toast.error('Error de conexión', {
         description: 'No se pudo inicializar la conexión de chat'
       });
+      return false;
     }
   }
 

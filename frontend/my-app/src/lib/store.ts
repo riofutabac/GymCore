@@ -293,7 +293,25 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
   addMessage: (message) => {
     if (message.conversationId === get().activeConversationId) {
-      set((state) => ({ messages: [...state.messages, message] }));
+      set((state) => {
+        // Verificar si el mensaje ya existe para evitar duplicados
+        const messageExists = state.messages.some(msg => 
+          // Si tiene ID real, comparar por ID
+          (msg.id && msg.id === message.id) || 
+          // Si es un mensaje temporal, comparar por contenido y timestamp
+          (msg._status === 'sending' && 
+           msg.content === message.content && 
+           Math.abs(new Date(msg.createdAt).getTime() - new Date(message.createdAt).getTime()) < 5000)
+        );
+        
+        if (messageExists) {
+          console.log('Mensaje duplicado, no se agregará:', message);
+          return { messages: state.messages };
+        }
+        
+        console.log('Agregando nuevo mensaje al estado:', message);
+        return { messages: [...state.messages, message] };
+      });
     }
   },
   fetchConversations: async () => {

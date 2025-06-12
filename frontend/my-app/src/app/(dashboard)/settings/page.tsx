@@ -477,17 +477,16 @@ export default function ProfilePage() {
             Configuraciones adicionales de tu cuenta
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between p-4 border rounded-lg">
+        <CardContent className="space-y-4">          <div className="flex items-center justify-between p-4 border rounded-lg">
             <div>
               <h4 className="font-medium">Cambiar Contraseña</h4>
               <p className="text-sm text-muted-foreground">
                 Actualiza tu contraseña para mantener tu cuenta segura
               </p>
             </div>
-            <Link href="/settings/change-password">
+            <Link href="/settings/forgot-password">
               <Button variant="outline">
-                Cambiar
+                Restablecer
               </Button>
             </Link>
           </div>

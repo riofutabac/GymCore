@@ -7,6 +7,7 @@ import { createSupabaseBrowserClient } from './supabase';
 import { useEffect } from 'react';
 
 import { authApi, chatApi } from './api';
+import api from './api';
 import { socketService } from './socket';
 
 type AuthState = {
@@ -27,6 +28,7 @@ type GymState = {
   isLoading: boolean;
   error: string | null;
   fetchCurrentGym: () => Promise<void>;
+  clearCurrentGym: () => void;
 };
 
 const authStore = create<AuthState>(
@@ -37,18 +39,27 @@ const authStore = create<AuthState>(
       isLoading: false,
       error: null,
       setUser: (user) => set({ user, isAuthenticated: !!user }),
-      clearError: () => set({ error: null }),
-      logout: async () => {
+      clearError: () => set({ error: null }),      logout: async () => {
         set({ isLoading: true });
         try {
           const supabase = createSupabaseBrowserClient();
+          
+          // Desconectar socket antes de cerrar sesión
+          socketService.disconnect();
+          
+          // Limpiar estado del gimnasio
+          gymStore.getState().clearCurrentGym();
+          
+          // Cerrar sesión en Supabase
           await supabase.auth.signOut();
+          
           set({
             user: null,
             isAuthenticated: false,
             error: null,
             isLoading: false
           });
+          
           if (typeof window !== 'undefined') {
             window.location.href = '/login';
           }
@@ -84,8 +95,7 @@ const authStore = create<AuthState>(
           });
           
           // Conectar al socket después de autenticar
-          socketService.connect();
-        } catch (error) {
+          socketService.connect();        } catch (error: any) {
           console.error('Error al obtener perfil del usuario:', error);
 
           // If it's a 401, it might be that the user exists in Supabase but not in our DB
@@ -226,11 +236,10 @@ const authStore = create<AuthState>(
 const gymStore = create<GymState>((set) => ({
   currentGym: null,
   isLoading: false,
-  error: null,
-  fetchCurrentGym: async () => {
+  error: null,  fetchCurrentGym: async () => {
     set({ isLoading: true, error: null });
     try {
-      const gym = await authApi.gyms.getMyGym();
+      const gym = await api.gyms.getMyGym();
       set({ currentGym: gym, isLoading: false });
     } catch (error) {
       set({
@@ -238,6 +247,9 @@ const gymStore = create<GymState>((set) => ({
         error: error instanceof Error ? error.message : 'Error al obtener el gimnasio'
       });
     }
+  },
+  clearCurrentGym: () => {
+    set({ currentGym: null, isLoading: false, error: null });
   }
 }));
 
@@ -248,8 +260,7 @@ export function useSyncSupabaseAuth() {
 
     // Escuchar cambios en la sesión
     const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      data: { subscription },    } = supabase.auth.onAuthStateChange(async (event: string, session: any) => {
       if (event === 'SIGNED_IN') {
         await authStore.getState().refreshUser();
       } else if (event === 'SIGNED_OUT') {
@@ -320,4 +331,3 @@ export const useChatStore = create<ChatState>((set, get) => ({
 // Exportar los stores
 export const useAuthStore = authStore;
 export const useGymStore = gymStore;
-export { useChatStore };

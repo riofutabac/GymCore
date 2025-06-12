@@ -36,9 +36,17 @@ function SidebarLink({ href, children }: SidebarLinkProps) {
 }
 
 export function Sidebar() {
-  const { user, logout } = useAuthStore();
+  const { user, logout, isLoading } = useAuthStore();
 
   if (!user) return null;
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Error al cerrar sesión:', error);
+    }
+  };
 
   // Renderizar diferentes enlaces según el rol del usuario
   const renderLinks = () => {
@@ -127,14 +135,14 @@ export function Sidebar() {
             <p className="text-xs text-muted-foreground">{user.role}</p>
           </div>
         </div>
-        
-        <Button 
+          <Button 
           variant="outline" 
           className="w-full mt-4 flex items-center justify-center gap-2" 
-          onClick={() => logout()}
+          onClick={handleLogout}
+          disabled={isLoading}
         >
           <LogOut className="h-4 w-4" />
-          Cerrar Sesión
+          {isLoading ? 'Cerrando...' : 'Cerrar Sesión'}
         </Button>
       </div>
     </div>

@@ -101,7 +101,6 @@ export function ChatWindow() {
     // Forzar una verificación directa del estado actual del socket
     const checkSocketConnection = () => {
       const isConnected = socketService.isConnected();
-      console.log(`Estado actual de conexión socket: ${isConnected ? 'conectado' : 'desconectado'}`);
       setIsSocketConnected(isConnected);
       return isConnected;
     };
@@ -111,7 +110,6 @@ export function ChatWindow() {
     
     // Configurar listeners para cambios de estado de conexión
     const handleConnect = () => {
-      console.log('Socket conectado en ChatWindow');
       setIsSocketConnected(true);
       
       // Si hay una conversación activa, unirse a ella
@@ -121,14 +119,11 @@ export function ChatWindow() {
     };
     
     const handleDisconnect = () => {
-      console.log('Socket desconectado en ChatWindow');
       setIsSocketConnected(false);
     };
     
     // Manejar nuevos mensajes recibidos del servidor
-    const handleNewMessage = (message: Message) => {
-      console.log('Nuevo mensaje recibido en ChatWindow:', message);
-      
+    const handleNewMessage = (message: Message) => {      
       // Si el mensaje es para la conversación activa, agregarlo al estado
       if (message.conversationId === activeConversationId) {
         // Reemplazar mensaje temporal si existe
@@ -161,7 +156,6 @@ export function ChatWindow() {
       const currentConnected = !!currentSocket?.connected;
       
       if (currentConnected !== isSocketConnected) {
-        console.log(`Estado de conexión actualizado en ChatWindow: ${currentConnected ? 'conectado' : 'desconectado'}`);
         setIsSocketConnected(currentConnected);
         
         // Si acabamos de conectar y hay una conversación activa, unirse a ella
@@ -186,7 +180,6 @@ export function ChatWindow() {
     
     // Si no hay conexión, intentar conectar
     if (!initialConnected) {
-      console.log('Intentando conectar socket desde ChatWindow');
       socketService.connect();
     } else if (activeConversationId) {
       // Si ya estamos conectados y hay una conversación activa, unirse a ella
@@ -229,7 +222,6 @@ export function ChatWindow() {
             size="sm" 
             className="ml-auto" 
             onClick={() => {
-              console.log('Intentando reconectar manualmente...');
               const isAlreadyConnected = socketService.getSocket()?.connected;
               if (isAlreadyConnected) {
                 toast.info('Conexión activa', {

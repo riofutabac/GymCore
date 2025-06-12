@@ -200,10 +200,8 @@ export const gymsApi = {
 export const usersApi = {
   getAll: async (): Promise<User[]> => {
     try {
-      console.log('Fetching all users...');
       const response = await axiosInstance.get<ApiResponse<User[]>>('/api/auth/users');
       const users = handleResponse(response);
-      console.log('Users fetched successfully:', users.length);
       return users;
     } catch (error) {
       console.error('Error al obtener usuarios:', error);
@@ -249,10 +247,8 @@ export const usersApi = {
 
   updateUser: async (id: string, userData: Partial<User>): Promise<User> => {
     try {
-      console.log(`Updating user ${id} with data:`, userData);
       const response = await axiosInstance.put<ApiResponse<User>>(`/api/auth/users/${id}`, userData);
       const updatedUser = handleResponse(response);
-      console.log('User updated successfully:', updatedUser);
       return updatedUser;
     } catch (error) {
       console.error(`Error al actualizar usuario ${id}:`, error);
@@ -262,10 +258,8 @@ export const usersApi = {
 
   updateUserStatus: async (id: string, isActive: boolean): Promise<User> => {
     try {
-      console.log(`Updating user ${id} status to:`, isActive);
       const response = await axiosInstance.patch<ApiResponse<User>>(`/api/auth/users/${id}/status`, { isActive });
       const updatedUser = handleResponse(response);
-      console.log('User status updated successfully:', updatedUser);
       return updatedUser;
     } catch (error) {
       console.error(`Error al actualizar estado de usuario ${id}:`, error);
@@ -275,10 +269,8 @@ export const usersApi = {
 
   resetPassword: async (id: string): Promise<void> => {
     try {
-      console.log(`Resetting password for user ${id}`);
       const response = await axiosInstance.post<ApiResponse<void>>(`/api/auth/users/${id}/reset-password`);
       handleResponse(response);
-      console.log('Password reset successfully');
     } catch (error) {
       console.error(`Error al resetear contraseña de usuario ${id}:`, error);
       throw error;
@@ -632,10 +624,8 @@ export const settingsApi = {
 export const chatApi = {
   getConversations: async (): Promise<Conversation[]> => {
     try {
-      console.log('Fetching conversations...');
       const response = await axiosInstance.get<ApiResponse<Conversation[]>>('/api/chat/conversations');
       const data = handleResponse(response);
-      console.log('Conversations fetched:', data);
       return data;
     } catch (error) {
       console.error('Error al obtener conversaciones:', error);
@@ -645,10 +635,8 @@ export const chatApi = {
 
   getMessages: async (conversationId: string): Promise<Message[]> => {
     try {
-      console.log(`Fetching messages for conversation ${conversationId}...`);
       const response = await axiosInstance.get<ApiResponse<Message[]>>(`/api/chat/conversations/${conversationId}/messages`);
       const data = handleResponse(response);
-      console.log(`Messages fetched for conversation ${conversationId}:`, data.length);
       return data;
     } catch (error) {
       console.error(`Error al obtener mensajes de la conversación ${conversationId}:`, error);
@@ -659,10 +647,8 @@ export const chatApi = {
   initiateConversation: async (gymId: string, managerId?: string): Promise<Conversation> => {
     try {
       const payload = managerId ? { gymId, managerId } : { gymId };
-      console.log('Initiating conversation with payload:', payload);
       const response = await axiosInstance.post<ApiResponse<Conversation>>('/api/chat/conversations/initiate', payload);
       const data = handleResponse(response);
-      console.log('Conversation initiated:', data);
       return data;
     } catch (error) {
       console.error('Error al iniciar conversación:', error);

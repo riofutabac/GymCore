@@ -95,8 +95,6 @@ const authStore = create<AuthState>(
               const { data: { session } } = await supabase.auth.getSession();
 
               if (session?.user) {
-                // Try to sync the user to our database
-                console.log('Attempting to sync user to database...');
                 // For now, just sign out and let them try again
                 await supabase.auth.signOut();
                 set({
@@ -303,13 +301,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
            msg.content === message.content && 
            Math.abs(new Date(msg.createdAt).getTime() - new Date(message.createdAt).getTime()) < 5000)
         );
-        
-        if (messageExists) {
-          console.log('Mensaje duplicado, no se agregará:', message);
-          return { messages: state.messages };
-        }
-        
-        console.log('Agregando nuevo mensaje al estado:', message);
         return { messages: [...state.messages, message] };
       });
     }

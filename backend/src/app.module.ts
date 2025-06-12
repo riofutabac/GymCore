@@ -13,6 +13,7 @@ import { AppService } from './app.service';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { MembersModule } from './modules/members/members.module';
+import { ChatModule } from './modules/chat/chat.module'; // Importa el nuevo módulo
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { MembersModule } from './modules/members/members.module';
     InventoryModule,
     AccessControlModule,
     MembersModule,
+    ChatModule, // Agrega el nuevo módulo
   ],
   controllers: [AppController],
   providers: [

@@ -46,6 +46,8 @@ model Gym {
   products   Product[]
   sales      Sale[]
   accessLogs AccessLog[]
+  
+  conversations Conversation[]
 
   @@map("gyms")
 }
@@ -92,6 +94,10 @@ model User {
   membership Membership? @relation("LegacyMembership")
   accessLogs AccessLog[]
   sales      Sale[]      @relation("Seller")
+  
+  // Relaciones de chat
+  conversations Conversation[] @relation("ConversationParticipants")
+  messages      Message[]
 
   @@map("users")
 }
@@ -322,4 +328,42 @@ enum NotificationStatus {
   SENT
   DELIVERED
   FAILED
+}
+
+// ============= CHAT =============
+model Conversation {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relación con el gimnasio al que pertenece la conversación
+  gymId String
+  gym   Gym    @relation(fields: [gymId], references: [id])
+
+  // Participantes de la conversación
+  participants User[] @relation("ConversationParticipants")
+  
+  // Mensajes de la conversación
+  messages Message[]
+
+  @@index([gymId])
+  @@map("conversations")
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  content   String
+  createdAt DateTime @default(now())
+
+  // Quién envió el mensaje
+  senderId String
+  sender   User   @relation(fields: [senderId], references: [id])
+  
+  // A qué conversación pertenece
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([senderId])
+  @@index([conversationId])
+  @@map("messages")
 }

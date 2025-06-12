@@ -6,7 +6,8 @@ import { User } from './types';
 import { createSupabaseBrowserClient } from './supabase';
 import { useEffect } from 'react';
 
-import { authApi } from './api';
+import { authApi, chatApi } from './api';
+import { socketService } from './socket';
 
 type AuthState = {
   user: User | null;
@@ -81,6 +82,9 @@ const authStore = create<AuthState>(
             isAuthenticated: true,
             error: null
           });
+          
+          // Conectar al socket después de autenticar
+          socketService.connect();
         } catch (error) {
           console.error('Error al obtener perfil del usuario:', error);
 
@@ -263,7 +267,48 @@ export function useSyncSupabaseAuth() {
     };
   }, []);
 }
+// ... (después de tu gymStore)
 
+
+interface ChatState {
+  conversations: any[];
+  activeConversationId: string | null;
+  messages: any[];
+  setConversations: (conversations: any[]) => void;
+  setActiveConversation: (conversationId: string) => void;
+  addMessage: (message: any) => void;
+  fetchConversations: () => Promise<void>;
+  fetchMessages: (conversationId: string) => Promise<void>;
+}
+
+export const useChatStore = create<ChatState>((set, get) => ({
+  conversations: [],
+  activeConversationId: null,
+  messages: [],
+  setConversations: (conversations) => set({ conversations }),
+  setActiveConversation: (conversationId) => {
+    set({ activeConversationId: conversationId, messages: [] });
+    socketService.joinConversation(conversationId);
+    get().fetchMessages(conversationId);
+  },
+  addMessage: (message) => {
+    if (message.conversationId === get().activeConversationId) {
+      set((state) => ({ messages: [...state.messages, message] }));
+    }
+  },
+  fetchConversations: async () => {
+    const conversations = await chatApi.getConversations();
+    set({ conversations });
+  },
+  fetchMessages: async (conversationId) => {
+    const messages = await chatApi.getMessages(conversationId);
+    set({ messages });
+  },
+}));
+
+// La conexión del socket se maneja en el método refreshUser del authStore
+// y los listeners se configuran en el componente ChatNotification
 // Exportar los stores
 export const useAuthStore = authStore;
 export const useGymStore = gymStore;
+export { useChatStore };

@@ -6,6 +6,8 @@ import { Sidebar } from '@/components/shared/Sidebar';
 import { useAuthStore } from '@/lib/store';
 import QueryProvider from '@/providers/query-provider';
 import { Loader2 } from 'lucide-react';
+import { ChatNotification } from '@/components/modules/chat/ChatNotification';
+import { Toaster } from 'sonner';
 
 export default function DashboardLayout({
   children,
@@ -62,6 +64,9 @@ export default function DashboardLayout({
         <div className="flex flex-1 flex-col overflow-hidden">
           <main className="flex-1 overflow-y-auto p-6">{children}</main>
         </div>
+        {/* Componente invisible que maneja las notificaciones de chat */}
+        <ChatNotification />
+        <Toaster position="top-right" richColors />
       </div>
     </QueryProvider>
   );

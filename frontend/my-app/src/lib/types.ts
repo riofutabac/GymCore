@@ -193,3 +193,24 @@ export interface QRData {
   token: string;
   expiresAt: string;
 }
+
+// Chat Types
+export interface Conversation {
+  id: string;
+  participants: User[];
+  messages: Message[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Message {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  sender: User;
+  content: string;
+  createdAt: string;
+  read: boolean;
+  status?: 'sending' | 'sent' | 'error';
+  tempId?: string;
+}

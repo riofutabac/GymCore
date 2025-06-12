@@ -653,6 +653,40 @@ export const settingsApi = {
   },
 };
 
+// Módulo de chat
+export const chatApi = {
+  getConversations: async (): Promise<Conversation[]> => {
+    try {
+      const response = await axiosInstance.get<ApiResponse<Conversation[]>>('/api/chat/conversations');
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error al obtener conversaciones:', error);
+      throw error;
+    }
+  },
+
+  getMessages: async (conversationId: string): Promise<Message[]> => {
+    try {
+      const response = await axiosInstance.get<ApiResponse<Message[]>>(`/api/chat/conversations/${conversationId}/messages`);
+      return handleResponse(response);
+    } catch (error) {
+      console.error(`Error al obtener mensajes de la conversación ${conversationId}:`, error);
+      throw error;
+    }
+  },
+
+  initiateConversation: async (gymId: string, managerId?: string): Promise<Conversation> => {
+    try {
+      const payload = managerId ? { gymId, managerId } : { gymId };
+      const response = await axiosInstance.post<ApiResponse<Conversation>>('/api/chat/conversations/initiate', payload);
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error al iniciar conversación:', error);
+      throw error;
+    }
+  },
+};
+
 // Exportar todos los módulos de API
 const api = {
   auth: authApi,
@@ -662,6 +696,7 @@ const api = {
   inventory: inventoryApi,
   access: accessApi,
   settings: settingsApi,
+  chat: chatApi,
 };
 
 export default api;

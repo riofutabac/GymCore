@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/lib/store';
 import { UserRole } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { LogOut } from 'lucide-react';
+import { LogOut, MessageSquare } from 'lucide-react';
 
 interface SidebarLinkProps {
   href: string;
@@ -48,6 +48,12 @@ export function Sidebar() {
             <SidebarLink href="/owner">Dashboard</SidebarLink>
             <SidebarLink href="/owner/gyms">Gimnasios</SidebarLink>
             <SidebarLink href="/owner/users">Usuarios</SidebarLink>
+            <SidebarLink href="/owner/chat">
+              <div className="flex items-center">
+                <MessageSquare className="mr-2 h-4 w-4" />
+                Chat
+              </div>
+            </SidebarLink>
             <SidebarLink href="/settings">Mi Perfil</SidebarLink>
           </>
         );
@@ -58,6 +64,12 @@ export function Sidebar() {
             <SidebarLink href="/manager/members">Miembros</SidebarLink>
             <SidebarLink href="/manager/staff">Personal</SidebarLink>
             <SidebarLink href="/manager/inventory">Inventario</SidebarLink>
+            <SidebarLink href="/manager/chat">
+              <div className="flex items-center">
+                <MessageSquare className="mr-2 h-4 w-4" />
+                Chat
+              </div>
+            </SidebarLink>
             <SidebarLink href="/settings">Mi Perfil</SidebarLink>
           </>
         );

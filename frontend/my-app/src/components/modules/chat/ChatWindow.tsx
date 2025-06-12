@@ -40,13 +40,14 @@ export function ChatWindow() {
   // Cargar mensajes cuando cambia la conversación
   useEffect(() => {
     if (activeConversationId) {
+      console.log(`🔄 Cargando mensajes para conversación: ${activeConversationId}`);
       setIsLoading(true);
       fetchMessages(activeConversationId)
         .then(() => {
           console.log(`✅ Mensajes cargados para conversación: ${activeConversationId}`);
         })
         .catch(error => {
-          console.error('Error al cargar mensajes:', error);
+          console.error('❌ Error al cargar mensajes:', error);
           toast.error('No se pudieron cargar los mensajes', {
             description: 'Intenta recargar la página o verifica tu conexión'
           });
@@ -54,6 +55,15 @@ export function ChatWindow() {
         .finally(() => setIsLoading(false));
     }
   }, [activeConversationId, fetchMessages]);
+
+  // Debug: log cuando cambian los mensajes
+  useEffect(() => {
+    console.log(`📝 Mensajes actualizados en ChatWindow:`, {
+      count: messages.length,
+      activeConversationId,
+      lastMessage: messages[messages.length - 1]
+    });
+  }, [messages, activeConversationId]);
 
   // Configurar socket y listeners
   useEffect(() => {
@@ -205,28 +215,38 @@ export function ChatWindow() {
             <div className="text-center">
               <Send className="h-8 w-8 mx-auto mb-2 opacity-50" />
               <p>No hay mensajes. Envía el primero.</p>
+              <p className="text-xs mt-1">Conversación: {activeConversationId}</p>
             </div>
           </div>
         ) : (
-          messages.map((msg) => (
-            <div key={msg.id} className={`flex ${msg.senderId === user?.id ? 'justify-end' : 'justify-start'}`}>
-              <div className={`p-3 rounded-lg max-w-xs lg:max-w-md ${
-                msg.senderId === user?.id 
-                  ? 'bg-primary text-primary-foreground' 
-                  : 'bg-muted'
-              }`}>
-                <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
-                <div className="flex items-center justify-between gap-2 mt-2">
-                  <span className="text-xs opacity-70 font-medium">
-                    {msg.sender?.name || 'Usuario'}
-                  </span>
-                  <span className="text-xs opacity-70">
-                    {new Date(msg.createdAt).toLocaleTimeString()}
-                  </span>
+          messages.map((msg) => {
+            console.log(`🎨 Renderizando mensaje:`, {
+              id: msg.id,
+              content: msg.content,
+              senderId: msg.senderId,
+              currentUserId: user?.id
+            });
+            
+            return (
+              <div key={msg.id} className={`flex ${msg.senderId === user?.id ? 'justify-end' : 'justify-start'}`}>
+                <div className={`p-3 rounded-lg max-w-xs lg:max-w-md ${
+                  msg.senderId === user?.id 
+                    ? 'bg-primary text-primary-foreground' 
+                    : 'bg-muted'
+                }`}>
+                  <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
+                  <div className="flex items-center justify-between gap-2 mt-2">
+                    <span className="text-xs opacity-70 font-medium">
+                      {msg.sender?.name || msg.senderId || 'Usuario'}
+                    </span>
+                    <span className="text-xs opacity-70">
+                      {new Date(msg.createdAt).toLocaleTimeString()}
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
         <div ref={messagesEndRef} />
       </div>

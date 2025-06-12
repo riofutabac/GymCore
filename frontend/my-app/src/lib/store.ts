@@ -386,18 +386,32 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   addMessage: (message) => {
     const { messages, activeConversationId, conversations } = get();
     
+    console.log('📨 Agregando mensaje al store:', {
+      messageId: message.id,
+      conversationId: message.conversationId,
+      activeConversationId,
+      senderId: message.senderId,
+      content: message.content
+    });
+    
     // Solo agregar si es de la conversación activa
     if (message.conversationId === activeConversationId) {
       // Verificar que no existe ya el mensaje
       const existingMessage = messages.find(m => m.id === message.id);
       if (!existingMessage) {
+        console.log('✅ Agregando mensaje a la conversación activa');
         set({ messages: [...messages, message] });
+      } else {
+        console.log('⚠️ Mensaje ya existe en la conversación activa');
       }
+    } else {
+      console.log(`ℹ️ Mensaje no es para la conversación activa (${message.conversationId} vs ${activeConversationId})`);
     }
     
-    // Actualizar la conversación con el último mensaje
+    // Actualizar la conversación con el último mensaje (siempre)
     const updatedConversations = conversations.map(conv => {
       if (conv.id === message.conversationId) {
+        console.log(`📝 Actualizando última actividad de conversación: ${conv.id}`);
         return {
           ...conv,
           messages: [message], // Último mensaje para preview
@@ -407,7 +421,15 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       return conv;
     });
     
-    set({ conversations: updatedConversations });
+    // Si no encontramos la conversación, necesitamos recargar la lista
+    const conversationFound = conversations.some(conv => conv.id === message.conversationId);
+    if (!conversationFound) {
+      console.log('⚠️ Conversación no encontrada en la lista, recargando...');
+      // Recargar conversaciones para incluir la nueva
+      get().fetchConversations();
+    } else {
+      set({ conversations: updatedConversations });
+    }
   },
 
   addConversation: (conversation) => {
@@ -434,25 +456,58 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
 // Configurar listeners del socket una sola vez cuando se inicializa el store
 if (typeof window !== 'undefined') {
-  import('./socket').then(({ socketService }) => {
-    // Configurar listener para nuevos mensajes
-    socketService.onNewMessage((message) => {
-      console.log('📨 Nuevo mensaje recibido en store:', message);
-      useChatStore.getState().addMessage(message);
-    });
+  let listenersConfigured = false;
+  
+  const configureSocketListeners = () => {
+    if (listenersConfigured) return;
+    
+    import('./socket').then(({ socketService }) => {
+      console.log('🔗 Configurando listeners del socket en el store...');
+      
+      // Configurar listener para nuevos mensajes
+      socketService.onNewMessage((message) => {
+        console.log('📨 Nuevo mensaje recibido en store:', {
+          id: message.id,
+          content: message.content,
+          senderId: message.senderId,
+          conversationId: message.conversationId,
+          sender: message.sender
+        });
+        
+        // Validar que el mensaje tenga los datos necesarios
+        if (!message.conversationId) {
+          console.error('❌ Mensaje sin conversationId:', message);
+          return;
+        }
+        
+        if (!message.senderId || message.senderId === 'temp-user-id') {
+          console.error('❌ Mensaje con senderId temporal o inválido:', message);
+          return;
+        }
+        
+        useChatStore.getState().addMessage(message);
+      });
 
-    // Configurar listener para actualizaciones de conversación
-    socketService.onConversationUpdate((conversation) => {
-      console.log('💬 Conversación actualizada en store:', conversation);
-      useChatStore.getState().fetchConversations();
-    });
+      // Configurar listener para actualizaciones de conversación
+      socketService.onConversationUpdate((conversation) => {
+        console.log('💬 Conversación actualizada en store:', conversation);
+        // Recargar conversaciones para obtener los cambios más recientes
+        useChatStore.getState().fetchConversations();
+      });
 
-    // Configurar listener para errores
-    socketService.onError((error) => {
-      console.error('❌ Error de socket en store:', error);
-      useChatStore.getState().setError(error?.message || 'Error de conexión');
+      // Configurar listener para errores
+      socketService.onError((error) => {
+        console.error('❌ Error de socket en store:', error);
+        useChatStore.getState().setError(error?.message || 'Error de conexión');
+      });
+      
+      listenersConfigured = true;
+      console.log('✅ Listeners del socket configurados exitosamente');
     });
-  });
+  };
+  
+  // Configurar listeners inmediatamente
+  configureSocketListeners();
 }
 
 // Exportar los stores

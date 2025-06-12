@@ -122,16 +122,45 @@ export class ChatService {
   }
 
   async createMessage(senderId: string, conversationId: string, content: string) {
-    return this.prisma.message.create({
+    // Primero verificar que la conversación existe y el usuario es participante
+    const conversation = await this.prisma.conversation.findFirst({
+      where: {
+        id: conversationId,
+        participants: { some: { id: senderId } }
+      }
+    });
+
+    if (!conversation) {
+      throw new NotFoundException('Conversación no encontrada o no tienes acceso');
+    }
+
+    const message = await this.prisma.message.create({
       data: {
         content,
         senderId,
         conversationId,
       },
       include: {
-        sender: { select: { id: true, name: true, role: true, email: true } },
+        sender: { 
+          select: { 
+            id: true, 
+            name: true, 
+            role: true, 
+            email: true 
+          } 
+        },
       },
     });
+
+    console.log('💾 Mensaje creado en BD:', {
+      id: message.id,
+      senderId: message.senderId,
+      conversationId: message.conversationId,
+      content: message.content,
+      sender: message.sender
+    });
+
+    return message;
   }
 
   async getGymWithOwner(gymId: string) {

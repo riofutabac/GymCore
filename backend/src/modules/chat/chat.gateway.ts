@@ -158,29 +158,50 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
 
       this.logger.log(`💾 Mensaje guardado en BD: ${message.id}`);
 
-      // Emitir el mensaje a todos en la sala de la conversación
-      this.server.to(`conversation_${data.conversationId}`).emit('newMessage', message);
+      // Preparar el mensaje completo para envío
+      const fullMessage = {
+        ...message,
+        conversationId: data.conversationId, // Asegurar que el conversationId esté presente
+        sender: {
+          id: user.id,
+          name: user.name || user.email,
+          email: user.email,
+          role: user.role
+        }
+      };
 
-      // También notificar a los participantes que no están en la sala activa
+      this.logger.log(`📤 Enviando mensaje completo:`, JSON.stringify(fullMessage, null, 2));
+
+      // Emitir el mensaje a todos en la sala de la conversación
+      this.server.to(`conversation_${data.conversationId}`).emit('newMessage', fullMessage);
+
+      // También notificar a los participantes individualmente
       const conversation = await this.chatService.getConversationWithParticipants(data.conversationId);
       if (conversation) {
         conversation.participants.forEach(participant => {
-          if (participant.id !== user.id) {
-            this.server.to(`user_${participant.id}`).emit('newMessage', message);
-          }
+          // Enviar a todos los participantes (incluyendo el emisor para confirmar)
+          this.server.to(`user_${participant.id}`).emit('newMessage', fullMessage);
+          this.logger.log(`📧 Mensaje enviado a usuario: ${participant.email} (${participant.id})`);
         });
 
-        // Actualizar la conversación para todos los participantes
-        this.server.to(`conversation_${data.conversationId}`).emit('conversationUpdated', {
+        // Actualizar la conversación
+        const updatedConversation = {
           ...conversation,
-          messages: [message]
-        });
+          messages: [fullMessage],
+          updatedAt: fullMessage.createdAt
+        };
+        
+        this.server.to(`conversation_${data.conversationId}`).emit('conversationUpdated', updatedConversation);
       }
 
       this.logger.log(`📤 Mensaje de ${user.email} enviado a conversación: ${data.conversationId}`);
       
       // Confirmar al emisor que el mensaje se envió
-      client.emit('messageSent', { messageId: message.id, conversationId: data.conversationId });
+      client.emit('messageSent', { 
+        messageId: message.id, 
+        conversationId: data.conversationId,
+        message: fullMessage
+      });
       
     } catch (error) {
       this.logger.error('❌ Error al enviar mensaje:', error);

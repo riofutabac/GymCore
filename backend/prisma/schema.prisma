@@ -49,6 +49,9 @@ model Gym {
   
   conversations Conversation[]
 
+  @@index([ownerId])
+  @@index([managerId])
+  @@index([isActive])
   @@map("gyms")
 }
 
@@ -99,6 +102,9 @@ model User {
   conversations Conversation[] @relation("ConversationParticipants")
   messages      Message[]
 
+  @@index([email])
+  @@index([role])
+  @@index([workingAtGymId])
   @@map("users")
 }
 
@@ -210,6 +216,9 @@ model AccessLog {
   gym    Gym    @relation(fields: [gymId], references: [id])
   gymId  String
 
+  @@index([gymId])
+  @@index([userId])
+  @@index([createdAt])
   @@map("access_logs")
 }
 
@@ -252,6 +261,9 @@ model Product {
 
   saleItems SaleItem[]
 
+  @@index([gymId])
+  @@index([category])
+  @@index([sku])
   @@map("products")
 }
 
@@ -276,6 +288,9 @@ model Sale {
 
   items SaleItem[]
 
+  @@index([gymId])
+  @@index([sellerId])
+  @@index([createdAt])
   @@map("sales")
 }
 

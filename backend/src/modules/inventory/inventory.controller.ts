@@ -83,7 +83,7 @@ export class InventoryController {
     
     try {
       this.logger.log('LOG', `Using gymId: ${gym.id}`);
-      return this.inventoryService.createProduct(createProductDto, gym.id);
+      return this.inventoryService.createProduct(createProductDto, user.id, gym.id);
     } catch (error: unknown) {
       this.logger.error(
         `Error creating product: ${String(error)}`,
@@ -160,8 +160,7 @@ export class InventoryController {
     
     try {
       this.logger.log('LOG', `Using gymId for sale: ${gym.id}`);
-      // Note: The service will get the gymId from the user.id via userContextService
-      return this.inventoryService.recordSale(recordSaleDto, user.id);
+      return this.inventoryService.recordSale(recordSaleDto, user.id, gym.id);
     } catch (error: unknown) {
       this.logger.error(
         `Error recording sale: ${String(error)}`,

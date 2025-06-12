@@ -6,9 +6,9 @@ import {
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { UserContextService } from '../../common/services/user-context.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { RecordSaleDto } from './dto/record-sale.dto';
+import { Product, Sale } from '@prisma/client';
 
 @Injectable()
 export class InventoryService {
@@ -16,13 +16,10 @@ export class InventoryService {
 
   constructor(
     private prisma: PrismaService,
-    private userContextService: UserContextService,
   ) {}
 
-  async createProduct(createProductDto: CreateProductDto, userId: string) {
+  async createProduct(createProductDto: CreateProductDto, userId: string, gymId: string) {
     try {
-      const gymId = await this.userContextService.getUserGymId(userId);
-      
       // Validar que no exista un producto con el mismo SKU en el gimnasio
       if (createProductDto.sku) {
         const existingProduct = await this.prisma.product.findFirst({
@@ -60,10 +57,8 @@ export class InventoryService {
     }
   }
 
-  async getProducts(userId: string) {
+  async getProducts(gymId: string) {
     try {
-      const gymId = await this.userContextService.getUserGymId(userId);
-      
       const products = await this.prisma.product.findMany({
         where: { gymId },
         orderBy: { createdAt: 'desc' },
@@ -83,10 +78,8 @@ export class InventoryService {
     }
   }
 
-  async getProductById(id: string, userId: string) {
+  async getProductById(id: string, gymId: string) {
     try {
-      const gymId = await this.userContextService.getUserGymId(userId);
-      
       const product = await this.prisma.product.findFirst({
         where: { 
           id,
@@ -109,10 +102,8 @@ export class InventoryService {
     }
   }
 
-  async recordSale(recordSaleDto: RecordSaleDto, userId: string) {
+  async recordSale(recordSaleDto: RecordSaleDto, userId: string, gymId: string) {
     try {
-      const gymId = await this.userContextService.getUserGymId(userId);
-      
       // Validar que todos los productos existen y tienen stock suficiente
       for (const item of recordSaleDto.items) {
         const product = await this.prisma.product.findFirst({
@@ -189,10 +180,8 @@ export class InventoryService {
     }
   }
 
-  async getSales(userId: string) {
+  async getSales(gymId: string) {
     try {
-      const gymId = await this.userContextService.getUserGymId(userId);
-      
       const sales = await this.prisma.sale.findMany({
         where: { gymId },
         include: {

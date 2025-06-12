@@ -12,6 +12,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
+import { UserEnrichmentInterceptor } from './common/interceptors/user-enrichment.interceptor';
 import { MembersModule } from './modules/members/members.module';
 import { ChatModule } from './modules/chat/chat.module'; // Importa el nuevo módulo
 
@@ -37,6 +38,10 @@ import { ChatModule } from './modules/chat/chat.module'; // Importa el nuevo mó
     {
       provide: APP_FILTER,
       useClass: HttpExceptionFilter,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: UserEnrichmentInterceptor,
     },
     {
       provide: APP_INTERCEPTOR,

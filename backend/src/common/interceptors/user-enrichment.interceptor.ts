@@ -4,10 +4,12 @@ import {
   ExecutionContext,
   CallHandler,
   Logger,
+  BadRequestException,
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthRequest } from '../interfaces/auth-request.interface';
+import { User, Gym } from '@prisma/client';
 
 @Injectable()
 export class UserEnrichmentInterceptor implements NestInterceptor {
@@ -20,43 +22,84 @@ export class UserEnrichmentInterceptor implements NestInterceptor {
   ): Promise<Observable<any>> {
     const request = context.switchToHttp().getRequest<AuthRequest>();
     
-    if (request.user?.sub) {
-      try {
-        const fullUser = await this.prisma.user.findUnique({
-          where: { id: request.user.sub },
-          include: {
-            ownedGyms: true,
-            memberOfGyms: true,
-            workingAtGym: true,
+    if (!request.user || (!('sub' in request.user) && !('id' in request.user))) {
+      return next.handle();
+    }
+
+    try {
+      // Optimización: Hacer una sola consulta con select específico
+      const fullUser = await this.prisma.user.findUnique({
+        where: { id: 'sub' in request.user ? request.user.sub : request.user.id },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          isActive: true,
+          workingAtGym: {
+            select: {
+              id: true,
+              name: true,
+              isActive: true,
+            },
           },
-        });
-        
-        if (fullUser) {
-          // Enriquecer el request con datos completos del usuario
-          (request as any).fullUser = fullUser;
-          
-          // Determinar el gimnasio actual del usuario
-          let gymId: string | null = null;
-          
-          // Si es staff, usar el gimnasio donde trabaja
-          if (fullUser.workingAtGym) {
-            gymId = fullUser.workingAtGym.id;
-          } 
-          // Si es dueño, usar el primer gimnasio que posee (si hay alguno)
-          else if (fullUser.ownedGyms && fullUser.ownedGyms.length > 0) {
-            gymId = fullUser.ownedGyms[0].id;
-          }
-          // Si es miembro, usar el primer gimnasio al que pertenece (si hay alguno)
-          else if (fullUser.memberOfGyms && fullUser.memberOfGyms.length > 0) {
-            gymId = fullUser.memberOfGyms[0].id;
-          }
-          
-          (request as any).gymId = gymId;
-        }
-      } catch (error) {
-        // Si hay error, continuamos sin enriquecer
-        this.logger.warn(`Failed to enrich user data: ${error.message}`);
+          ownedGyms: {
+            select: {
+              id: true,
+              name: true,
+              isActive: true,
+            },
+            where: {
+              isActive: true,
+            },
+            take: 1,
+          },
+          memberOfGyms: {
+            select: {
+              id: true,
+              name: true,
+              isActive: true,
+            },
+            where: {
+              isActive: true,
+            },
+            take: 1,
+          },
+        },
+      });
+      
+      if (!fullUser) {
+        throw new BadRequestException('User not found');
       }
+
+      // Cache user data in request
+      request.user = {
+        ...fullUser,
+        phone: null,
+        avatarUrl: null,
+        permissions: [],
+        emailVerified: false,
+        metadata: {},
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        workingAtGymId: fullUser.workingAtGym?.id || null
+      };
+
+      // Determinar el gimnasio actual del usuario (prioridad: trabajo > propiedad > membresía)
+      let currentGym: Partial<Gym> | null = 
+        fullUser.workingAtGym ||
+        (fullUser.ownedGyms?.[0]) ||
+        (fullUser.memberOfGyms?.[0]) ||
+        null;
+
+      if (currentGym) {
+        request.gymId = currentGym.id;
+        request.currentGym = currentGym;
+      }
+
+    } catch (error) {
+      this.logger.error(`Error enriching user data: ${error.message}`, error.stack);
+      throw error;
     }
 
     return next.handle();

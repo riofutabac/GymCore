@@ -98,12 +98,6 @@ export default function Home() {
 								Características
 							</a>
 							<a
-								href="#how-it-works"
-								className="text-gray-600 hover:text-black transition"
-							>
-								Cómo Funciona
-							</a>
-							<a
 								href="#testimonials"
 								className="text-gray-600 hover:text-black transition"
 							>
@@ -140,28 +134,6 @@ export default function Home() {
 								La solución todo-en-uno para administrar miembros, controlar
 								accesos y optimizar operaciones con tecnología inteligente.
 							</p>
-							<div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
-								<Link href="/register">
-									<Button className="bg-white hover:bg-gray-100 text-black font-bold px-8 py-4 rounded-lg text-lg transition transform hover:scale-105 shadow-lg pulse">
-										Comenzar Gratis
-									</Button>
-								</Link>
-							</div>
-							<div className="mt-8 flex items-center space-x-4">
-								<div className="flex -space-x-2">
-									<div className="w-10 h-10 rounded-full border-2 border-white bg-gray-400"></div>
-									<div className="w-10 h-10 rounded-full border-2 border-white bg-gray-500"></div>
-									<div className="w-10 h-10 rounded-full border-2 border-white bg-gray-600"></div>
-								</div>
-								<div>
-									<p className="text-gray-300 text-sm">
-										+500 gimnasios confían en nosotros
-									</p>
-									<div className="flex items-center">
-										<span className="text-white text-sm">⭐⭐⭐⭐⭐ 4.9/5</span>
-									</div>
-								</div>
-							</div>
 						</div>
 						<div
 							className="md:w-1/2 animate-in"
@@ -169,10 +141,14 @@ export default function Home() {
 						>
 							<div className="relative floating">
 								<div className="rounded-xl shadow-2xl border-8 border-white/20 bg-white p-4">
-									<div className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center">
-										<span className="text-gray-500 text-lg font-medium">
-											Dashboard GymCore
-										</span>
+									<div className="aspect-video bg-gray-100 rounded-lg overflow-hidden">
+										<Image
+											src="/assets/img/carlos.jpg"
+											alt="Dashboard GymCore"
+											width={800}
+											height={450}
+											className="w-full h-full object-cover rounded-lg"
+										/>
 									</div>
 								</div>
 								<div className="absolute -bottom-6 -left-6 bg-white p-4 rounded-lg shadow-lg">
@@ -317,92 +293,6 @@ export default function Home() {
 				</div>
 			</section>
 
-			{/* How It Works Section */}
-			<section id="how-it-works" className="py-20 bg-white">
-				<div className="container mx-auto px-6">
-					<div className="text-center mb-16 animate-in">
-						<span className="text-black font-semibold">FÁCIL IMPLEMENTACIÓN</span>
-						<h2 className="text-3xl md:text-4xl font-bold text-gray-800 mt-2 mb-4">
-							Cómo funciona GymCore
-						</h2>
-						<p className="text-gray-600 max-w-2xl mx-auto">
-							Configuración rápida para que empieces a disfrutar los beneficios
-							desde el día uno.
-						</p>
-					</div>
-
-					<div className="flex flex-col md:flex-row items-center">
-						<div
-							className="md:w-1/2 mb-10 md:mb-0 animate-in"
-							style={{ transitionDelay: "0.1s" }}
-						>
-							<div className="relative">
-								<div className="rounded-xl shadow-lg bg-gray-100 aspect-video flex items-center justify-center">
-									<span className="text-gray-500 text-lg font-medium">
-										Configuración GymCore
-									</span>
-								</div>
-								<div className="absolute -bottom-6 -right-6 bg-white p-6 rounded-xl shadow-lg w-64">
-									<div className="flex items-start">
-										<div className="bg-black p-3 rounded-full mr-4">
-											<span className="text-white">🎧</span>
-										</div>
-										<div>
-											<h4 className="font-bold text-gray-800 mb-1">
-												Soporte 24/7
-											</h4>
-											<p className="text-sm text-gray-600">
-												Nuestro equipo está listo para ayudarte en cualquier
-												momento.
-											</p>
-										</div>
-									</div>
-								</div>
-							</div>
-						</div>
-
-						<div
-							className="md:w-1/2 md:pl-12 animate-in"
-							style={{ transitionDelay: "0.2s" }}
-						>
-							<div className="flex mb-8">
-								<div className="flex-shrink-0 mr-6">
-									<div className="flex items-center justify-center w-12 h-12 rounded-full bg-black text-white font-bold text-xl">
-										1
-									</div>
-								</div>
-								<div>
-									<h3 className="text-xl font-bold text-gray-800 mb-2">
-										Registro y Configuración
-									</h3>
-									<p className="text-gray-600">
-										Crea tu cuenta en minutos y personaliza la plataforma
-										según las necesidades específicas de tu gimnasio.
-									</p>
-								</div>
-							</div>
-
-							<div className="flex">
-								<div className="flex-shrink-0 mr-6">
-									<div className="flex items-center justify-center w-12 h-12 rounded-full bg-gray-600 text-white font-bold text-xl">
-										2
-									</div>
-								</div>
-								<div>
-									<h3 className="text-xl font-bold text-gray-800 mb-2">
-										Entrenamiento y Lanzamiento
-									</h3>
-									<p className="text-gray-600">
-										Nuestro equipo te guiará en el uso de todas las funciones
-										antes de que comiences a operar con GymCore.
-									</p>
-								</div>
-							</div>
-						</div>
-					</div>
-				</div>
-			</section>
-
 			{/* Testimonials Section */}
 			<section id="testimonials" className="py-20 bg-black text-white">
 				<div className="container mx-auto px-6">
@@ -424,9 +314,15 @@ export default function Home() {
 						>
 							<CardContent className="p-8">
 								<div className="flex items-center mb-6">
-									<div className="w-12 h-12 rounded-full mr-4 bg-gray-600"></div>
+									<Image
+										src="/assets/img/carlos.jpg"
+										alt="Carlos Bayas"
+										width={48}
+										height={48}
+										className="w-12 h-12 rounded-full mr-4 object-cover"
+									/>
 									<div>
-										<h4 className="font-bold text-white">Carlos M.</h4>
+										<h4 className="font-bold text-white">Carlos Bayas</h4>
 										<p className="text-gray-400 text-sm">
 											Dueño, IronFit Gym
 										</p>
@@ -434,7 +330,7 @@ export default function Home() {
 								</div>
 								<p className="text-gray-300 mb-6">
 									"Desde que implementamos GymCore, hemos reducido el tiempo de
-									administração en un 70%. El sistema de acceso QR fue un cambio
+									administración en un 70%. El sistema de acceso QR fue un cambio
 									radical para nosotros."
 								</p>
 								<div className="text-yellow-400">⭐⭐⭐⭐⭐</div>
@@ -447,9 +343,15 @@ export default function Home() {
 						>
 							<CardContent className="p-8">
 								<div className="flex items-center mb-6">
-									<div className="w-12 h-12 rounded-full mr-4 bg-gray-600"></div>
+									<Image
+										src="/assets/img/andres.jpg"
+										alt="Andrés Cantuña"
+										width={48}
+										height={48}
+										className="w-12 h-12 rounded-full mr-4 object-cover"
+									/>
 									<div>
-										<h4 className="font-bold text-white">Ana L.</h4>
+										<h4 className="font-bold text-white">Andrés Cantuña</h4>
 										<p className="text-gray-400 text-sm">
 											Gerente, PowerHealth
 										</p>
@@ -470,9 +372,15 @@ export default function Home() {
 						>
 							<CardContent className="p-8">
 								<div className="flex items-center mb-6">
-									<div className="w-12 h-12 rounded-full mr-4 bg-gray-600"></div>
+									<Image
+										src="/assets/img/marco.jpg"
+										alt="Marco Marquez"
+										width={48}
+										height={48}
+										className="w-12 h-12 rounded-full mr-4 object-cover"
+									/>
 									<div>
-										<h4 className="font-bold text-white">Roberto G.</h4>
+										<h4 className="font-bold text-white">Marco Marquez</h4>
 										<p className="text-gray-400 text-sm">
 											CEO, FitNation
 										</p>
@@ -501,110 +409,20 @@ export default function Home() {
 				</div>
 			</section>
 
-			{/* FAQ Section */}
-			<section className="py-20 bg-gray-50">
+			{/* Soporte 24/7 Section */}
+			<section className="py-20 bg-white">
 				<div className="container mx-auto px-6">
-					<div className="text-center mb-16 animate-in">
-						<span className="text-black font-semibold">¿TIENES DUDAS?</span>
-						<h2 className="text-3xl md:text-4xl font-bold text-gray-800 mt-2 mb-4">
-							Preguntas frecuentes
-						</h2>
-						<p className="text-gray-600 max-w-2xl mx-auto">
-							Aquí respondemos a las preguntas más comunes sobre GymCore.
-						</p>
-					</div>
-
-					<div className="max-w-3xl mx-auto">
-						{[
-							{
-								question: "¿Puedo migrar mis datos actuales a GymCore?",
-								answer:
-									"Sí! Ofrecemos herramientas de importación para los sistemas más populares y asistencia personalizada para migraciones complejas. Nuestro equipo te ayudará a transferir todos tus datos de miembros, historiales de pagos y más sin problemas.",
-							},
-							{
-								question: "¿Qué métodos de pago aceptan?",
-								answer:
-									"Aceptamos todas las tarjetas de crédito y débito principales (Visa, MasterCard, American Express), transferencias bancarias y PayPal. También ofrecemos facturación anual con descuento para aquellos que prefieran pagar por adelantado.",
-							},
-							{
-								question: "¿Hay un período de prueba disponible?",
-								answer:
-									"¡Absolutamente! Ofrecemos una prueba gratuita de 14 días sin necesidad de tarjeta de crédito. Puedes probar todas las funciones y decidir si GymCore es adecuado para tu gimnasio antes de comprometerte.",
-							},
-						].map((faq, index) => (
-							<Card
-								key={index}
-								className="mb-4 shadow-sm hover:shadow-md transition cursor-pointer animate-in"
-								style={{ transitionDelay: `${0.1 * (index + 1)}s` }}
-								onClick={() => toggleFaq(index)}
-							>
-								<CardContent className="p-6">
-									<div className="flex items-center justify-between">
-										<h3 className="text-lg font-medium text-gray-800">
-											{faq.question}
-										</h3>
-										<span
-											className={`text-black transition-transform ${
-												faqOpen === index ? "rotate-180" : ""
-											}`}
-										>
-											⌄
-										</span>
-									</div>
-									{faqOpen === index && (
-										<div className="mt-4">
-											<p className="text-gray-600">{faq.answer}</p>
-										</div>
-									)}
-								</CardContent>
-							</Card>
-						))}
-					</div>
-
-					<div
-						className="mt-12 text-center animate-in"
-						style={{ transitionDelay: "0.4s" }}
-					>
-						<p className="text-gray-600">
-							¿No encontraste tu respuesta?{" "}
-							<a
-								href="#"
-								className="text-black hover:underline"
-							>
-								Contáctanos
-							</a>{" "}
-							y te ayudaremos.
-						</p>
-					</div>
-				</div>
-			</section>
-
-			{/* Final CTA Section */}
-			<section className="py-20 gradient-bg text-white">
-				<div className="container mx-auto px-6 text-center">
-					<div
-						className="max-w-3xl mx-auto animate-in"
-						style={{ transitionDelay: "0.1s" }}
-					>
-						<h2 className="text-3xl md:text-4xl font-bold mb-6">
-							¿Listo para transformar la gestión de tu gimnasio?
-						</h2>
-						<p className="text-xl text-gray-300 mb-8">
-							Únete a más de 1,200 gimnasios que ya usan GymCore para simplificar
-							sus operaciones y hacer crecer su negocio.
-						</p>
-						<div className="flex flex-col sm:flex-row justify-center gap-4">
-							<Link href="/register">
-								<Button className="bg-white hover:bg-gray-100 text-black font-bold px-8 py-4 rounded-lg text-lg transition transform hover:scale-105 shadow-lg">
-									Comenzar Prueba Gratis
-								</Button>
-							</Link>
-							<Button
-								variant="outline"
-								className="border-white/30 text-white hover:bg-white/10 font-medium px-8 py-4 rounded-lg text-lg transition"
-							>
-								Hablar con Ventas
-							</Button>
+					<div className="max-w-xl mx-auto animate-in" style={{ transitionDelay: "0.1s" }}>
+						<div className="rounded-xl shadow-lg bg-gray-100 flex items-center justify-center p-8 relative">
+							<div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-white p-4 rounded-full shadow-lg">
+								<span className="text-3xl">🎧</span>
+							</div>
+							<div className="ml-0 mt-8 text-center">
+								<h4 className="font-bold text-gray-800 mb-2 text-2xl">Soporte 24/7 por chat</h4>
+								<p className="text-gray-600 text-lg">
+									Nuestro equipo está listo para ayudarte en cualquier momento.
+								</p>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -642,14 +460,6 @@ export default function Home() {
 										className="hover:text-white transition"
 									>
 										Características
-									</a>
-								</li>
-								<li>
-									<a
-										href="#how-it-works"
-										className="hover:text-white transition"
-									>
-										Cómo Funciona
 									</a>
 								</li>
 								<li>

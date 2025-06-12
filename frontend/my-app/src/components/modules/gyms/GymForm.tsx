@@ -5,12 +5,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Gym } from '@/lib/types';
+import { Gym, User } from '@/lib/types';
+import { useQuery } from '@tanstack/react-query';
+import api from '@/lib/api';
 
 interface GymFormProps {
   initialData?: Gym;
-  onSubmit: (data: Partial<Gym>) => Promise<void>;
+  onSubmit: (data: Partial<Gym> & { managerId?: string | null }) => Promise<void>;
   isSubmitting: boolean;
 }
 
@@ -22,6 +25,13 @@ export function GymForm({ initialData, onSubmit, isSubmitting }: GymFormProps) {
     email: '',
     description: '',
     isActive: true,
+    managerId: 'unassigned', // Usar 'unassigned' como valor por defecto en lugar de cadena vacía
+  });
+
+  // Obtener gerentes disponibles
+  const { data: availableManagers, isLoading: loadingManagers } = useQuery({
+    queryKey: ['available-managers'],
+    queryFn: api.gyms.getAvailableManagers,
   });
 
   // Cargar datos iniciales si se está editando un gimnasio existente
@@ -34,6 +44,7 @@ export function GymForm({ initialData, onSubmit, isSubmitting }: GymFormProps) {
         email: initialData.email || '',
         description: initialData.description || '',
         isActive: initialData.isActive ?? true,
+        managerId: (initialData as any).managerId || 'unassigned',
       });
     } else {
       // Reset form when switching to create mode
@@ -44,6 +55,7 @@ export function GymForm({ initialData, onSubmit, isSubmitting }: GymFormProps) {
         email: '',
         description: '',
         isActive: true,
+        managerId: 'unassigned',
       });
     }
   }, [initialData]);
@@ -53,13 +65,21 @@ export function GymForm({ initialData, onSubmit, isSubmitting }: GymFormProps) {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleSelectChange = (name: string, value: string) => {
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
   const handleSwitchChange = (checked: boolean) => {
     setFormData(prev => ({ ...prev, isActive: checked }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await onSubmit(formData);
+    const submitData = {
+      ...formData,
+      managerId: formData.managerId === 'unassigned' ? null : formData.managerId,
+    };
+    await onSubmit(submitData);
   };
 
   return (
@@ -108,6 +128,36 @@ export function GymForm({ initialData, onSubmit, isSubmitting }: GymFormProps) {
                 value={formData.email}
                 onChange={handleChange}
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="managerId">Gerente Asignado</Label>
+              <Select 
+                value={formData.managerId} 
+                onValueChange={(value) => handleSelectChange('managerId', value)}
+                disabled={loadingManagers}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar gerente (opcional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unassigned">Sin gerente asignado</SelectItem>
+                  {availableManagers?.map((manager: User) => (
+                    <SelectItem key={manager.id} value={manager.id}>
+                      {manager.name} ({manager.email})
+                    </SelectItem>
+                  ))}
+                  {/* Si está editando y tiene gerente actual, mostrarlo aunque no esté en disponibles */}
+                  {initialData && 
+                   (initialData as any).manager && 
+                   !availableManagers?.find(m => m.id === (initialData as any).managerId) && 
+                   (initialData as any).managerId !== 'unassigned' && (
+                    <SelectItem value={(initialData as any).managerId}>
+                      {(initialData as any).manager.name} ({(initialData as any).manager.email}) - Actual
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+              {loadingManagers && <p className="text-sm text-gray-500">Cargando gerentes...</p>}
             </div>
             <div className="space-y-2 col-span-2">
               <Label htmlFor="description">Descripción</Label>

@@ -82,6 +82,22 @@ export function GymDataTable({ data, onEdit, onToggleStatus, isLoading, error, o
       cell: ({ row }) => row.original.email || 'N/A',
     },
     {
+      accessorKey: 'manager',
+      header: 'Gerente',
+      cell: ({ row }) => {
+        const manager = (row.original as any).manager;
+        if (!manager) {
+          return <span className="text-gray-400">Sin asignar</span>;
+        }
+        return (
+          <div className="flex flex-col">
+            <span className="font-medium">{manager.name}</span>
+            <span className="text-xs text-gray-500">{manager.email}</span>
+          </div>
+        );
+      },
+    },
+    {
       accessorKey: 'isActive',
       header: 'Estado',
       cell: ({ row }) => (

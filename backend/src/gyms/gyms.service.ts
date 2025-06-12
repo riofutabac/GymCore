@@ -71,10 +71,50 @@ export class GymsService {
     }
   }
 
+  async getAvailableManagers() {
+    try {
+      // Obtener todos los gerentes que no están asignados a ningún gimnasio
+      const availableManagers = await this.prisma.user.findMany({
+        where: {
+          role: 'MANAGER',
+          isActive: true,
+          // Un gerente está disponible si no tiene ningún gimnasio asignado
+          AND: [
+            { managedGym: null }, // No gestiona ningún gimnasio
+            { workingAtGymId: null } // No trabaja en ningún gimnasio
+          ]
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+        orderBy: { name: 'asc' }
+      });
+
+      this.logger.log(`Found ${availableManagers.length} available managers`);
+
+      return {
+        success: true,
+        data: availableManagers
+      };
+    } catch (error) {
+      this.logger.error(`Error getting available managers: ${error.message}`, error.stack);
+      throw new UnprocessableEntityException('Failed to retrieve available managers');
+    }
+  }
+
   async getAll() {
     try {
       const gyms = await this.prisma.gym.findMany({
         include: {
+          manager: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            }
+          },
           _count: {
             select: {
               members: true,
@@ -149,6 +189,13 @@ export class GymsService {
       const gym = await this.prisma.gym.findUnique({
         where: { id },
         include: {
+          manager: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            }
+          },
           _count: {
             select: {
               members: true,
@@ -273,16 +320,85 @@ export class GymsService {
   async update(id: string, gymData: Partial<CreateGymDto>) {
     try {
       const existingGym = await this.prisma.gym.findUnique({
-        where: { id }
+        where: { id },
+        include: {
+          manager: true
+        }
       });
 
       if (!existingGym) {
         throw new NotFoundException(`Gym with ID "${id}" not found`);
       }
 
+      // Verificar si se está asignando un nuevo gerente
+      if (gymData.managerId !== undefined) {
+        // Si se está removiendo el gerente actual
+        if (gymData.managerId === null && existingGym.managerId) {
+          await this.prisma.user.update({
+            where: { id: existingGym.managerId },
+            data: { workingAtGymId: null }
+          });
+        }
+        // Si se está asignando un nuevo gerente
+        else if (gymData.managerId) {
+          const manager = await this.prisma.user.findUnique({
+            where: { id: gymData.managerId }
+          });
+          
+          if (!manager) {
+            throw new BadRequestException('Manager not found');
+          }
+          
+          if (manager.role !== 'MANAGER') {
+            throw new BadRequestException('Selected user is not a manager');
+          }
+
+          // Verificar que el gerente no esté ya asignado a otro gimnasio
+          const existingAssignment = await this.prisma.gym.findFirst({
+            where: { 
+              managerId: gymData.managerId,
+              NOT: { id } // Excluir el gimnasio actual
+            }
+          });
+
+          if (existingAssignment) {
+            throw new BadRequestException('This manager is already assigned to another gym');
+          }
+
+          // Remover el gerente anterior si existe
+          if (existingGym.managerId && existingGym.managerId !== gymData.managerId) {
+            await this.prisma.user.update({
+              where: { id: existingGym.managerId },
+              data: { workingAtGymId: null }
+            });
+          }
+
+          // Asignar el nuevo gerente
+          await this.prisma.user.update({
+            where: { id: gymData.managerId },
+            data: { workingAtGymId: id }
+          });
+        }
+      }
+
+      // Extraer managerId antes de actualizar el gimnasio
+      const { managerId, ...gymDataWithoutManager } = gymData;
+
       const gym = await this.prisma.gym.update({
         where: { id },
-        data: gymData,
+        data: {
+          ...gymDataWithoutManager,
+          managerId: managerId !== undefined ? managerId : existingGym.managerId,
+        },
+        include: {
+          manager: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            }
+          }
+        }
       });
 
       this.logger.log(`Gym updated successfully: ${gym.name} (${gym.id})`);
@@ -293,7 +409,7 @@ export class GymsService {
         data: gym
       };
     } catch (error) {
-      if (error instanceof NotFoundException) {
+      if (error instanceof NotFoundException || error instanceof BadRequestException) {
         throw error;
       }
       

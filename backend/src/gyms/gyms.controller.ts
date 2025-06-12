@@ -16,6 +16,13 @@ export class GymsController {
     return this.gymsService.joinByCode(joinGymDto.joinCode);
   }
 
+  @Get('managers/available')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles(['OWNER'])
+  async getAvailableManagers() {
+    return this.gymsService.getAvailableManagers();
+  }
+
   @Get()
   async getAll() {
     return this.gymsService.getAll();

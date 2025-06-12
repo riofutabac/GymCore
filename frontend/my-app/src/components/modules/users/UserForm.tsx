@@ -32,7 +32,7 @@ export function UserForm({ initialData, gyms, onSubmit, onCancel }: UserFormProp
     password: '',
     confirmPassword: '',
     role: 'MANAGER',
-    gymId: 'unassigned',
+    gymId: 'unassigned', // Cambiar de undefined a 'unassigned'
     isActive: true,
   });
 
@@ -48,7 +48,7 @@ export function UserForm({ initialData, gyms, onSubmit, onCancel }: UserFormProp
         password: '',
         confirmPassword: '',
         role: initialData.role || 'MANAGER',
-        gymId: (initialData as any).workingAtGymId || 'unassigned',
+        gymId: (initialData as any).workingAtGymId || 'unassigned', // Usar 'unassigned' en lugar de valor vacío
         isActive: initialData.isActive ?? true,
       });
     } else {
@@ -59,7 +59,7 @@ export function UserForm({ initialData, gyms, onSubmit, onCancel }: UserFormProp
         password: '',
         confirmPassword: '',
         role: 'MANAGER',
-        gymId: 'unassigned',
+        gymId: 'unassigned', // Usar 'unassigned' en lugar de valor vacío
         isActive: true,
       });
     }
@@ -84,7 +84,12 @@ export function UserForm({ initialData, gyms, onSubmit, onCancel }: UserFormProp
 
     setIsSubmitting(true);
     try {
-      await onSubmit(formData);
+      // Convertir 'unassigned' a undefined antes de enviar
+      const submitData = {
+        ...formData,
+        gymId: formData.gymId === 'unassigned' ? undefined : formData.gymId,
+      };
+      await onSubmit(submitData);
     } finally {
       setIsSubmitting(false);
     }

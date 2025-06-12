@@ -1,18 +1,20 @@
 import { 
   Controller, 
   Post, 
-  Get, 
   Body,
+  Get, 
   UseGuards,
+  Req,
+  Param,
+  Put,
+  Inject,
   HttpCode,
   HttpStatus,
-  Param,
-  BadRequestException,
   UnauthorizedException,
-  Logger,
-  Put,
-  Patch,
+  BadRequestException,
+  Patch
 } from '@nestjs/common';
+import { Logger } from 'nestjs-pino';
 import { AuthService } from './auth.service';
 import { AuthGuard } from '../common/guards/auth.guard';
 import { RoleGuard } from '../common/guards/role.guard';
@@ -22,30 +24,30 @@ import { Role } from '../common/enums/role.enum';
 
 @Controller('auth')
 export class AuthController {
-  private readonly logger = new Logger(AuthController.name);
-  constructor(private readonly authService: AuthService) {}
+
+  constructor(
+    private readonly authService: AuthService,
+    private readonly logger: Logger,
+  ) {}
 
   @Get('me')
   @UseGuards(new AuthGuard('supabase'))
   async getProfile(@CurrentUser() user: any): Promise<any> {
     try {
-      this.logger.debug(`Getting profile for user: ${user?.id || 'unknown'}`);
-
       if (!user || !user.id) {
-        this.logger.error('No user found in request');
+        this.logger.error('❌ Usuario no autenticado');
         throw new UnauthorizedException('User not authenticated');
       }
 
       const profile = await this.authService.getProfile(user.id);
-
-      this.logger.debug(`Profile retrieved successfully for user: ${user.id}`);
+      this.logger.log(`👤 Perfil obtenido: ${user.email}`);
 
       return {
         success: true,
         data: profile
       };
     } catch (error) {
-      this.logger.error(`Error getting profile for user ${user?.id || 'unknown'}:`, error);
+      this.logger.error(`❌ Error obteniendo perfil: ${error.message}`);
       throw error;
     }
   }
@@ -74,16 +76,15 @@ export class AuthController {
   @UseGuards(AuthGuard, RoleGuard)
   @Roles([Role.OWNER])
   async getAllUsers(@CurrentUser() user: any) {
-    this.logger.debug(`Getting all users. Requested by user: ${user?.id}, role: ${user?.role}`);
     try {
       const users = await this.authService.getAllUsers();
-      this.logger.debug(`Successfully retrieved ${users.length} users`);
+      this.logger.log(`👥 ${users.length} usuarios obtenidos por ${user.email}`);
       return {
         success: true,
         data: users
       };
     } catch (error) {
-      this.logger.error('Error in getAllUsers:', error);
+      this.logger.error(`❌ Error obteniendo usuarios: ${error.message}`);
       throw error;
     }
   }
@@ -171,7 +172,7 @@ export class AuthController {
   @Roles([Role.OWNER])
   async updateUser(@Param('id') userId: string, @Body() updateData: any, @CurrentUser() user: any) {
     try {
-      this.logger.log(`Updating user ${userId} by ${user.id}`);
+      this.logger.log(`✏️  Actualizando usuario ${userId}`);
       const updatedUser = await this.authService.updateUser(userId, updateData);
       return {
         success: true,
@@ -179,7 +180,7 @@ export class AuthController {
         message: 'User updated successfully'
       };
     } catch (error) {
-      this.logger.error(`Error updating user ${userId}:`, error);
+      this.logger.error(`❌ Error actualizando usuario: ${error.message}`);
       throw error;
     }
   }
@@ -189,7 +190,7 @@ export class AuthController {
   @Roles([Role.OWNER])
   async updateUserStatus(@Param('id') userId: string, @Body() body: { isActive: boolean }, @CurrentUser() user: any) {
     try {
-      this.logger.log(`Updating status of user ${userId} to ${body.isActive} by ${user.id}`);
+      this.logger.log(`🔄 Cambiando estado de usuario ${userId} a ${body.isActive}`);
       const updatedUser = await this.authService.updateUserStatus(userId, body.isActive);
       return {
         success: true,
@@ -197,7 +198,7 @@ export class AuthController {
         message: 'User status updated successfully'
       };
     } catch (error) {
-      this.logger.error(`Error updating user status ${userId}:`, error);
+      this.logger.error(`❌ Error cambiando estado: ${error.message}`);
       throw error;
     }
   }
@@ -207,7 +208,7 @@ export class AuthController {
   @Roles([Role.OWNER])
   async resetUserPassword(@Param('id') userId: string, @CurrentUser() user: any) {
     try {
-      this.logger.log(`Resetting password for user ${userId} by ${user.id}`);
+      this.logger.log(`🔐 Reseteando contraseña para usuario ${userId}`);
       const result = await this.authService.resetUserPassword(userId);
       return {
         success: true,
@@ -215,7 +216,7 @@ export class AuthController {
         message: 'Password reset initiated successfully'
       };
     } catch (error) {
-      this.logger.error(`Error resetting password for user ${userId}:`, error);
+      this.logger.error(`❌ Error reseteando contraseña: ${error.message}`);
       throw error;
     }
   }

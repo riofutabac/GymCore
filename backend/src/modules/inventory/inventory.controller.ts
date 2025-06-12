@@ -22,7 +22,7 @@ import { RoleGuard } from '../../common/guards/role.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { CurrentGym } from '../../common/decorators/current-gym.decorator';
-import { AppLoggerService } from '../../common/logger/app-logger.service';
+import { Logger } from 'nestjs-pino';
 import { Role } from '../../common/enums/role.enum';
 
 interface Gym {
@@ -42,14 +42,10 @@ interface User {
 @UseGuards(AuthGuard)
 export class InventoryController {
 
-  private readonly logger: AppLoggerService;
-
   constructor(
     private readonly inventoryService: InventoryService,
-    logger: AppLoggerService,
-  ) {
-    this.logger = logger.setContext('InventoryController');
-  }
+    private readonly logger: Logger,
+  ) {}
 
   @ApiOperation({ summary: 'Crear un nuevo producto' })
   @ApiResponse({
@@ -73,7 +69,7 @@ export class InventoryController {
     @CurrentUser() user: User,
     @CurrentGym() gym: Gym,
   ) {
-    this.logger.log('LOG', `Creating product for user: ${user.email}`);
+    this.logger.log(`Creating product for user: ${user.email}`);
     
     if (!gym) {
       throw new BadRequestException(
@@ -82,12 +78,12 @@ export class InventoryController {
     }
     
     try {
-      this.logger.log('LOG', `Using gymId: ${gym.id}`);
+      this.logger.log(`Using gymId: ${gym.id}`);
       return this.inventoryService.createProduct(createProductDto, user.id, gym.id);
     } catch (error: unknown) {
       this.logger.error(
-        `Error creating product: ${String(error)}`,
-        error instanceof Error ? error.stack : undefined,
+        `Error creating product: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined
       );
       throw new InternalServerErrorException('Error al crear el producto');
     }
@@ -117,12 +113,12 @@ export class InventoryController {
     }
     
     try {
-      this.logger.log('LOG', `Using gymId for products: ${gym.id}`);
+      this.logger.log(`Using gymId for products: ${gym.id}`);
       return this.inventoryService.getProducts(gym.id);
     } catch (error: unknown) {
       this.logger.error(
-        `Error getting products: ${String(error)}`,
-        error instanceof Error ? error.stack : undefined,
+        `Error getting products: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined
       );
       throw new InternalServerErrorException('Error al obtener los productos');
     }
@@ -150,7 +146,7 @@ export class InventoryController {
     @CurrentUser() user: User,
     @CurrentGym() gym: Gym,
   ) {
-    this.logger.log('LOG', `Recording sale for user: ${user.email}`);
+    this.logger.log(`Recording sale for user: ${user.email}`);
     
     if (!gym) {
       throw new BadRequestException(
@@ -159,12 +155,12 @@ export class InventoryController {
     }
     
     try {
-      this.logger.log('LOG', `Using gymId for sale: ${gym.id}`);
+      this.logger.log(`Using gymId for sale: ${gym.id}`);
       return this.inventoryService.recordSale(recordSaleDto, user.id, gym.id);
     } catch (error: unknown) {
       this.logger.error(
-        `Error recording sale: ${String(error)}`,
-        error instanceof Error ? error.stack : undefined,
+        `Error recording sale: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined
       );
       throw new InternalServerErrorException('Error al registrar la venta');
     }
@@ -194,12 +190,12 @@ export class InventoryController {
     }
     
     try {
-      this.logger.log('LOG', `Using gymId for sales: ${gym.id}`);
+      this.logger.log(`Using gymId for sales: ${gym.id}`);
       return this.inventoryService.getSales(gym.id);
     } catch (error: unknown) {
       this.logger.error(
-        `Error getting sales: ${String(error)}`,
-        error instanceof Error ? error.stack : undefined,
+        `Error getting sales: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined
       );
       throw new InternalServerErrorException('Error al obtener las ventas');
     }
